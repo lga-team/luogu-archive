@@ -1,0 +1,5 @@
+allowBuilds:
+  # pnpm 新版本不再读取 package.json 中的构建许可，保持原有许可范围。
+  esbuild: true
+  '@parcel/watcher': true
+  vue-demi: true

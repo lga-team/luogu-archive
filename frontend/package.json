@@ -10,6 +10,13 @@
     "postinstall": "nuxt prepare"
   },
   "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.3.1",
     "@nuxt/fonts": "^0.10.3",
     "@nuxtjs/color-mode": "^3.5.2",
     "@vueuse/core": "^12.0.0",
@@ -25,6 +32,9 @@
     "vue-router": "^4.4.0"
   },
   "devDependencies": {
+    "vite": "7.3.7",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
     "@types/markdown-it": "^14.1.2",
     "typescript": "^5.6.0"
   },

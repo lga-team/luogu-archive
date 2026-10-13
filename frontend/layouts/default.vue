@@ -161,7 +161,7 @@ const navItems = computed(() => allNavItems.filter(
 </script>
 
 <template>
-  <div class="layout-root">
+  <div class="layout-root" :class="{ 'archive-modern': route.path === '/' || route.path === '/announcement' }">
     <aside class="side-nav">
       <NuxtLink to="/" class="brand" title="洛谷档案馆">
         <img src="/favicon.png" alt="洛谷档案馆" class="brand-logo">

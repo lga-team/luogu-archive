@@ -1,0 +1,58 @@
+/* 新页面的组件样式隔离，保留旧页面的全局规则与深浅色变量。 */
+.archive-react { color: var(--text); min-width: 0; letter-spacing: 0; }
+.archive-react *, .archive-react *::before, .archive-react *::after { box-sizing: border-box; }
+.archive-react .archive-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid transparent; border-radius: 6px; font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; transition: background .15s, border-color .15s; }
+.archive-react .archive-button-default { min-height: 38px; padding: 8px 14px; }
+.archive-react .archive-button-icon { width: 40px; height: 40px; padding: 0; flex: 0 0 40px; }
+.archive-react .archive-button-primary { background: var(--text); color: var(--surface); }
+.archive-react .archive-button-outline { background: var(--surface); color: var(--text); border-color: var(--border); }
+.archive-react .archive-button-ghost { background: transparent; color: var(--text-muted); }
+.archive-react .archive-button:hover { background: var(--hover); color: var(--text); }
+.archive-react .archive-button:disabled { opacity: .4; pointer-events: none; }
+.archive-react .archive-button:focus-visible, .archive-react a:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.archive-home { min-height: 65vh; display: flex; flex-direction: column; align-items: center; padding-top: min(19vh, 160px); }
+.archive-wordmark { display: flex; align-items: center; justify-content: center; gap: 18px; margin-bottom: 34px; }
+.archive-wordmark img { width: 64px; height: 64px; object-fit: contain; }
+.archive-wordmark h1 { font-size: 36px; font-weight: 600; margin: 0; line-height: 1.3; letter-spacing: 0; }
+.archive-react .archive-search { width: min(100%, 690px); min-height: 60px; display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 30px; padding: 8px 10px 8px 22px; box-shadow: 0 2px 8px #00000006; }
+.archive-search:focus-within { border-color: var(--link); box-shadow: 0 0 0 3px color-mix(in srgb, var(--link) 10%, transparent); }
+.archive-search-icon { flex-shrink: 0; color: var(--text-muted); }
+.archive-react .archive-input { flex: 1; min-width: 0; width: 100%; padding: 0; font: inherit; font-size: 16px; line-height: 1.5; border: 0; outline: none; background: transparent; color: var(--text); }
+.archive-input::placeholder { color: var(--text-muted); opacity: 1; }
+.archive-error { font-size: 14px; color: #d33040; overflow-wrap: anywhere; }
+.archive-home-notice { min-height: 44px; }
+.archive-notice { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 14px; }
+.archive-notice span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.archive-notice svg { flex-shrink: 0; }
+.archive-notice:hover { color: var(--link); text-decoration: none; }
+.archive-announcement-entry { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 13px; color: var(--text-muted); }
+.archive-announcements { width: min(100%, 850px); margin: 28px auto 0; }
+.archive-announcement-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+.archive-eyebrow, .archive-muted { font-size: 14px; color: var(--text-muted); }
+.archive-announcement-heading h1 { margin: 4px 0 0; font-size: 28px; line-height: 1.4; }
+.archive-announcement-list article { border-bottom: 1px solid var(--border); }
+.archive-announcement-list a { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 26px 0; color: var(--text); text-decoration: none; }
+.archive-announcement-list a:hover h2 { color: var(--link); }
+.archive-announcement-list a > div { min-width: 0; }
+.archive-announcement-list svg { flex-shrink: 0; color: var(--text-muted); }
+.archive-announcement-list time { color: var(--text-muted); font-size: 13px; }
+.archive-announcement-list h2 { margin: 7px 0; font-size: 19px; line-height: 1.5; overflow-wrap: anywhere; }
+.archive-announcement-list p { margin: 0; color: var(--text-muted); font-size: 14px; overflow-wrap: anywhere; }
+.archive-detail-title { font-size: 24px; line-height: 1.5; overflow-wrap: anywhere; margin: 28px 0 8px; }
+.archive-announcement-content { margin-top: 26px; overflow-wrap: anywhere; }
+.archive-announcement-content img { max-width: 100%; }
+.archive-announcement-content pre { overflow-x: auto; }
+/* 只对已重构路由取消页面渐变，不改变其他页面。 */
+html:has(.layout-root.archive-modern), html:has(.layout-root.archive-modern) body { background: var(--bg); }
+@media (max-width: 640px) {
+  .archive-home { padding-top: 16vh; min-height: 62vh; }
+  .archive-wordmark { flex-direction: column; gap: 14px; margin-bottom: 28px; }
+  .archive-wordmark img { width: 58px; height: 58px; }
+  .archive-wordmark h1 { font-size: 28px; }
+  .archive-react .archive-search { gap: 8px; padding-left: 14px; min-height: 56px; }
+  .archive-react .archive-input { font-size: 14px; }
+  .archive-announcements { margin-top: 12px; }
+  .archive-announcement-heading { align-items: flex-start; }
+  .archive-announcement-heading h1 { font-size: 24px; }
+  .archive-announcement-heading .archive-button { padding-left: 5px; padding-right: 5px; }
+}
