@@ -85,7 +85,7 @@ html:has(.layout-root.archive-modern), html:has(.layout-root.archive-modern) bod
 .settings-shell h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .settings-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 .settings-status { color: var(--text-muted); font-size: 13px; }
-.settings-login { max-width: 400px; }
+.settings-login { width: 100%; max-width: 400px; margin-inline: auto; }
 .settings-form { display: grid; gap: 20px; }
 .settings-field { display: grid; gap: 8px; }
 .settings-password { position: relative; }
