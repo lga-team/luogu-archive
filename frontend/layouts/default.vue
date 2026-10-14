@@ -163,6 +163,7 @@ const navItems = computed(() => allNavItems.filter(
 <template>
   <div class="layout-root" :class="{ 'archive-home-layout': route.path === '/', 'archive-modern': route.path === '/' || route.path === '/announcement' }">
     <aside class="side-nav">
+      <div class="side-top">
       <NuxtLink to="/" class="brand" title="洛谷档案馆">
         <img src="/favicon.png" alt="洛谷档案馆" class="brand-logo">
         <span class="label">洛谷档案馆</span>
@@ -189,6 +190,7 @@ const navItems = computed(() => allNavItems.filter(
           <span class="label">{{ item.label }}</span>
         </NuxtLink>
       </nav>
+      </div>
 
       <div class="side-bottom">
         <template v-if="auth.isLoggedIn">
@@ -454,6 +456,13 @@ const navItems = computed(() => allNavItems.filter(
      左右各 53px padding 对称（≈ 2 倍行高）。 */
   margin-left: -73px;
 }
+.side-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  min-width: 0;
+}
 .footer-inner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 280px;
@@ -510,14 +519,28 @@ const navItems = computed(() => allNavItems.filter(
 /* A shared fixed height keeps the footer and account separators aligned. */
 .archive-home-layout { --footer-height: 180px; height: 100dvh; min-height: 0; overflow: hidden; }
 .archive-home-layout .site-footer { height: var(--footer-height); min-height: 0; }
-.archive-home-layout .layout-body { height: 100%; min-height: 0; }
+.archive-home-layout .layout-body {
+  height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) var(--footer-height);
+}
+.archive-home-layout .side-nav {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) var(--footer-height);
+  gap: 0;
+  padding: 0 8px;
+}
+.archive-home-layout .side-top { padding-top: 10px; overflow: hidden; }
 .archive-home-layout .main-area { min-height: 0; padding: 16px 0; display: flex; }
 .archive-home-layout .nav-items { min-height: 0; }
 .archive-home-layout .nav-items .nav-item { min-height: 0; }
 .archive-home-layout .side-bottom {
   box-sizing: border-box;
-  flex-shrink: 0;
-  height: calc(var(--footer-height) - 10px);
+  min-width: 0;
+  margin-top: 0;
+  height: 100%;
+  padding: 8px 0 10px;
 }
 @media (max-height: 640px) {
   .archive-home-layout .nav-item { padding: 6px 10px; }
