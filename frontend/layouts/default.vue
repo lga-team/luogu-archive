@@ -1,6 +1,8 @@
 ﻿<script setup lang="ts">
-import { Settings, UserRound } from 'lucide-vue-next'
-const auth = useAuthStore()
+import {
+  BookOpenCheck, ChartNoAxesCombined, FilePenLine, Gavel, House,
+  MessageSquareText, MessagesSquare, Puzzle, Settings, Trophy,
+} from 'lucide-vue-next'
 const runtimeConfig = useRuntimeConfig()
 const route = useRoute()
 
@@ -92,55 +94,55 @@ const runDays = computed(() => {
   return Math.max(1, Math.floor((todayUtc - start) / 86400000) + 1)
 })
 
-// 左侧导航项。icon 为内联 SVG path（24x24 viewBox）
+// 左侧导航统一使用 Lucide 组件。
 const allNavItems = [
   {
     to: '/',
     label: '首页',
-    icon: 'M3 12L12 3l9 9M5 10v10h14V10',
+    icon: House,
   },
   {
     to: '/feed',
     label: '伪全网犇',
     extendedArchiveModule: true,
-    icon: 'M4 5h16v10H7l-3 3V5z',
+    icon: MessageSquareText,
   },
   {
     to: '/discuss',
     label: '讨论',
-    icon: 'M4 5h16v11H8l-4 4V5zM8 9h8M8 13h5',
+    icon: MessagesSquare,
   },
   {
     to: '/judgement',
     label: '陶片放逐',
-    icon: 'M4 14l6-6 4 4 6-6M4 20h16',
+    icon: Gavel,
   },
   {
     to: '/problem/list',
     label: '题目',
     extendedArchiveModule: true,
-    icon: 'M6 4h10l4 4v12H6V4zM9 14h6M9 18h6',
+    icon: BookOpenCheck,
   },
   {
     to: '/contest',
     label: '比赛',
     extendedArchiveModule: true,
-    icon: 'M8 4h8v3a4 4 0 01-8 0V4zM6 5H3v2a4 4 0 004 4M18 5h3v2a4 4 0 01-4 4M12 11v5M8 20h8M9 16h6',
+    icon: Trophy,
   },
   {
     to: '/plugin',
     label: '插件',
-    icon: 'M8 3v5H3v8h5v5h8v-5h5V8h-5V3H8zM8 8h8v8H8V8z',
+    icon: Puzzle,
   },
   {
     to: '/solution/fix',
     label: '题解修',
-    icon: 'M4 5h16M4 9h10M7 13h10l-4 6H7l4-6z',
+    icon: FilePenLine,
   },
   {
     to: '/site/overview',
     label: '站点概览',
-    icon: 'M4 19V5M9 19v-8M14 19v-5M19 19V9M3 19h18',
+    icon: ChartNoAxesCombined,
   },
 ]
 
@@ -166,30 +168,15 @@ const navItems = computed(() => allNavItems.filter(
           class="nav-item"
           :title="item.label"
         >
-          <svg viewBox="0 0 24 24" class="icon">
-            <path
-              :d="item.icon"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
+          <component :is="item.icon" class="icon" :size="22" :stroke-width="2" aria-hidden="true" />
           <span class="label">{{ item.label }}</span>
         </NuxtLink>
       </nav>
-      <ClientOnly>
-      <NuxtLink v-if="auth.isLoggedIn" to="/me" class="nav-item" title="我的关注">
-        <UserRound class="icon" aria-hidden="true" />
-        <span class="label">我的关注</span>
-      </NuxtLink>
-      </ClientOnly>
       </div>
 
       <div class="side-bottom">
         <NuxtLink to="/settings" class="nav-item" title="设置" aria-label="设置">
-          <Settings class="icon" aria-hidden="true" />
+          <Settings class="icon" :size="22" :stroke-width="2" aria-hidden="true" />
           <span class="label">设置</span>
         </NuxtLink>
       </div>
