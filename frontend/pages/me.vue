@@ -14,10 +14,6 @@ interface MeData {
 const me = ref<MeData | null>(null)
 const loading = ref(true)
 
-function handleBound(uid: number) {
-  if (me.value) me.value.luogu_uid = uid
-}
-
 onMounted(async () => {
   if (!auth.isLoggedIn) {
     navigateTo('/login')
@@ -46,11 +42,7 @@ onMounted(async () => {
         <strong>{{ me?.display_name || auth.displayName }}</strong>
         <p>登录邮箱：{{ me?.email || auth.email }} · 已关注 {{ follows.length }} / 100</p>
       </div>
-      <LuoguBindButton
-        v-if="me"
-        :luogu-uid="me?.luogu_uid ?? null"
-        @bound="handleBound"
-      />
+      <NuxtLink to="/settings" class="archive-action-button">账号设置</NuxtLink>
     </section>
 
     <div v-if="loading" class="loading">加载中...</div>

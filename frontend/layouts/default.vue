@@ -1,7 +1,6 @@
 ﻿<script setup lang="ts">
-const colorMode = useColorMode()
+import { Settings, UserRound } from 'lucide-vue-next'
 const auth = useAuthStore()
-const api = useApi()
 const runtimeConfig = useRuntimeConfig()
 const route = useRoute()
 
@@ -85,16 +84,6 @@ watch(() => route.fullPath, () => {
   void trackSanitizedPageView()
 })
 
-function toggle() {
-  colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
-}
-
-async function logout() {
-  try { await api('/auth/logout', { method: 'POST' }) } catch {}
-  auth.clear()
-  navigateTo('/')
-}
-
 // 运行天数：以 2026-05-01 为元年。客户端 + 服务端都按 UTC 算保证 SSR 一致。
 const runDays = computed(() => {
   const start = Date.UTC(2026, 4, 1)
@@ -161,7 +150,7 @@ const navItems = computed(() => allNavItems.filter(
 </script>
 
 <template>
-  <div class="layout-root" :class="{ 'archive-home-layout': route.path === '/', 'archive-modern': route.path === '/' || route.path === '/announcement' }">
+  <div class="layout-root" :class="{ 'archive-home-layout': route.path === '/', 'archive-modern': ['/', '/announcement', '/settings', '/login'].includes(route.path) }">
     <aside class="side-nav">
       <div class="side-top">
       <NuxtLink to="/" class="brand" title="洛谷档案馆">
@@ -190,101 +179,19 @@ const navItems = computed(() => allNavItems.filter(
           <span class="label">{{ item.label }}</span>
         </NuxtLink>
       </nav>
+      <ClientOnly>
+      <NuxtLink v-if="auth.isLoggedIn" to="/me" class="nav-item" title="我的关注">
+        <UserRound class="icon" aria-hidden="true" />
+        <span class="label">我的关注</span>
+      </NuxtLink>
+      </ClientOnly>
       </div>
 
       <div class="side-bottom">
-        <template v-if="auth.isLoggedIn">
-          <NuxtLink to="/me" class="nav-item" :title="auth.displayName || '我的关注'">
-            <svg viewBox="0 0 24 24" class="icon">
-              <path
-                d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c0-4 4-6 8-6s8 2 8 6"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span class="label">{{ auth.displayName || '我的关注' }}</span>
-          </NuxtLink>
-          <button class="nav-item as-btn" title="登出" @click="logout">
-            <svg viewBox="0 0 24 24" class="icon">
-              <path
-                d="M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span class="label">登出</span>
-          </button>
-        </template>
-        <template v-else-if="auth.initialized">
-          <NuxtLink to="/login" class="nav-item" title="登录">
-            <svg viewBox="0 0 24 24" class="icon">
-              <path
-                d="M10 4H5v16h5M14 8l4 4-4 4M8 12h10"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span class="label">登录</span>
-          </NuxtLink>
-          <NuxtLink to="/register" class="nav-item" title="注册">
-            <svg viewBox="0 0 24 24" class="icon">
-              <path
-                d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c0-4 4-6 8-6M17 16v6M14 19h6"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span class="label">注册</span>
-          </NuxtLink>
-        </template>
-        <template v-else>
-          <div class="nav-item auth-loading" title="正在恢复登录状态">
-            <svg viewBox="0 0 24 24" class="icon">
-              <path
-                d="M12 3a9 9 0 109 9"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-              />
-            </svg>
-            <span class="label">登录状态</span>
-          </div>
-        </template>
-
-        <button class="nav-item as-btn" :title="colorMode.value === 'dark' ? '切换浅色' : '切换深色'" @click="toggle">
-          <svg v-if="colorMode.value === 'dark'" viewBox="0 0 24 24" class="icon">
-            <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2" />
-            <path
-              d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-            />
-          </svg>
-          <svg v-else viewBox="0 0 24 24" class="icon">
-            <path
-              d="M21 13A9 9 0 1111 3a7 7 0 0010 10z"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <span class="label">{{ colorMode.value === 'dark' ? '浅色模式' : '深色模式' }}</span>
-        </button>
+        <NuxtLink to="/settings" class="nav-item" title="设置" aria-label="设置">
+          <Settings class="icon" aria-hidden="true" />
+          <span class="label">设置</span>
+        </NuxtLink>
       </div>
     </aside>
 
@@ -378,10 +285,6 @@ const navItems = computed(() => allNavItems.filter(
   background: var(--hover);
   color: var(--link);
 }
-.auth-loading {
-  color: var(--text-muted);
-  cursor: default;
-}
 
 .icon {
   width: 22px;
@@ -423,7 +326,6 @@ const navItems = computed(() => allNavItems.filter(
   flex-direction: column;
   gap: 2px;
   padding-top: 8px;
-  border-top: 1px solid var(--border);
 }
 
 /* 主体 */
@@ -516,7 +418,7 @@ const navItems = computed(() => allNavItems.filter(
   color: var(--link);
 }
 
-/* A shared fixed height keeps the footer and account separators aligned. */
+/* The homepage fits above its fixed footer; settings stay at the sidebar bottom. */
 .archive-home-layout { --footer-height: 180px; height: 100dvh; min-height: 0; overflow: hidden; }
 .archive-home-layout .site-footer { height: var(--footer-height); min-height: 0; }
 .archive-home-layout .layout-body {
@@ -525,23 +427,9 @@ const navItems = computed(() => allNavItems.filter(
   display: grid;
   grid-template-rows: minmax(0, 1fr) var(--footer-height);
 }
-.archive-home-layout .side-nav {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) var(--footer-height);
-  gap: 0;
-  padding: 0 8px;
-}
-.archive-home-layout .side-top { padding-top: 10px; overflow: hidden; }
 .archive-home-layout .main-area { min-height: 0; padding: 16px 0; display: flex; }
 .archive-home-layout .nav-items { min-height: 0; }
 .archive-home-layout .nav-items .nav-item { min-height: 0; }
-.archive-home-layout .side-bottom {
-  box-sizing: border-box;
-  min-width: 0;
-  margin-top: 0;
-  height: 100%;
-  padding: 8px 0 10px;
-}
 @media (max-height: 640px) {
   .archive-home-layout .nav-item { padding: 6px 10px; }
   .archive-home-layout .brand { padding-top: 6px; padding-bottom: 6px; }
