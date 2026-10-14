@@ -65,3 +65,7 @@ test/
 # 开发临时文件
 .devcontainer
 .venv
+# Local shadcn source cache; keep only its documentation and license in Git.
+/vendor/shadcn/*
+!/vendor/shadcn/README.md
+!/vendor/shadcn/LICENSE.md

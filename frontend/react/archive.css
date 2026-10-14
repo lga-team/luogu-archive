@@ -22,7 +22,10 @@
 .archive-react .archive-search { width: min(100%, 690px); min-height: 60px; display: flex; align-items: center; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 30px; padding: 8px 10px 8px 22px; box-shadow: 0 2px 8px #00000006; }
 .archive-search:focus-within { border-color: var(--link); box-shadow: 0 0 0 3px color-mix(in srgb, var(--link) 10%, transparent); }
 .archive-search-icon { flex-shrink: 0; color: var(--text-muted); }
-.archive-react .archive-input { flex: 1; min-width: 0; width: 100%; padding: 0; font: inherit; font-size: 16px; line-height: 1.5; border: 0; outline: none; background: transparent; color: var(--text); }
+.archive-react .archive-input { min-width: 0; width: 100%; height: 40px; padding: 8px 12px; font: inherit; font-size: 14px; line-height: 1.5; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
+.archive-react .archive-input:focus-visible, .archive-react .archive-textarea:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.archive-react .archive-input:disabled { opacity: .5; cursor: not-allowed; }
+.archive-react .archive-search .archive-input { flex: 1; height: auto; padding: 0; font-size: 16px; border: 0; outline: none; background: transparent; }
 .archive-input::placeholder { color: var(--text-muted); opacity: 1; }
 .archive-error { font-size: 14px; color: #d33040; overflow-wrap: anywhere; }
 .archive-home-notice { min-height: 44px; }
@@ -58,11 +61,67 @@ html:has(.layout-root.archive-modern), html:has(.layout-root.archive-modern) bod
   .archive-wordmark img { width: 58px; height: 58px; }
   .archive-wordmark h1 { font-size: 28px; }
   .archive-react .archive-search { gap: 8px; padding-left: 14px; min-height: 56px; }
-  .archive-react .archive-input { font-size: 14px; }
+  .archive-react .archive-search .archive-input { font-size: 14px; }
   .archive-announcements { margin-top: 12px; }
   .archive-announcement-heading { align-items: flex-start; }
   .archive-announcement-heading h1 { font-size: 24px; }
   .archive-announcement-heading .archive-button { padding-left: 5px; padding-right: 5px; }
+}
+
+/* shadcn/ui controls share the migration's isolated theme tokens. */
+.archive-label { font-size: 14px; font-weight: 500; line-height: 1.4; }
+.archive-tabs-list { display: inline-flex; align-items: center; gap: 4px; min-height: 38px; padding: 4px; border-radius: 6px; background: var(--hover); color: var(--text-muted); }
+.archive-tabs-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 6px 14px; min-height: 30px; border: 0; border-radius: 4px; color: inherit; background: transparent; font: inherit; font-size: 14px; font-weight: 500; white-space: nowrap; cursor: pointer; }
+.archive-tabs-trigger[data-state=active] { color: var(--text); background: var(--surface); box-shadow: 0 1px 3px #00000014; }
+.archive-tabs-trigger:focus-visible, .archive-tabs-content:focus-visible, .archive-radio-item:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.archive-tabs-content { margin-top: 28px; }
+.archive-radio-group { display: grid; gap: 12px; }
+.archive-radio-item { flex-shrink: 0; display: grid; place-items: center; width: 16px; height: 16px; padding: 0; border: 1px solid var(--text); border-radius: 50%; background: transparent; color: var(--text); cursor: pointer; }
+.archive-radio-indicator { display: grid; place-items: center; }
+.archive-react .archive-textarea { display: block; width: 100%; min-height: 80px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text); background: var(--surface); font: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
+.settings-shell { max-width: 760px; margin: 12px auto; }
+.settings-login-shell { max-width: 400px; margin: 40px auto; }
+.settings-heading h1 { font-size: 28px; font-weight: 600; margin: 0 0 24px; }
+.settings-shell h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.settings-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.settings-status { color: var(--text-muted); font-size: 13px; }
+.settings-login { max-width: 400px; }
+.settings-form { display: grid; gap: 20px; }
+.settings-field { display: grid; gap: 8px; }
+.settings-password { position: relative; }
+.settings-password .archive-input { padding-right: 48px; }
+.settings-password .archive-button-icon { position: absolute; right: 3px; top: 3px; width: 34px; height: 34px; }
+.settings-submit { width: 100%; }
+.settings-message { margin: 0; font-size: 14px; overflow-wrap: anywhere; }
+.settings-verification { display: grid; gap: 12px; margin-top: 16px; }
+.settings-register { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 16px; font-size: 14px; color: var(--text-muted); }
+.settings-details { display: grid; gap: 16px; margin: 0 0 24px; }
+.settings-details > div { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 16px; font-size: 14px; }
+.settings-details dt { color: var(--text-muted); }
+.settings-details dd { margin: 0; overflow-wrap: anywhere; }
+.settings-binding { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 28px 0 24px; padding: 24px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.settings-binding p { margin: 6px 0 0; }
+.settings-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.settings-theme { display: flex; align-items: center; gap: 10px; min-height: 68px; padding: 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
+.settings-theme[data-selected=true] { border-color: var(--text); }
+.settings-theme svg { flex-shrink: 0; }
+.settings-copy-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.settings-spin { animation: settings-spin 1s linear infinite; }
+@keyframes settings-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .settings-spin { animation: none; } }
+.archive-dialog-overlay { position: fixed; inset: 0; z-index: 1000; background: #00000080; }
+.archive-dialog-content { box-sizing: border-box; position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1001; display: grid; gap: 24px; width: min(512px, calc(100% - 32px)); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 16px 48px #00000030; }
+.archive-dialog-header { display: grid; gap: 8px; padding-right: 24px; }
+.archive-dialog-title { margin: 0; font-size: 18px; font-weight: 600; line-height: 1.4; }
+.archive-dialog-description { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.6; }
+.archive-dialog-close { position: absolute; top: 14px; right: 14px; display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 4px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.archive-dialog-close:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.archive-dialog-footer { display: flex; justify-content: flex-end; gap: 8px; }
+@media (max-width: 560px) {
+  .settings-themes { grid-template-columns: 1fr; }
+  .settings-theme { min-height: 52px; padding: 12px; }
+  .settings-binding { flex-wrap: wrap; gap: 12px; }
+  .settings-details > div { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; }
 }
 @media (max-height: 560px) {
   .archive-home-layout .archive-wordmark { flex-direction: row; gap: 12px; margin-bottom: 12px; }
