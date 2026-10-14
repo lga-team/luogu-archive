@@ -161,7 +161,7 @@ const navItems = computed(() => allNavItems.filter(
 </script>
 
 <template>
-  <div class="layout-root" :class="{ 'archive-modern': route.path === '/' || route.path === '/announcement' }">
+  <div class="layout-root" :class="{ 'archive-home-layout': route.path === '/', 'archive-modern': route.path === '/' || route.path === '/announcement' }">
     <aside class="side-nav">
       <NuxtLink to="/" class="brand" title="洛谷档案馆">
         <img src="/favicon.png" alt="洛谷档案馆" class="brand-logo">
@@ -441,11 +441,14 @@ const navItems = computed(() => allNavItems.filter(
   box-sizing: border-box;
 }
 .site-footer {
+  box-sizing: border-box;
+  min-height: 156px;
   background: var(--surface);
   border-top: 1px solid var(--border);
   padding: 28px 0 32px;
   font-size: 14px;
   color: var(--text-muted);
+  flex-shrink: 0;
   /* 横跨整个 viewport（拉出 layout-body 的侧栏偏移），
      左侧区域被 fixed 边栏盖在上面 —— 视觉上 footer 下"穿过"边栏，
      左右各 53px padding 对称（≈ 2 倍行高）。 */
@@ -504,7 +507,26 @@ const navItems = computed(() => allNavItems.filter(
   color: var(--link);
 }
 
+/* A shared fixed height keeps the footer and account separators aligned. */
+.archive-home-layout { --footer-height: 180px; height: 100dvh; min-height: 0; overflow: hidden; }
+.archive-home-layout .site-footer { height: var(--footer-height); min-height: 0; }
+.archive-home-layout .layout-body { height: 100%; min-height: 0; }
+.archive-home-layout .main-area { min-height: 0; padding: 16px 0; display: flex; }
+.archive-home-layout .nav-items { min-height: 0; }
+.archive-home-layout .nav-items .nav-item { min-height: 0; }
+.archive-home-layout .side-bottom {
+  box-sizing: border-box;
+  flex-shrink: 0;
+  height: calc(var(--footer-height) - 10px);
+}
+@media (max-height: 640px) {
+  .archive-home-layout .nav-item { padding: 6px 10px; }
+  .archive-home-layout .brand { padding-top: 6px; padding-bottom: 6px; }
+  .archive-home-layout .brand-logo { width: 28px; height: 28px; }
+}
+
 @media (max-width: 768px) {
+  .archive-home-layout { --footer-height: 300px; }
   .site-footer {
     padding: 24px 0 28px;
   }
