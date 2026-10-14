@@ -16,6 +16,8 @@
 # 用法：
 #   ./start.sh             启动全部
 #   ./start.sh backend     只启动 backend
+#   ./start.sh frontend -dev  前端开发模式，不要求 build
+#   ./start.sh -dev        启动全部，前端使用开发模式
 #   ./start.sh status      查看状态
 # ======================================================================
 
@@ -33,6 +35,24 @@ mkdir -p "$RUN" "$LOGS"
 
 # ---------- 前置检查 ----------
 cmd="${1:-all}"
+frontend_dev=false
+if [ "$cmd" = "-dev" ]; then
+    cmd=all
+    frontend_dev=true
+fi
+if [ "$#" -gt 0 ]; then shift; fi
+for arg in "$@"; do
+    if [ "$arg" = "-dev" ] && [ "$frontend_dev" = false ]; then
+        frontend_dev=true
+    else
+        echo "用法: $0 [all|backend|worker|scheduler|frontend|status] [-dev]" >&2
+        exit 1
+    fi
+done
+if [ "$frontend_dev" = true ] && [ "$cmd" != all ] && [ "$cmd" != frontend ]; then
+    echo "!! -dev 仅适用于 all 或 frontend" >&2
+    exit 1
+fi
 
 # 只启动前端或查询状态时，不要求安装后端环境，方便独立部署预览站。
 case "$cmd" in
@@ -46,7 +66,12 @@ esac
 case "$cmd" in
     all|frontend)
         [ -f "$FRONTEND/.env" ] || { echo "!! 未找到 $FRONTEND/.env，请先配置前端环境变量" >&2; exit 1; }
-        [ -f "$FRONTEND/.output/server/index.mjs" ] || { echo "!! 前端未构建，请先执行 (cd frontend && pnpm build)" >&2; exit 1; }
+        if [ "$frontend_dev" = true ]; then
+            command -v pnpm >/dev/null 2>&1 || { echo "!! 未找到 pnpm，请先安装" >&2; exit 1; }
+            [ -f "$FRONTEND/node_modules/.bin/nuxt" ] || { echo "!! 前端依赖未安装，请先执行 (cd frontend && pnpm install)" >&2; exit 1; }
+        else
+            [ -f "$FRONTEND/.output/server/index.mjs" ] || { echo "!! 前端未构建，请先执行 (cd frontend && pnpm build)" >&2; exit 1; }
+        fi
         ;;
 esac
 
@@ -142,7 +167,12 @@ start_frontend() {
     cd "$FRONTEND"
     # 读前端 .env 作为环境
     set -a; source "$FRONTEND/.env"; set +a
-    start_one frontend /usr/bin/env node "$FRONTEND/.output/server/index.mjs"
+    if [ "$frontend_dev" = true ]; then
+        start_one frontend /usr/bin/env NODE_ENV=development pnpm dev \
+            --host 127.0.0.1 --port "$FRONTEND_PORT"
+    else
+        start_one frontend /usr/bin/env node "$FRONTEND/.output/server/index.mjs"
+    fi
 }
 
 # ---------- 状态 ----------
@@ -178,7 +208,7 @@ case "$cmd" in
     frontend)  start_frontend ;;
     status)    status ;;
     *)
-        echo "用法: $0 [all|backend|worker|scheduler|frontend|status]"
+        echo "用法: $0 [all|backend|worker|scheduler|frontend|status] [-dev]"
         exit 1
         ;;
 esac
