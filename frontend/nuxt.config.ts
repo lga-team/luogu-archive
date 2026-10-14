@@ -9,6 +9,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   ssr: true,
   vite: {
+    server: { allowedHosts: true },
     // Vue JSX 插件不能处理 React 页面，否则生成的是 Vue VNode。
     vueJsx: { exclude: [/node_modules/, /[\\/]react[\\/].*\.tsx$/] },
     plugins: [{
