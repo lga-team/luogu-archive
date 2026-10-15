@@ -113,14 +113,21 @@ function formatTime(t: string): string {
 </script>
 
 <template>
-  <div>
-    <OriginBanner
-      origin-url="https://www.luogu.com.cn/judgement"
-      title="陶片放逐"
-      :crawled-at="lastCrawled?.last_crawled_at"
+  <div class="judgement-page">
+    <SaveButton
+      class="judgement-page-heading"
       content-type="judgement"
       content-id="all"
-    />
+    >
+      <template #default="{ state, message, save }">
+        <JudgementHeader
+          :state="state"
+          :message="message"
+          :updated-at="lastCrawled?.last_crawled_at ? formatTime(lastCrawled.last_crawled_at) : ''"
+          @update="save"
+        />
+      </template>
+    </SaveButton>
 
     <LoadingPanel v-if="firstPending && !groups.length" title="正在加载陶片放逐" text="页面已经打开，正在读取最新的封禁公示归档…" />
 
@@ -207,6 +214,7 @@ function formatTime(t: string): string {
 </template>
 
 <style scoped>
+.judgement-page-heading { margin-bottom: 24px; }
 .list {
   list-style: none;
   padding: 0;

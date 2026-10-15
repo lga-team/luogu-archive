@@ -70,6 +70,7 @@ async function onCaptchaVerified(token: string) {
 
 <template>
   <div class="save-action">
+    <slot :state="state" :message="message" :save="save">
     <button
       class="archive-action-button"
       :class="{
@@ -83,6 +84,7 @@ async function onCaptchaVerified(token: string) {
       <span v-if="state === 'idle'">立即更新</span>
       <span v-else>{{ message }}</span>
     </button>
+    </slot>
     <CaptchaChallenge
       v-if="showCaptcha"
       ref="captchaRef"
