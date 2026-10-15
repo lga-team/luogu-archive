@@ -258,7 +258,7 @@ const navItems = computed(() => allNavItems.filter(
   background: none;
   border: none;
   cursor: pointer;
-  font: inherit;
+  font-family: inherit;
   text-align: left;
   width: 100%;
 }
