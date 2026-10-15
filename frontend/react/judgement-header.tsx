@@ -1,5 +1,4 @@
 import { ExternalLink, Gavel } from 'lucide-react'
-import { useLayoutEffect } from 'react'
 import { Button } from './ui/button'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { UpdateButton } from './update-button'
@@ -9,11 +8,9 @@ export interface JudgementHeaderProps {
   message: string
   updatedAt: string
   onUpdate: () => void
-  onReady?: () => void
 }
 
-export function JudgementHeader({ state, message, updatedAt, onUpdate, onReady }: JudgementHeaderProps) {
-  useLayoutEffect(() => { onReady?.() }, [onReady])
+export function JudgementHeader({ state, message, updatedAt, onUpdate }: JudgementHeaderProps) {
   return (
     <div className="judgement-header-stack">
       <Card className="judgement-heading">

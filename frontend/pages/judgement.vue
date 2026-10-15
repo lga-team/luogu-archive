@@ -28,10 +28,8 @@ const loading = ref(false)
 const noMore = ref(false)
 // 游标：取下一页时把这个值塞 ?before=
 const beforeTs = ref<string | null>(null)
-const headerReady = ref(false)
-const headerError = ref(false)
 
-// 页面框架统一显示，记录独立加载，不阻塞标题和操作栏。
+// 页面正常显示，只有记录区域显示加载状态。
 const { data: firstPage, status: firstStatus, error: firstError } = useLazyAsyncData('judgement-first', () =>
   api<JudgementGroup[]>('/judgement', { query: { limit: PAGE_SIZE } }),
   { server: false },
@@ -40,7 +38,6 @@ const { data: lastCrawled } = useLazyAsyncData('judgement-last-crawled', () =>
   api<{ last_crawled_at: string | null }>('/last-crawled?type=judgement'),
   { server: false },
 )
-const shellReady = computed(() => headerReady.value)
 const recordsPending = computed(() => firstStatus.value === 'idle' || firstStatus.value === 'pending')
 
 watch(firstPage, (page) => {
@@ -117,9 +114,7 @@ function formatTime(t: string): string {
 </script>
 
 <template>
-  <p v-if="headerError" class="empty" role="alert">界面加载失败，请刷新页面重试。</p>
-  <LoadingPanel v-else-if="!shellReady" title="正在加载陶片放逐" text="" />
-  <div v-show="shellReady && !headerError" class="judgement-page">
+  <div class="judgement-page">
     <SaveButton
       class="judgement-page-heading"
       content-type="judgement"
@@ -131,8 +126,6 @@ function formatTime(t: string): string {
           :message="message"
           :updated-at="lastCrawled?.last_crawled_at ? formatTime(lastCrawled.last_crawled_at) : ''"
           @update="save"
-          @ready="headerReady = true"
-          @error="headerError = true"
         />
       </template>
     </SaveButton>

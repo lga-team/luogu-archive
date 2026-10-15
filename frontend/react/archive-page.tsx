@@ -12,6 +12,7 @@ export interface ArchivePageProps {
   loadAnnouncements: () => Promise<Announcement[]>
   navigate: (path: string) => void
   renderMarkdown: (value: string) => string
+  onReady?: () => void
 }
 const readKey = 'archive-read-announcements-v1'
 
@@ -36,6 +37,16 @@ export function ArchivePage(props: ArchivePageProps) {
   const [retry, setRetry] = React.useState(0)
   const [read, setRead] = React.useState<string[]>(readAnnouncements)
   const [compact, setCompact] = React.useState(() => window.matchMedia('(max-width: 640px)').matches)
+  const logo = React.useRef<HTMLImageElement>(null)
+
+  React.useLayoutEffect(() => {
+    if (props.page !== 'home') return
+    let active = true
+    const reveal = () => { if (active) props.onReady?.() }
+    if (logo.current) void logo.current.decode().catch(() => {}).then(reveal)
+    else reveal()
+    return () => { active = false }
+  }, [props.page, props.onReady])
 
   // 窄屏缩短输入提示，避免文字被搜索按钮挤掉；浏览器切换尺寸时同步更新。
   React.useEffect(() => {
@@ -78,7 +89,7 @@ export function ArchivePage(props: ArchivePageProps) {
   if (props.page === 'home') return <>
     <div className="archive-home-notice">{notice}</div>
     <section className="archive-home">
-      <div className="archive-wordmark"><img src="/favicon.png" alt="" /><h1>洛谷档案馆</h1></div>
+      <div className="archive-wordmark"><img ref={logo} src="/favicon.png" alt="" /><h1>洛谷档案馆</h1></div>
       <form className="archive-search" onSubmit={event => {
         event.preventDefault()
         try { setError(''); props.navigate(parseArchiveAddress(input, props.extended)) }

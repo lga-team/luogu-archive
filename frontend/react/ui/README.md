@@ -6,6 +6,12 @@ controls with unrelated native elements or custom approximations.
 Rebuilt pages use the solid light/dark page background from `archive.css`, not
 the legacy blue gradient. Keep their root inside `.archive-react`.
 
+Never replace an entire page with a loading screen. By default, render the
+page shell normally; show loading and errors only inside the data
+region or control that is waiting. Independent metadata must not block the page.
+When explicitly requested, reveal a page's components together without a loading
+screen; keep API data independent of that reveal.
+
 Use `../update-button` for update actions on rebuilt pages. Pass `state`,
 `message`, and `onUpdate`; keep the existing request/captcha workflow in the
 page or `SaveButton`. The shared control owns fixed sizing, two-second result
