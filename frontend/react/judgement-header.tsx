@@ -14,7 +14,7 @@ export function JudgementHeader({ state, message, updatedAt, onUpdate }: Judgeme
   return (
     <Card className="judgement-heading">
       <CardHeader className="judgement-heading-main">
-        <Gavel className="judgement-heading-icon" size={32} strokeWidth={1.8} aria-hidden="true" />
+        <Gavel className="judgement-heading-icon" size={56} strokeWidth={1.8} aria-hidden="true" />
         <div className="judgement-heading-copy">
           <CardTitle><h1>陶片放逐</h1></CardTitle>
           <CardDescription>洛谷社区用户权限变更记录</CardDescription>

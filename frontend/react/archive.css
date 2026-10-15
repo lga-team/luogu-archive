@@ -50,8 +50,9 @@
 .archive-announcement-content { margin-top: 26px; overflow-wrap: anywhere; }
 .archive-announcement-content img { max-width: 100%; }
 .archive-announcement-content pre { overflow-x: auto; }
-/* 只对已重构路由取消页面渐变，不改变其他页面。 */
-html:has(.layout-root.archive-modern), html:has(.layout-root.archive-modern) body { background: var(--bg); }
+/* All migrated React pages use a solid background, including future pages. */
+html:has(.layout-root.archive-modern), html:has(.layout-root.archive-modern) body,
+html:has(.main-area .archive-react), html:has(.main-area .archive-react) body { background: var(--bg); }
 @media (max-width: 640px) {
   .archive-home-layout .archive-wordmark { flex-direction: row; gap: 10px; margin-bottom: 16px; }
   .archive-home-layout .archive-wordmark img { width: 40px; height: 40px; }
@@ -75,8 +76,8 @@ html:has(.layout-root.archive-modern), html:has(.layout-root.archive-modern) bod
 .archive-card-description { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-muted); }
 .archive-card-footer { display: flex; align-items: center; padding: 0 24px; }
 .judgement-heading { min-height: 164px; gap: 28px; }
-.judgement-heading-main { display: flex; align-items: flex-start; gap: 16px; }
-.judgement-heading-icon { flex-shrink: 0; margin-top: 3px; color: var(--text); }
+.judgement-heading-main { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; gap: 16px; }
+.judgement-heading-icon { width: 62px; height: 100%; color: var(--text); }
 .judgement-heading-copy { min-width: 0; }
 .judgement-heading-copy h1 { margin: 0 0 6px; font-size: 26px; font-weight: 600; line-height: 1.3; letter-spacing: 0; }
 .judgement-heading-footer { gap: 12px; flex-wrap: wrap; }
@@ -88,6 +89,7 @@ html:has(.layout-root.archive-modern), html:has(.layout-root.archive-modern) bod
 @media (max-width: 560px) {
   .judgement-heading .archive-card-header, .judgement-heading .archive-card-footer { padding-inline: 16px; }
   .judgement-heading-main { gap: 12px; }
+  .judgement-heading-icon { width: 56px; }
   .judgement-heading-copy h1 { font-size: 23px; }
   .judgement-heading-updated { flex-basis: 100%; }
 }
