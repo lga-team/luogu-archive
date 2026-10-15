@@ -12,9 +12,27 @@ const showCaptcha = ref(false)
 const captchaRef = ref<any>(null)
 
 const api = useApi()
+let resetTimer: ReturnType<typeof setTimeout> | undefined
+
+function clearResetTimer() {
+  if (resetTimer !== undefined) clearTimeout(resetTimer)
+  resetTimer = undefined
+}
+
+function resetAfter(delay: number) {
+  clearResetTimer()
+  resetTimer = setTimeout(() => {
+    resetTimer = undefined
+    state.value = 'idle'
+    message.value = ''
+  }, delay)
+}
+
+onBeforeUnmount(clearResetTimer)
 
 async function save() {
   if (state.value === 'pending') return
+  clearResetTimer()
   state.value = 'pending'
   message.value = '排队中...'
   try {
@@ -34,7 +52,7 @@ async function save() {
     captchaRef.value?.reset?.()
     state.value = 'success'
     message.value = resp.merged ? '已合并到进行中的任务' : '已派发，请稍后刷新'
-    setTimeout(() => { state.value = 'idle'; message.value = '' }, 3000)
+    resetAfter(3000)
   } catch (e: any) {
     const code = e?.data?.error_code
     if (code === 'captcha_required') {
@@ -52,11 +70,11 @@ async function save() {
       state.value = 'cooldown'
       const s = e?.data?.data?.retry_after_sec || 30
       message.value = `冷却中 ${s}s`
-      setTimeout(() => { state.value = 'idle' }, s * 1000)
+      resetAfter(s * 1000)
     } else {
       state.value = 'failed'
       message.value = e?.data?.message || '失败'
-      setTimeout(() => { state.value = 'idle' }, 3000)
+      resetAfter(3000)
     }
   }
 }

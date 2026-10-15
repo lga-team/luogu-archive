@@ -13,28 +13,35 @@ export interface JudgementHeaderProps {
 
 export function JudgementHeader({ state, message, updatedAt, onUpdate }: JudgementHeaderProps) {
   const pending = state === 'pending'
-  const [feedback, setFeedback] = useState<'idle' | 'success' | 'failed'>('idle')
+  const [feedback, setFeedback] = useState<{ status: 'idle' | 'success' | 'failed'; result: 'success' | 'failed' }>({ status: 'idle', result: 'success' })
+  const feedbackTimer = useRef<ReturnType<typeof window.setTimeout> | undefined>(undefined)
   const [errorOpen, setErrorOpen] = useState(false)
   const [failureReason, setFailureReason] = useState('')
   const updateRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (state === 'pending') {
-      setFeedback('idle')
+      window.clearTimeout(feedbackTimer.current)
+      setFeedback(previous => ({ ...previous, status: 'idle' }))
       return
     }
     if (state !== 'success' && state !== 'failed' && state !== 'cooldown') return
     const failed = state !== 'success'
-    setFeedback(failed ? 'failed' : 'success')
+    const result = failed ? 'failed' : 'success'
+    setFeedback({ status: result, result })
     if (failed) {
       setFailureReason(message || '更新请求未能提交，请稍后重试。')
       setErrorOpen(true)
     }
-    const timer = window.setTimeout(() => setFeedback('idle'), 2000)
-    return () => window.clearTimeout(timer)
+    window.clearTimeout(feedbackTimer.current)
+    feedbackTimer.current = window.setTimeout(() => {
+      setFeedback(previous => ({ ...previous, status: 'idle' }))
+    }, 2000)
   }, [state, message])
 
-  const buttonState = pending ? 'pending' : feedback
+  useEffect(() => () => window.clearTimeout(feedbackTimer.current), [])
+
+  const buttonState = pending ? 'pending' : feedback.status
   return (
     <div className="judgement-header-stack">
       <Card className="judgement-heading">
@@ -62,16 +69,16 @@ export function JudgementHeader({ state, message, updatedAt, onUpdate }: Judgeme
             className="judgement-update"
             data-feedback={buttonState}
             disabled={pending}
-            aria-disabled={pending || feedback !== 'idle'}
+            aria-disabled={pending || feedback.status !== 'idle'}
             aria-busy={pending}
-            aria-label={pending ? '正在提交更新' : feedback === 'success' ? '更新请求已提交' : feedback === 'failed' ? '更新失败' : '更新'}
-            onClick={() => { if (feedback === 'idle') onUpdate() }}
+            aria-label={pending ? '正在提交更新' : feedback.status === 'success' ? '更新请求已提交' : feedback.status === 'failed' ? '更新失败' : '更新'}
+            onClick={() => { if (feedback.status === 'idle') onUpdate() }}
           >
             <span className="judgement-update-label" aria-hidden="true">
               <RefreshCw className={pending ? 'settings-spin' : undefined} size={14} />更新
             </span>
             <span className="judgement-update-result" aria-hidden="true">
-              {state === 'success' ? <Check size={18} /> : <X size={18} />}
+              {feedback.result === 'success' ? <Check size={18} /> : <X size={18} />}
             </span>
           </Button>
         </div>
