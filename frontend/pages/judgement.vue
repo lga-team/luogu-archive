@@ -223,12 +223,12 @@ function formatTime(t: string): string {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  margin-bottom: 12px;
-  padding: 12px 16px;
+  margin-bottom: 13px;
+  padding: 15px 19px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  font-size: 13px;
+  gap: 10px;
+  font-size: 14px;
   line-height: 1.6;
 }
 
@@ -237,13 +237,13 @@ function formatTime(t: string): string {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-muted);
 }
 .action-tag {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 600;
-  padding: 1px 6px;
+  padding: 2px 8px;
   border-radius: 4px;
 }
 .action-tag.revoked {
@@ -268,7 +268,7 @@ function formatTime(t: string): string {
 }
 .time {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 12.5px;
   color: var(--text-muted);
 }
 
@@ -281,8 +281,8 @@ function formatTime(t: string): string {
 .user-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 2px 8px 2px 2px;
+  gap: 9px;
+  padding: 3px 10px 3px 3px;
   border-radius: 28px;
   color: inherit;
   text-decoration: none;
@@ -293,8 +293,8 @@ function formatTime(t: string): string {
   text-decoration: none;
 }
 .avatar {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--bg);
@@ -305,7 +305,7 @@ function formatTime(t: string): string {
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 13px;
+  font-size: 14.5px;
   font-weight: 600;
   background: var(--lg-gray);
 }
@@ -321,7 +321,7 @@ function formatTime(t: string): string {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -329,15 +329,15 @@ function formatTime(t: string): string {
 .perms {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-left: 6px;
+  gap: 3.5px;
+  padding-left: 7px;
 }
 .perm-row {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  font-size: 13px;
+  font-size: 13.5px;
 }
 .perm-label {
   font-weight: 500;
@@ -347,18 +347,18 @@ function formatTime(t: string): string {
 .perm-chip {
   background: var(--hover);
   border: 1px solid var(--border);
-  padding: 1px 8px;
+  padding: 1.5px 9px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 .perm-suffix {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 /* 原因 */
 .reason {
-  padding-top: 6px;
+  padding-top: 7px;
   border-top: 1px dashed var(--border);
   color: var(--text);
 }
