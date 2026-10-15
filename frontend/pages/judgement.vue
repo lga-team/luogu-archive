@@ -28,9 +28,11 @@ const loading = ref(false)
 const noMore = ref(false)
 // 游标：取下一页时把这个值塞 ?before=
 const beforeTs = ref<string | null>(null)
+const headerReady = ref(false)
+const headerError = ref(false)
 
-// 首屏不等待后端：先显示页面，再拉第一页陶片。
-const { data: firstPage, pending: firstPending } = useLazyAsyncData('judgement-first', () =>
+// 页面框架统一显示，记录独立加载，不阻塞标题和操作栏。
+const { data: firstPage, status: firstStatus, error: firstError } = useLazyAsyncData('judgement-first', () =>
   api<JudgementGroup[]>('/judgement', { query: { limit: PAGE_SIZE } }),
   { server: false },
 )
@@ -38,6 +40,8 @@ const { data: lastCrawled } = useLazyAsyncData('judgement-last-crawled', () =>
   api<{ last_crawled_at: string | null }>('/last-crawled?type=judgement'),
   { server: false },
 )
+const shellReady = computed(() => headerReady.value)
+const recordsPending = computed(() => firstStatus.value === 'idle' || firstStatus.value === 'pending')
 
 watch(firstPage, (page) => {
   if (!page) return
@@ -113,7 +117,9 @@ function formatTime(t: string): string {
 </script>
 
 <template>
-  <div class="judgement-page">
+  <p v-if="headerError" class="empty" role="alert">界面加载失败，请刷新页面重试。</p>
+  <LoadingPanel v-else-if="!shellReady" title="正在加载陶片放逐" text="" />
+  <div v-show="shellReady && !headerError" class="judgement-page">
     <SaveButton
       class="judgement-page-heading"
       content-type="judgement"
@@ -125,12 +131,15 @@ function formatTime(t: string): string {
           :message="message"
           :updated-at="lastCrawled?.last_crawled_at ? formatTime(lastCrawled.last_crawled_at) : ''"
           @update="save"
+          @ready="headerReady = true"
+          @error="headerError = true"
         />
       </template>
     </SaveButton>
 
-    <LoadingPanel v-if="firstPending && !groups.length" title="正在加载陶片放逐" text="页面已经打开，正在读取最新的封禁公示归档…" />
+    <LoadingPanel v-if="recordsPending && !groups.length" title="正在加载记录" text="" />
 
+    <p v-else-if="firstError && !groups.length" class="empty" role="alert">记录加载失败，请刷新页面重试。</p>
     <ul v-else-if="groups.length" class="list">
       <li v-for="g in groups" :key="g.group_key" class="item">
         <!-- 顶部：权限变更头标 + 时间 -->
