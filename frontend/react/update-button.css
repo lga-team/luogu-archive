@@ -1,0 +1,27 @@
+.archive-react .archive-update, .archive-react .archive-update-confirm { width: 70px; height: 32px; min-height: 32px; flex: 0 0 70px; padding: 5px 8px; }
+.archive-react .archive-update { display: inline-grid; place-items: center; transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease; }
+.archive-update-label, .archive-update-result { grid-area: 1 / 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: opacity 220ms ease, transform 220ms ease; }
+.archive-update-result { opacity: 0; transform: translateY(4px) scale(.85); }
+.archive-update[data-feedback=success] .archive-update-label, .archive-update[data-feedback=failed] .archive-update-label { opacity: 0; transform: translateY(-4px); }
+.archive-update[data-feedback=success] .archive-update-result, .archive-update[data-feedback=failed] .archive-update-result { opacity: 1; transform: translateY(0) scale(1); }
+.archive-react .archive-update[data-feedback=pending] { opacity: 1; background: var(--hover); border-color: var(--border); color: var(--text-muted); }
+.archive-react .archive-update[data-feedback=success] { background: #21865b; border-color: #21865b; color: #fff; }
+.archive-react .archive-update[data-feedback=failed] { background: #cf5555; border-color: #cf5555; color: #fff; }
+.archive-update-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.archive-update-failure-title { display: flex; align-items: center; gap: 10px; color: #cf5555; }
+.archive-update-failure-icon { display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border-radius: 6px; background: #cf5555; color: #fff; }
+.archive-update-failure-reason { overflow-wrap: anywhere; white-space: pre-wrap; }
+.archive-update-spin { animation: archive-update-spin 1s linear infinite; }
+.archive-update-overlay[data-state=open] { animation: archive-update-overlay-in 200ms ease-out both; }
+.archive-update-overlay[data-state=closed] { animation: archive-update-overlay-out 160ms ease-in both; }
+.archive-update-dialog[data-state=open] { animation: archive-update-dialog-in 240ms cubic-bezier(.16, 1, .3, 1) both; }
+.archive-update-dialog[data-state=closed] { animation: archive-update-dialog-out 160ms ease-in both; }
+@keyframes archive-update-spin { to { transform: rotate(360deg); } }
+@keyframes archive-update-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes archive-update-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes archive-update-dialog-in { from { opacity: 0; transform: translate(-50%, -50%) translateY(8px) scale(.96); } to { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1); } }
+@keyframes archive-update-dialog-out { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, -50%) translateY(4px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) {
+  .archive-react .archive-update, .archive-update-label, .archive-update-result { transition: none; }
+  .archive-update-dialog[data-state], .archive-update-overlay[data-state], .archive-update-spin { animation: none; }
+}
