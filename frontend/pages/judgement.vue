@@ -223,11 +223,13 @@ function formatTime(t: string): string {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  margin-bottom: 14px;
-  padding: 18px 22px;
+  margin-bottom: 12px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 /* 顶部头标 */
@@ -235,13 +237,13 @@ function formatTime(t: string): string {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 .action-tag {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 1px 6px;
   border-radius: 4px;
 }
 .action-tag.revoked {
@@ -266,7 +268,7 @@ function formatTime(t: string): string {
 }
 .time {
   margin-left: auto;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-muted);
 }
 
@@ -279,8 +281,8 @@ function formatTime(t: string): string {
 .user-card {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 4px 12px 4px 4px;
+  gap: 8px;
+  padding: 2px 8px 2px 2px;
   border-radius: 28px;
   color: inherit;
   text-decoration: none;
@@ -291,8 +293,8 @@ function formatTime(t: string): string {
   text-decoration: none;
 }
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--bg);
@@ -303,7 +305,7 @@ function formatTime(t: string): string {
   align-items: center;
   justify-content: center;
   color: #fff;
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 600;
   background: var(--lg-gray);
 }
@@ -319,7 +321,7 @@ function formatTime(t: string): string {
   display: flex;
   align-items: center;
   gap: 4px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -327,15 +329,15 @@ function formatTime(t: string): string {
 .perms {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding-left: 8px;
+  gap: 3px;
+  padding-left: 6px;
 }
 .perm-row {
   display: flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
-  font-size: 14px;
+  font-size: 13px;
 }
 .perm-label {
   font-weight: 500;
@@ -345,18 +347,18 @@ function formatTime(t: string): string {
 .perm-chip {
   background: var(--hover);
   border: 1px solid var(--border);
-  padding: 2px 10px;
+  padding: 1px 8px;
   border-radius: 4px;
-  font-size: 13px;
+  font-size: 12px;
 }
 .perm-suffix {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
 /* 原因 */
 .reason {
-  padding-top: 8px;
+  padding-top: 6px;
   border-top: 1px dashed var(--border);
   color: var(--text);
 }

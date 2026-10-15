@@ -8,7 +8,7 @@ import { cn } from '../lib/utils'
 export const buttonVariants = cva('archive-button', {
   variants: {
     variant: { default: 'archive-button-primary', outline: 'archive-button-outline', ghost: 'archive-button-ghost' },
-    size: { default: 'archive-button-default', icon: 'archive-button-icon' },
+    size: { default: 'archive-button-default', sm: 'archive-button-sm', icon: 'archive-button-icon' },
   },
   defaultVariants: { variant: 'default', size: 'default' },
 })
