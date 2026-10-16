@@ -92,8 +92,46 @@ function goPage(page: number) {
 
 <template>
   <div ref="contentRef" class="discussion-page">
-    <DiscussionControls mode="detail-header" :discussion-id="id" :title="data?.title" :forum-name="data?.forum_name || ''" />
-    <SaveButton content-type="discuss" :content-id="String(id)">
+    <section class="post-column" aria-label="讨论主帖">
+      <article class="post-card archive-card">
+        <DiscussionControls mode="detail-header" :discussion-id="id" :title="data?.title" />
+        <LoadingPanel v-if="recordsPending && !data" title="正在加载正文" text="" />
+        <div v-else-if="error && !data" class="post-error" role="alert">
+          <p>{{ error.data?.message || '讨论加载失败' }}</p>
+          <p v-if="error.statusCode === 404">可点击更新提交保存任务，或稍后重试读取。</p>
+          <DiscussionControls mode="retry" @retry="refresh()" />
+        </div>
+        <template v-if="data">
+          <header class="author-row">
+            <NuxtLink v-if="data.author?.avatar" :to="`/user/${data.author.uid}`" class="author-link" :aria-label="data.author.name">
+              <img :src="data.author.avatar" alt="" class="avatar" width="36" height="36">
+            </NuxtLink>
+            <div class="author-summary">
+              <NuxtLink v-if="data.author" :to="`/user/${data.author.uid}`" class="author-link"><LuoguUserName :user="data.author" show-badge no-link /></NuxtLink>
+              <span v-else>发帖人未收录</span>
+              <time v-if="data.source_time" :datetime="data.source_time">发表于 {{ format(data.source_time) }}</time>
+            </div>
+          </header>
+          <div class="post-body lg-content" v-html="render(data.content_md)" />
+        </template>
+      </article>
+    </section>
+
+    <aside class="detail-sidebar" aria-label="讨论信息与操作">
+      <section class="discussion-info archive-card" aria-label="讨论信息">
+        <dl>
+          <div><dt>创建者</dt><dd>
+            <NuxtLink v-if="data?.author" :to="`/user/${data.author.uid}`" class="author-link">
+              <img v-if="data.author.avatar" :src="data.author.avatar" alt="" class="avatar small" width="28" height="28">
+              <LuoguUserName :user="data.author" show-badge no-link />
+            </NuxtLink>
+            <span v-else>{{ recordsPending ? '—' : '发帖人未收录' }}</span>
+          </dd></div>
+          <div><dt>发帖时间</dt><dd><time v-if="data?.source_time" :datetime="data.source_time">{{ format(data.source_time) }}</time><span v-else>—</span></dd></div>
+          <div><dt>所属版块</dt><dd>{{ data?.forum_name || '—' }}</dd></div>
+        </dl>
+      </section>
+      <SaveButton content-type="discuss" :content-id="String(id)">
       <template #default="{ state, message, save }">
         <DiscussionControls
           mode="detail-toolbar"
@@ -108,30 +146,11 @@ function goPage(page: number) {
           @back="navigateTo('/discuss')"
         />
       </template>
-    </SaveButton>
-    <p v-if="copyError" class="copy-error" role="alert">{{ copyError }}</p>
+      </SaveButton>
+      <p v-if="copyError" class="copy-error" role="alert">{{ copyError }}</p>
+    </aside>
 
-    <LoadingPanel v-if="recordsPending && !data" title="正在加载正文与回复" text="" />
-    <div v-else-if="error && !data" class="error-box archive-card" role="alert">
-      <h2>{{ error.data?.message || '讨论加载失败' }}</h2>
-      <p v-if="error.statusCode === 404">{{ error.data?.message ? '可点击更新提交保存任务，或稍后重试读取。' : '尚未读取到归档内容，请稍后重试。' }}</p>
-      <DiscussionControls mode="retry" @retry="refresh()" />
-    </div>
-
-    <template v-if="data">
-      <article class="post-card archive-card">
-        <header class="author-row">
-          <NuxtLink v-if="data.author" :to="`/user/${data.author.uid}`" class="author-link">
-            <img v-if="data.author.avatar" :src="data.author.avatar" alt="" class="avatar" width="32" height="32">
-            <LuoguUserName :user="data.author" show-badge no-link />
-          </NuxtLink>
-          <span v-else>发帖人未收录</span>
-          <time v-if="data.source_time" :datetime="data.source_time">{{ format(data.source_time) }}</time>
-        </header>
-        <div class="post-body lg-content" v-html="render(data.content_md)" />
-      </article>
-
-    <section class="reply-section" aria-labelledby="reply-title">
+    <section v-if="data" class="reply-section" aria-labelledby="reply-title">
       <header class="reply-head">
         <div>
           <h2 id="reply-title">回复</h2>
@@ -174,24 +193,33 @@ function goPage(page: number) {
 
       <DiscussionControls v-if="totalPages > 1" mode="pagination" :page="currentPage" :total-pages="totalPages" :pending="recordsPending" @page="goPage" />
     </section>
-    </template>
   </div>
 </template>
 
 <style scoped>
-.discussion-page { display: grid; gap: 16px; min-width: 0; }
-.post-card { display: block; padding: 0; min-width: 0; overflow: hidden; }
+.discussion-page { display: grid; grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr); grid-template-areas: 'post sidebar' 'replies sidebar'; align-items: start; gap: 20px 16px; min-width: 0; }
+.post-column { grid-area: post; min-width: 0; }
+.detail-sidebar { grid-area: sidebar; display: grid; gap: 16px; min-width: 0; position: sticky; top: 18px; }
+.post-card { display: block; padding: 22px 24px; min-width: 0; overflow: hidden; }
+.discussion-info { display: block; padding: 22px 20px; }
+.discussion-info dl { display: grid; gap: 18px; margin: 0; font-size: 14px; }
+.discussion-info dl > div { display: grid; grid-template-columns: 74px minmax(0, 1fr); align-items: start; gap: 12px; }
+.discussion-info dt { font-weight: 500; color: var(--text); line-height: 1.6; }
+.discussion-info dd { display: flex; justify-content: flex-end; margin: 0; min-width: 0; text-align: right; overflow-wrap: anywhere; color: var(--text-muted); line-height: 1.6; }
+.discussion-info .author-link { justify-content: flex-end; }
 .author-row, .author-link, .reply-meta {
   display: flex;
   align-items: center;
 }
-.author-row { gap: 8px 14px; flex-wrap: wrap; padding: 14px 20px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+.author-row { gap: 10px; flex-wrap: wrap; padding: 16px 0 0; color: var(--text-muted); font-size: 13px; }
+.author-summary { display: grid; gap: 4px; min-width: 0; }
+.author-summary time { font-size: 12px; }
 .author-link { gap: 8px; min-width: 0; flex-wrap: wrap; overflow-wrap: anywhere; color: inherit; text-decoration: none; }
-.avatar { display: block; width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+.avatar { display: block; width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
 .avatar.small { width: 28px; height: 28px; }
 .copy-reply { width: auto; flex-shrink: 0; }
-.post-body { padding: 22px 24px; overflow-wrap: anywhere; }
-.reply-section { display: grid; gap: 14px; }
+.post-body { padding: 20px 0 0; overflow-wrap: anywhere; }
+.reply-section { grid-area: replies; display: grid; gap: 14px; min-width: 0; }
 .reply-head { display: flex; justify-content: space-between; align-items: end; flex-wrap: wrap; gap: 10px 18px; padding-top: 12px; }
 .reply-head h2 { margin: 0; font-size: 18px; font-weight: 600; }
 .reply-head p { margin: 5px 0 0; color: var(--text-muted); font-size: 13px; }
@@ -207,9 +235,17 @@ function goPage(page: number) {
 .error-box h2 { margin: 0; font-size: 18px; color: var(--text); }
 .error-box p { margin: 0; }
 .copy-error { margin: 0; color: var(--lg-red); font-size: 13px; }
+.post-error { display: grid; gap: 12px; padding-top: 20px; color: var(--text-muted); }
+.post-error p { margin: 0; }
+@media (max-width: 1000px) {
+  .discussion-page { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'post' 'sidebar' 'replies'; }
+  .detail-sidebar { position: static; }
+}
 @media (max-width: 720px) {
-  .post-body, .reply-body { padding: 16px; }
-  .author-row, .reply-meta { padding-inline: 14px; }
+  .post-card { padding: 18px 16px; }
+  .discussion-info { padding: 18px 16px; }
+  .reply-body { padding: 16px; }
+  .reply-meta { padding-inline: 14px; }
   .reply-id { margin-left: 0; }
   .copy-reply { margin-left: auto; }
 }

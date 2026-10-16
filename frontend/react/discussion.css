@@ -16,17 +16,16 @@
 .discussion-forum-count { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .discussion-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 20px; }
 .discussion-pagination > span { min-width: 64px; text-align: center; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.discussion-detail-heading .judgement-heading-main { align-items: center; }
-.discussion-detail-heading .judgement-heading-icon { height: 62px; flex-shrink: 0; }
-.discussion-detail-heading .judgement-heading-copy h1 { overflow-wrap: anywhere; font-size: 24px; }
-.discussion-detail-toolbar > .judgement-heading-updated { margin-left: 4px; }
+.discussion-post-title { margin: 0; overflow-wrap: anywhere; font-size: 24px; font-weight: 600; line-height: 1.4; }
+.discussion-detail-toolbar { flex-direction: column; align-items: stretch; padding: 16px 18px; gap: 12px; }
+.discussion-detail-toolbar > .archive-button { align-self: flex-start; }
+.discussion-detail-toolbar > .judgement-heading-updated { margin: 0; }
 .archive-react .discussion-copy { width: 100px; flex-shrink: 0; }
-.discussion-detail-toolbar .judgement-heading-actions { flex-wrap: wrap; }
+.discussion-detail-toolbar .judgement-heading-actions { flex-wrap: wrap; justify-content: flex-start; margin-left: 0; }
+.discussion-detail-toolbar .judgement-heading-message { flex-basis: auto; text-align: left; }
 @media (max-width: 560px) {
-  .discussion-detail-heading .judgement-heading-copy h1 { font-size: 21px; }
-  .discussion-detail-heading .judgement-heading-icon { height: 56px; }
-  .discussion-detail-toolbar > .judgement-heading-updated { flex-basis: auto; margin-left: auto; margin-right: 0; }
-  .discussion-detail-toolbar .judgement-heading-actions { width: 100%; }
+  .discussion-post-title { font-size: 21px; }
+  .discussion-detail-toolbar > .judgement-heading-updated { flex-basis: auto; }
 }
 @media (max-width: 820px) {
   .archive-react .discussion-forums { padding: 10px; }

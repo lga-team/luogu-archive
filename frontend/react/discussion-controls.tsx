@@ -28,15 +28,7 @@ export interface DiscussionControlsProps {
 }
 
 export function DiscussionControls(props: DiscussionControlsProps) {
-  if (props.mode === 'detail-header') return <Card className="judgement-heading discussion-detail-heading">
-    <CardHeader className="judgement-heading-main">
-      <MessagesSquare className="judgement-heading-icon" size={56} strokeWidth={1.8} aria-hidden="true" />
-      <div className="judgement-heading-copy">
-        <CardTitle><h1>{props.title || `讨论 #${props.discussionId}`}</h1></CardTitle>
-        <CardDescription>{[props.forumName, `#${props.discussionId}`].filter(Boolean).join(' · ')}</CardDescription>
-      </div>
-    </CardHeader>
-  </Card>
+  if (props.mode === 'detail-header') return <h1 className="discussion-post-title">{props.title || `讨论 #${props.discussionId}`}</h1>
 
   if (props.mode === 'detail-toolbar') return <Card className="judgement-toolbar">
     <CardFooter className="judgement-heading-footer discussion-detail-toolbar">

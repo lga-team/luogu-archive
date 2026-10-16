@@ -52,9 +52,10 @@ onBeforeUnmount(() => { disposed = true; root?.unmount() })
 
 <template>
   <div ref="host" class="archive-react">
-    <div v-if="mode === 'header' || mode === 'detail-header'" class="archive-card judgement-heading">
+    <h1 v-if="mode === 'detail-header'" class="discussion-post-title">{{ title || `讨论 #${discussionId}` }}</h1>
+    <div v-else-if="mode === 'header'" class="archive-card judgement-heading">
       <div class="archive-card-header judgement-heading-main">
-        <div class="judgement-heading-copy"><h1>{{ mode === 'header' ? '讨论区' : (title || `讨论 #${discussionId}`) }}</h1><p class="archive-card-description">{{ mode === 'header' ? '洛谷讨论主帖与回复归档' : forumName }}</p></div>
+        <div class="judgement-heading-copy"><h1>讨论区</h1><p class="archive-card-description">洛谷讨论主帖与回复归档</p></div>
       </div>
     </div>
   </div>
