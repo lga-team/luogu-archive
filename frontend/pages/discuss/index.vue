@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const api = useApi()
-const { format } = useTime()
+const { format, smart } = useTime()
+useHead({ title: '讨论区 - 洛谷档案馆' })
 const page = ref(1)
 const selectedForum = ref('')
 const pageSize = 30
@@ -42,7 +43,7 @@ interface DiscussionListResponse {
   page_size: number
 }
 
-const { data, pending, refresh: refreshList } = useLazyAsyncData(
+const { data, status, error, refresh: refreshList } = useLazyAsyncData(
   'discussion-list',
   () => api<DiscussionListResponse>('/discuss', {
     query: {
@@ -53,32 +54,43 @@ const { data, pending, refresh: refreshList } = useLazyAsyncData(
   }),
   { server: false, watch: [page, selectedForum] },
 )
+const recordsPending = computed(() => status.value === 'idle' || status.value === 'pending')
+const { data: lastCrawled, refresh: refreshCrawled } = useLazyAsyncData(
+  'discussion-last-crawled',
+  () => api<{ last_crawled_at: string | null }>('/last-crawled', { query: { type: 'discovery_discuss' } }),
+  { server: false },
+)
 
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total || 0) / pageSize)))
 const refreshState = ref<'idle' | 'pending' | 'success' | 'cooldown' | 'failed'>('idle')
-const refreshLabel = computed(() => ({
-  idle: '更新',
-  pending: '正在提交',
-  success: '已提交',
-  cooldown: '请稍后再试',
-  failed: '更新失败',
-}[refreshState.value]))
+const refreshMessage = ref('')
+let resetTimer: ReturnType<typeof setTimeout> | undefined
+let reloadTimer: ReturnType<typeof setTimeout> | undefined
+onBeforeUnmount(() => {
+  clearTimeout(resetTimer)
+  clearTimeout(reloadTimer)
+})
 
 async function updateDiscussions() {
   if (refreshState.value === 'pending') return
+  clearTimeout(resetTimer)
+  clearTimeout(reloadTimer)
   refreshState.value = 'pending'
+  refreshMessage.value = ''
   try {
     const result = await api<{ queued: boolean; message: string; retry_after: number }>('/discuss/refresh', {
       method: 'POST',
     })
+    refreshMessage.value = result.message || (result.queued ? '更新任务已提交' : `请在 ${result.retry_after || 60} 秒后重试`)
     refreshState.value = result.queued ? 'success' : 'cooldown'
     if (result.queued) {
-      window.setTimeout(() => void refreshList(), 3000)
+      reloadTimer = setTimeout(() => { void refreshList(); void refreshCrawled() }, 3000)
     }
-  } catch {
+  } catch (reason: any) {
+    refreshMessage.value = reason?.data?.message || '更新请求失败，请稍后重试'
     refreshState.value = 'failed'
   }
-  window.setTimeout(() => { refreshState.value = 'idle' }, 4000)
+  resetTimer = setTimeout(() => { refreshState.value = 'idle'; refreshMessage.value = '' }, 3000)
 }
 
 function chooseForum(slug: string) {
@@ -90,57 +102,32 @@ function chooseForum(slug: string) {
 
 <template>
   <div class="discussion-directory">
-    <header class="discussion-heading">
-      <div>
-        <h1>讨论区</h1>
-        <p>浏览已归档的洛谷讨论主帖与回复</p>
-      </div>
-      <button
-        type="button"
-        class="archive-action-button refresh-button"
-        :class="`is-${refreshState}`"
-        :disabled="refreshState === 'pending'"
-        @click="updateDiscussions"
-      >
-        {{ refreshLabel }}
-      </button>
-    </header>
+    <DiscussionControls
+      mode="header"
+      :state="refreshState"
+      :message="refreshMessage"
+      :updated-at="lastCrawled?.last_crawled_at ? smart(lastCrawled.last_crawled_at) : ''"
+      @update="updateDiscussions"
+    />
 
     <div class="discussion-page">
     <aside class="forum-panel" aria-label="讨论版块">
-      <div class="forum-title">版块</div>
-      <button
-        type="button"
-        class="forum-option all"
-        :class="{ active: !selectedForum }"
-        @click="chooseForum('')"
-      >
-        <span class="forum-mark grid-mark" aria-hidden="true">▪</span>
-        <span>全部版块</span>
-      </button>
-      <button
-        v-for="forum in data?.forums || []"
-        :key="forum.slug"
-        type="button"
-        class="forum-option"
-        :class="[{ active: selectedForum === forum.slug }, `forum-${forum.slug}`]"
-        @click="chooseForum(forum.slug)"
-      >
-        <span class="forum-mark" aria-hidden="true" />
-        <span>{{ forum.name }}</span>
-        <span class="forum-count">{{ forum.count }}</span>
-      </button>
+      <DiscussionControls mode="forums" :forums="data?.forums || []" :selected-forum="selectedForum" @forum="chooseForum" />
     </aside>
 
-    <main class="discussion-main">
-      <LoadingPanel v-if="pending && !data" title="正在读取讨论" text="正在加载已归档内容…" />
+    <section class="discussion-main" aria-label="已归档讨论" :aria-busy="recordsPending">
+      <LoadingPanel v-if="recordsPending" title="正在加载记录" text="" />
+      <div v-else-if="error" class="empty" role="alert">
+        <p>{{ error.data?.message || '讨论列表加载失败，请重试。' }}</p>
+        <DiscussionControls mode="retry" @retry="refreshList()" />
+      </div>
 
       <div v-else class="discussion-list">
         <NuxtLink
           v-for="item in data?.items || []"
           :key="item.discussion_id"
           :to="`/discuss/${item.discussion_id}`"
-          class="discussion-card"
+          class="discussion-card archive-card"
         >
           <div class="post-author">
             <img
@@ -148,12 +135,15 @@ function chooseForum(slug: string) {
               :src="item.author.avatar"
               alt=""
               class="avatar"
+              loading="lazy"
+              width="34"
+              height="34"
             >
             <div v-else class="avatar avatar-fallback" aria-hidden="true">?</div>
           </div>
 
           <div class="post-main">
-            <strong class="discussion-title">{{ item.title }}</strong>
+            <span class="discussion-title">{{ item.title }}</span>
             <div class="post-meta">
               <LuoguUserName v-if="item.author" :user="item.author" show-badge no-link />
               <span v-else class="muted">发帖人未收录</span>
@@ -182,12 +172,15 @@ function chooseForum(slug: string) {
         <div v-if="!data?.items.length" class="empty">这个版块暂时没有已归档讨论</div>
       </div>
 
-      <nav v-if="totalPages > 1" class="pagination" aria-label="讨论列表分页">
-        <button class="archive-action-button" :disabled="page <= 1" @click="page--">上一页</button>
-        <span>{{ page }} / {{ totalPages }}</span>
-        <button class="archive-action-button" :disabled="page >= totalPages" @click="page++">下一页</button>
-      </nav>
-    </main>
+      <DiscussionControls
+        v-if="!error && totalPages > 1"
+        mode="pagination"
+        :page="page"
+        :total-pages="totalPages"
+        :pending="recordsPending"
+        @page="page = $event"
+      />
+    </section>
     </div>
   </div>
 </template>
@@ -199,72 +192,27 @@ function chooseForum(slug: string) {
   max-width: 1180px;
   margin: 0 auto;
 }
-.discussion-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  min-height: 112px;
-  padding: 22px 26px;
-  box-sizing: border-box;
-  border: 1px solid var(--hero-border);
-  border-radius: 8px;
-  background: var(--hero-bg);
-}
-.discussion-heading h1 { margin: 0; font-size: 28px; }
-.discussion-heading p { margin: 6px 0 0; color: var(--hero-text-muted); }
-.refresh-button { flex: 0 0 auto; min-width: 92px; }
-.refresh-button.is-success { border-color: var(--lg-green); color: var(--lg-green); }
-.refresh-button.is-cooldown, .refresh-button.is-failed { border-color: var(--lg-orange); color: var(--lg-orange); }
 .discussion-page {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   align-items: start;
-  gap: 18px;
+  gap: 16px;
 }
 .forum-panel {
   position: sticky;
   top: 18px;
-  display: grid;
-  gap: 4px;
-  padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
+  min-width: 0;
 }
-.forum-title { margin: 0 0 9px; font-size: 17px; font-weight: 700; }
-.forum-option {
-  display: grid;
-  grid-template-columns: 10px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 38px;
-  padding: 7px 8px;
-  border: 0;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-.forum-option:hover, .forum-option.active { background: var(--hover); }
-.forum-mark { width: 8px; height: 8px; border-radius: 2px; background: var(--lg-orange); }
-.grid-mark { width: auto; height: auto; background: none; color: var(--text-muted); font-size: 18px; line-height: 1; }
-.forum-siteaffairs .forum-mark { background: var(--lg-blue); }
-.forum-academics .forum-mark { background: #a855f7; }
-.forum-service .forum-mark { background: var(--lg-green); }
-.forum-count { color: var(--text-muted); font-size: 11px; }
 .discussion-main { min-width: 0; }
 .discussion-list { display: grid; gap: 10px; }
 .discussion-card {
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) minmax(220px, 32%);
+  grid-template-columns: 34px minmax(0, 1fr) minmax(180px, 30%);
   align-items: center;
-  gap: 14px;
-  min-height: 88px;
-  padding: 14px 18px;
+  gap: 12px;
+  min-height: 90px;
+  box-sizing: border-box;
+  padding: 16px 18px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -273,31 +221,23 @@ function chooseForum(slug: string) {
   transition: border-color 0.15s, background 0.15s;
 }
 .discussion-card:hover { border-color: var(--link); background: color-mix(in srgb, var(--link) 3%, var(--surface)); }
-.avatar { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; }
+.avatar { display: block; width: 34px; height: 34px; border-radius: 50%; object-fit: cover; }
 .avatar-fallback { display: grid; place-items: center; background: var(--hover); color: var(--text-muted); font-weight: 700; }
 .post-main, .post-status { min-width: 0; }
-.discussion-title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; }
+.discussion-title { display: block; overflow-wrap: anywhere; font-size: 15px; font-weight: 500; line-height: 1.6; }
 .post-meta, .reply-meta, .forum-label { display: flex; align-items: center; }
-.post-meta { gap: 9px; margin-top: 7px; color: var(--text-muted); font-size: 12px; }
+.post-meta { gap: 5px 9px; flex-wrap: wrap; margin-top: 6px; color: var(--text-muted); font-size: 12px; }
 .post-status { display: grid; justify-items: end; gap: 9px; }
 .forum-label { gap: 6px; color: var(--text-muted); font-size: 12px; }
 .forum-label i { width: 8px; height: 8px; border-radius: 2px; background: var(--lg-blue); }
-.reply-meta { justify-content: flex-end; gap: 8px; min-width: 0; color: var(--text-muted); font-size: 12px; }
+.reply-meta { justify-content: flex-end; gap: 5px 8px; flex-wrap: wrap; min-width: 0; color: var(--text-muted); font-size: 12px; }
 .reply-count { white-space: nowrap; }
 .muted { color: var(--text-muted); }
-.empty { padding: 48px 20px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); text-align: center; }
-.pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 20px; }
+.empty { padding: 40px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-muted); text-align: center; }
 @media (max-width: 820px) {
-  .discussion-heading { align-items: flex-start; flex-direction: column; padding: 20px 17px; }
-  .discussion-heading h1 { font-size: 24px; }
-  .refresh-button { width: 100%; }
   .discussion-page { grid-template-columns: 1fr; }
-  .forum-panel { position: static; display: flex; overflow-x: auto; padding: 10px; }
-  .forum-title { display: none; }
-  .forum-option { flex: 0 0 auto; width: auto; grid-template-columns: 8px auto; white-space: nowrap; }
-  .forum-count { display: none; }
-  .discussion-card { grid-template-columns: 40px minmax(0, 1fr); padding: 13px; }
-  .avatar { width: 40px; height: 40px; }
+  .forum-panel { position: static; }
+  .discussion-card { grid-template-columns: 34px minmax(0, 1fr); padding: 14px; }
   .post-status { grid-column: 2; justify-items: start; }
   .reply-meta { justify-content: flex-start; flex-wrap: wrap; }
 }
