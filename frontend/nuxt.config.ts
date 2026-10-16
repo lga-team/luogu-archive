@@ -53,7 +53,7 @@ export default defineNuxtConfig({
     fallback: 'light',
     classSuffix: '',
   },
-  css: ['~/assets/css/base.css', 'katex/dist/katex.min.css'],
+  css: ['~/assets/css/base.css', 'katex/dist/katex.min.css', '~/assets/css/theme.css'],
   routeRules: {
     '/favicon.png': {
       headers: {

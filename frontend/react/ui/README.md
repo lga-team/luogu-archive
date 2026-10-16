@@ -5,6 +5,8 @@ controls with unrelated native elements or custom approximations.
 
 Rebuilt pages use the solid light/dark page background from `archive.css`, not
 the legacy blue gradient. Keep their root inside `.archive-react`.
+User-selected Luogu themes may override this default on rebuilt pages in light
+mode only. Dark mode stays solid. Never extend theme rules to legacy pages.
 
 Never replace an entire page with a loading screen. By default, render the
 page shell normally; show loading and errors only inside the data
@@ -27,3 +29,13 @@ only the required source into this directory. Keep imports on `../lib/utils`,
 scope styles to the existing `archive-*` classes, and preserve the public API and
 accessibility behavior. Never install the entire upstream dependency list or
 overwrite the existing adapted components automatically.
+
+## Luogu Themes
+
+The appearance editor supports light themes only. Import fetches exactly the
+user-specified `/theme/design/{id}` through the existing authenticated CN `hi`
+queue. Cached configurations live in `luogu_themes`; deploy backend migration
+`20261016_0017` before enabling URL imports. There is no automatic refresh.
+The settings API uses `POST /api/v1/themes/import` and `GET /api/v1/themes/{id}`.
+User edits stay in this browser's `archive-luogu-theme-v1` storage key. JSON
+import/export and editing work without the backend import endpoint.

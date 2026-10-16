@@ -1,0 +1,35 @@
+/* 主题变量只进入新页面；暗色仍使用项目原有的纯色背景。 */
+html[data-archive-theme]:not(.dark):has(.layout-root.archive-modern),
+html[data-archive-theme]:not(.dark):has(.layout-root.archive-modern) body { background: var(--archive-theme-body-bg); }
+html[data-archive-theme]:not(.dark) .archive-modern { --surface: var(--archive-theme-card); }
+.archive-theme-backdrop { display: none; }
+html[data-archive-theme]:not(.dark) .archive-modern .archive-theme-backdrop {
+  display: block; position: var(--archive-theme-layer-position); left: 73px; right: 0;
+  top: var(--archive-theme-layer-top); bottom: var(--archive-theme-layer-bottom);
+  height: var(--archive-theme-layer-height); pointer-events: none; z-index: -1;
+  background-image: var(--archive-theme-image), var(--archive-theme-gradient);
+  background-size: var(--archive-theme-size), 100% 100%;
+  background-position: var(--archive-theme-position), center;
+  background-repeat: var(--archive-theme-repeat), no-repeat;
+  filter: var(--archive-theme-brightness); mask-image: var(--archive-theme-mask);
+}
+.layout-root.archive-modern { isolation: isolate; position: relative; }
+html[data-archive-theme]:not(.dark) .archive-modern .side-nav { background: var(--archive-theme-nav-bg); }
+html[data-archive-theme]:not(.dark) .archive-modern .side-nav :is(.brand,.nav-item) { color: var(--archive-theme-nav-fg); }
+html[data-archive-theme]:not(.dark) .archive-modern .side-nav :is(.brand,.nav-item):hover,
+html[data-archive-theme]:not(.dark) .archive-modern .side-nav .nav-item.router-link-active { background: color-mix(in srgb, var(--archive-theme-nav-fg) 12%, transparent); }
+html[data-archive-theme]:not(.dark) .archive-modern :is(.archive-card,.archive-search,.site-footer,.theme-editor-panel) {
+  background-color: var(--archive-theme-card); backdrop-filter: var(--archive-theme-blur);
+}
+.brand-logo-mono { display: none; }
+html[data-archive-theme][data-archive-logo=mono]:not(.dark) .archive-modern .brand-logo { display: none; }
+html[data-archive-theme][data-archive-logo=mono]:not(.dark) .archive-modern .brand-logo-mono {
+  display: block; width: 34px; height: 34px; flex-shrink: 0; margin-left: -4px;
+  background: var(--archive-theme-logo); mask: url('/favicon.png') center / contain no-repeat;
+}
+@media (max-height: 640px) {
+  html[data-archive-theme][data-archive-logo=mono]:not(.dark) .archive-home-layout .brand-logo-mono { width: 28px; height: 28px; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  html[data-archive-theme]:not(.dark) .archive-modern { --archive-theme-card: #ffffff; --archive-theme-blur: none; }
+}

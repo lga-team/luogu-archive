@@ -7,6 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs'
 import { RadioGroup, RadioGroupItem } from './ui/radio-group'
 import { Dialog, DialogTrigger, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './ui/dialog'
 import { Textarea } from './ui/textarea'
+import { ThemeEditor, type ThemeEditorProps } from './theme-editor'
 
 export interface SettingsAccount {
   email: string
@@ -14,7 +15,7 @@ export interface SettingsAccount {
   luogu_uid: number | null
   luogu_bound_at: string | null
 }
-export interface SettingsPageProps {
+export interface SettingsPageProps extends ThemeEditorProps {
   initialized: boolean
   loggedIn: boolean
   displayName: string
@@ -181,6 +182,7 @@ export function SettingsPage(props: SettingsPageProps) {
             <RadioGroupItem id={`settings-theme-${theme.value}`} value={theme.value} /><theme.icon size={20} aria-hidden="true" /><span>{theme.label}</span>
           </Label>)}
         </RadioGroup>
+        <ThemeEditor resolvedTheme={props.resolvedTheme} importTheme={props.importTheme} getTheme={props.getTheme} />
       </TabsContent>
     </Tabs>
   </div>

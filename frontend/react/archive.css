@@ -129,6 +129,51 @@ html:has(.main-area .archive-react), html:has(.main-area .archive-react) body { 
 .settings-binding { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 28px 0 24px; padding: 24px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
 .settings-binding p { margin: 6px 0 0; }
 .settings-themes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.archive-react .theme-editor { margin-top: 32px; min-width: 0; }
+.archive-react .theme-import { display: grid; gap: 8px; }
+.archive-react .theme-import-row { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.archive-react .theme-import-row > .archive-input { flex: 1; min-width: 0; }
+.archive-react .theme-feedback { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; overflow-wrap: anywhere; }
+.archive-react .theme-feedback svg { flex-shrink: 0; }
+.archive-react .theme-editor-panel { min-width: 0; margin: 0; padding: 24px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); }
+.archive-react .theme-editor-panel > h3 { margin: 28px 0 18px; font-size: 18px; }
+.archive-react .theme-editor-panel > h3:first-of-type { margin-top: 24px; }
+.archive-react .theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 28px 32px; }
+.archive-react .theme-grid-three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.archive-react .theme-field { display: grid; gap: 12px; min-width: 0; align-content: start; }
+.archive-react .theme-field .archive-label { overflow-wrap: anywhere; }
+.archive-react .theme-full { grid-column: 1 / -1; }
+.archive-react .theme-color-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.archive-react .theme-color-row > .archive-input:not(.theme-swatch) { flex: 1; min-width: 0; }
+.archive-react .archive-input.theme-swatch { width: 48px; height: 40px; flex: 0 0 48px; padding: 3px; cursor: pointer; }
+.archive-react .theme-color-list, .archive-react .theme-logo-controls { display: grid; gap: 14px; }
+.archive-react .theme-choices { display: flex; flex-wrap: wrap; column-gap: 18px; row-gap: 12px; min-height: 40px; align-items: center; }
+.archive-react .theme-choice { display: inline-flex; align-items: center; gap: 8px; }
+.archive-react .theme-choice label { cursor: pointer; }
+.archive-react .theme-size-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.archive-react .theme-editor-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 20px 0; }
+.archive-react .theme-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.archive-react .archive-slider { position: relative; display: flex; align-items: center; width: 100%; height: 28px; touch-action: none; user-select: none; cursor: pointer; }
+.archive-react .archive-slider-track { position: relative; width: 100%; height: 6px; flex-grow: 1; overflow: hidden; border-radius: 6px; background: #e5e7eb; }
+.archive-react .archive-slider-range { position: absolute; height: 100%; background: var(--link); }
+.archive-react .archive-slider-thumb { display: block; height: 18px; width: 18px; border: 2px solid var(--link); background: white; border-radius: 50%; }
+.archive-react .archive-slider-thumb:focus-visible, .archive-react .archive-switch:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.archive-react .archive-switch { position: relative; width: 36px; height: 22px; padding: 2px; border: 0; border-radius: 12px; background: #8b949e; cursor: pointer; flex-shrink: 0; }
+.archive-react .archive-switch[data-state=checked] { background: var(--link); }
+.archive-react .archive-switch-thumb { display: block; width: 18px; height: 18px; border-radius: 50%; background: white; transition: transform .15s; }
+.archive-react .archive-switch-thumb[data-state=checked] { transform: translateX(14px); }
+.archive-react .archive-switch:disabled, .archive-react fieldset:disabled { opacity: .6; }
+@media (max-width: 900px) {
+  .archive-react .theme-grid-three { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .archive-react .theme-grid, .archive-react .theme-grid-three { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .archive-react .theme-editor-panel { padding: 16px; }
+  .archive-react .theme-import-row { flex-wrap: wrap; }
+  .archive-react .theme-import-row > .archive-input { flex-basis: 100%; }
+  .archive-react .theme-editor-footer { align-items: stretch; }
+  .archive-react .theme-editor-footer > div { width: 100%; }
+}
 .settings-theme { display: flex; align-items: center; gap: 10px; min-height: 68px; padding: 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; }
 .settings-theme[data-selected=true] { border-color: var(--text); }
 .settings-theme svg { flex-shrink: 0; }

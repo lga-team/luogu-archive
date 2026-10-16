@@ -153,10 +153,12 @@ const navItems = computed(() => allNavItems.filter(
 
 <template>
   <div class="layout-root" :class="{ 'archive-home-layout': route.path === '/', 'archive-modern': ['/', '/announcement', '/settings', '/login'].includes(route.path) }">
+    <div class="archive-theme-backdrop" aria-hidden="true" />
     <aside class="side-nav">
       <div class="side-top">
       <NuxtLink to="/" class="brand" title="洛谷档案馆">
         <img src="/favicon.png" alt="洛谷档案馆" class="brand-logo">
+        <span class="brand-logo-mono" aria-hidden="true" />
         <span class="label">洛谷档案馆</span>
       </NuxtLink>
 

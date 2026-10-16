@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Root } from 'react-dom/client'
 import type { SettingsAccount, SettingsPageProps } from '../react/settings-page'
+import type { ThemeResult } from '../utils/luoguTheme'
 
 const props = defineProps<{ loginOnly?: boolean }>()
 const auth = useAuthStore()
@@ -67,6 +68,9 @@ onMounted(async () => {
         loggingOut: loggingOut.value,
         error: error.value,
         theme: colorMode.preference,
+        resolvedTheme: colorMode.value,
+        importTheme: (id, refresh, signal) => api<ThemeResult>('/themes/import', { method: 'POST', body: { id, refresh }, signal }),
+        getTheme: (id, signal) => api<ThemeResult>(`/themes/${id}`, { signal }),
         login: async (body) => {
           const data = await api<Parameters<typeof auth.setTokens>[0]>('/auth/login', { method: 'POST', body })
           auth.setTokens(data)
@@ -95,7 +99,7 @@ onMounted(async () => {
 })
 watch(() => [
   auth.initialized, auth.isLoggedIn, auth.displayName, auth.email, account.value,
-  loading.value, loggingOut.value, error.value, colorMode.preference,
+  loading.value, loggingOut.value, error.value, colorMode.preference, colorMode.value,
 ], () => draw?.(), { deep: true })
 </script>
 <template>
