@@ -1,11 +1,11 @@
-import { ChevronLeft, ChevronRight, ExternalLink, LayoutGrid, MessagesSquare, RefreshCw } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, LayoutGrid, MessagesSquare, RefreshCw } from 'lucide-react'
 import { Button } from './ui/button'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { UpdateButton } from './update-button'
 
 export interface DiscussionForum { name: string; slug: string; count: number }
 export interface DiscussionControlsProps {
-  mode: 'header' | 'forums' | 'pagination' | 'retry'
+  mode: 'header' | 'forums' | 'pagination' | 'retry' | 'detail-header' | 'detail-toolbar' | 'copy'
   state?: string
   message?: string
   updatedAt?: string
@@ -14,13 +14,47 @@ export interface DiscussionControlsProps {
   page?: number
   totalPages?: number
   pending?: boolean
+  title?: string
+  forumName?: string
+  discussionId?: number
+  copied?: boolean
+  copyDisabled?: boolean
   onUpdate: () => void
   onForum: (slug: string) => void
   onPage: (page: number) => void
   onRetry: () => void
+  onCopy: () => void
+  onBack: () => void
 }
 
 export function DiscussionControls(props: DiscussionControlsProps) {
+  if (props.mode === 'detail-header') return <Card className="judgement-heading discussion-detail-heading">
+    <CardHeader className="judgement-heading-main">
+      <MessagesSquare className="judgement-heading-icon" size={56} strokeWidth={1.8} aria-hidden="true" />
+      <div className="judgement-heading-copy">
+        <CardTitle><h1>{props.title || `讨论 #${props.discussionId}`}</h1></CardTitle>
+        <CardDescription>{[props.forumName, `#${props.discussionId}`].filter(Boolean).join(' · ')}</CardDescription>
+      </div>
+    </CardHeader>
+  </Card>
+
+  if (props.mode === 'detail-toolbar') return <Card className="judgement-toolbar">
+    <CardFooter className="judgement-heading-footer discussion-detail-toolbar">
+      <Button variant="ghost" size="sm" asChild><a href="/discuss" onClick={event => {
+        if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); props.onBack() }
+      }}><ChevronLeft size={14} aria-hidden="true" />讨论区</a></Button>
+      <span className="judgement-heading-updated">{props.updatedAt ? `上次更新：${props.updatedAt}` : ''}</span>
+      <div className="judgement-heading-actions">
+        <Button variant="outline" size="sm" asChild><a href={`https://www.luogu.com.cn/discuss/${props.discussionId}`} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} aria-hidden="true" />查看原文</a></Button>
+        <CopyButton {...props} />
+        <UpdateButton state={props.state || 'idle'} message={props.message || ''} onUpdate={props.onUpdate} />
+      </div>
+      {props.state === 'captcha' && props.message && <p className="judgement-heading-message" role="status">{props.message}</p>}
+    </CardFooter>
+  </Card>
+
+  if (props.mode === 'copy') return <CopyButton {...props} />
+
   if (props.mode === 'header') return <div className="judgement-header-stack">
     <Card className="judgement-heading">
       <CardHeader className="judgement-heading-main">
@@ -65,4 +99,10 @@ export function DiscussionControls(props: DiscussionControlsProps) {
     <span aria-live="polite">{page} / {totalPages}</span>
     <Button variant="outline" size="sm" disabled={props.pending || page >= totalPages} onClick={() => props.onPage(page + 1)}>下一页<ChevronRight size={14} aria-hidden="true" /></Button>
   </nav>
+}
+
+function CopyButton({ copied, copyDisabled, onCopy }: DiscussionControlsProps) {
+  return <Button variant="outline" size="sm" className="discussion-copy" disabled={copyDisabled} onClick={onCopy} aria-label={copied ? '原文已复制' : '复制 Markdown 原文'}>
+    {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}{copied ? '已复制' : '复制原文'}
+  </Button>
 }

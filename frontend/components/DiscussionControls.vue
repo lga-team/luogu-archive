@@ -3,7 +3,7 @@ import type { Root } from 'react-dom/client'
 import type { DiscussionForum } from '../react/discussion-controls'
 
 const props = defineProps<{
-  mode: 'header' | 'forums' | 'pagination' | 'retry'
+  mode: 'header' | 'forums' | 'pagination' | 'retry' | 'detail-header' | 'detail-toolbar' | 'copy'
   state?: string
   message?: string
   updatedAt?: string
@@ -12,8 +12,13 @@ const props = defineProps<{
   page?: number
   totalPages?: number
   pending?: boolean
+  title?: string
+  forumName?: string
+  discussionId?: number
+  copied?: boolean
+  copyDisabled?: boolean
 }>()
-const emit = defineEmits<{ update: []; forum: [slug: string]; page: [page: number]; retry: [] }>()
+const emit = defineEmits<{ update: []; forum: [slug: string]; page: [page: number]; retry: []; copy: []; back: [] }>()
 const host = ref<HTMLElement | null>(null)
 const loadFailed = ref(false)
 let root: Root | undefined
@@ -33,6 +38,8 @@ onMounted(async () => {
       onForum: (slug: string) => emit('forum', slug),
       onPage: (page: number) => emit('page', page),
       onRetry: () => emit('retry'),
+      onCopy: () => emit('copy'),
+      onBack: () => emit('back'),
     }))
     draw()
   } catch {
@@ -45,9 +52,9 @@ onBeforeUnmount(() => { disposed = true; root?.unmount() })
 
 <template>
   <div ref="host" class="archive-react">
-    <div v-if="mode === 'header'" class="archive-card judgement-heading">
+    <div v-if="mode === 'header' || mode === 'detail-header'" class="archive-card judgement-heading">
       <div class="archive-card-header judgement-heading-main">
-        <div class="judgement-heading-copy"><h1>讨论区</h1><p class="archive-card-description">洛谷讨论主帖与回复归档</p></div>
+        <div class="judgement-heading-copy"><h1>{{ mode === 'header' ? '讨论区' : (title || `讨论 #${discussionId}`) }}</h1><p class="archive-card-description">{{ mode === 'header' ? '洛谷讨论主帖与回复归档' : forumName }}</p></div>
       </div>
     </div>
   </div>
