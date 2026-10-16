@@ -3,7 +3,7 @@ import type { Root } from 'react-dom/client'
 import type { DiscussionForum } from '../react/discussion-controls'
 
 const props = defineProps<{
-  mode: 'header' | 'forums' | 'pagination' | 'retry' | 'detail-header' | 'detail-toolbar' | 'copy'
+  mode: 'header' | 'forums' | 'retry' | 'detail-header' | 'detail-toolbar' | 'copy'
   state?: string
   message?: string
   updatedAt?: string

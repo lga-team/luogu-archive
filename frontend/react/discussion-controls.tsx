@@ -1,11 +1,11 @@
-import { Check, ChevronLeft, ChevronRight, Copy, ExternalLink, LayoutGrid, MessagesSquare, RefreshCw } from 'lucide-react'
+import { Check, Copy, ExternalLink, LayoutGrid, MessagesSquare, RefreshCw } from 'lucide-react'
 import { Button } from './ui/button'
 import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { UpdateButton } from './update-button'
 
 export interface DiscussionForum { name: string; slug: string; count: number }
 export interface DiscussionControlsProps {
-  mode: 'header' | 'forums' | 'pagination' | 'retry' | 'detail-header' | 'detail-toolbar' | 'copy'
+  mode: 'header' | 'forums' | 'retry' | 'detail-header' | 'detail-toolbar' | 'copy'
   state?: string
   message?: string
   updatedAt?: string
@@ -83,12 +83,7 @@ export function DiscussionControls(props: DiscussionControlsProps) {
 
   if (props.mode === 'retry') return <Button variant="outline" size="sm" disabled={props.pending} onClick={props.onRetry}><RefreshCw size={14} aria-hidden="true" />重试</Button>
 
-  const page = props.page || 1, totalPages = props.totalPages || 1
-  return <nav className="discussion-pagination" aria-label="讨论列表分页">
-    <Button variant="outline" size="sm" disabled={props.pending || page <= 1} onClick={() => props.onPage(page - 1)}><ChevronLeft size={14} aria-hidden="true" />上一页</Button>
-    <span aria-live="polite">{page} / {totalPages}</span>
-    <Button variant="outline" size="sm" disabled={props.pending || page >= totalPages} onClick={() => props.onPage(page + 1)}>下一页<ChevronRight size={14} aria-hidden="true" /></Button>
-  </nav>
+  return null
 }
 
 function CopyButton({ copied, copyDisabled, onCopy }: DiscussionControlsProps) {

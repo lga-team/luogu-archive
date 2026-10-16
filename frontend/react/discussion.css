@@ -14,8 +14,6 @@
 .discussion-forum-dot[data-forum=academics] { background: var(--lg-purple); }
 .discussion-forum-dot[data-forum=service] { background: var(--lg-green); }
 .discussion-forum-count { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-.discussion-pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 20px; }
-.discussion-pagination > span { min-width: 64px; text-align: center; font-size: 13px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .discussion-post-title { margin: 0; overflow-wrap: anywhere; font-size: 24px; font-weight: 600; line-height: 1.4; }
 .discussion-detail-toolbar { flex-direction: column; align-items: stretch; padding: 16px 18px; gap: 12px; }
 .discussion-detail-toolbar > .archive-button { align-self: flex-start; }

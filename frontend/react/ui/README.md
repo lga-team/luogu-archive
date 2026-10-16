@@ -30,6 +30,34 @@ scope styles to the existing `archive-*` classes, and preserve the public API an
 accessibility behavior. Never install the entire upstream dependency list or
 overwrite the existing adapted components automatically.
 
+## Pagination
+
+Use the shared pagination template for all new or rebuilt numbered pagination.
+Do not create page-specific pagination controls or copies of its styles.
+
+Vue pages use the auto-imported `ArchivePagination` component:
+
+```vue
+<ArchivePagination
+  v-if="totalPages > 1"
+  :page="page"
+  :total-pages="totalPages"
+  :pending="pending"
+  @page="goPage"
+/>
+```
+
+React surfaces use `Pagination` from `../pagination` and load
+`../pagination.css` together with `../archive.css`. Keep the root inside
+`.archive-react`. Pass `page`, `totalPages`, `pending`, and `onPage`.
+
+The template owns the ten-number sliding window, first/previous/next/last
+controls, total-page label, current-page highlight, and loading-disabled state.
+Pages own fetching, routing, scroll behavior, and any page-count cap. The
+discussion directory caps its total at 20; this is not a shared-template limit.
+Existing legacy pages adopt the template when they are rebuilt. Cursor-based
+"load more" lists keep their existing behavior unless explicitly redesigned.
+
 ## Luogu Themes
 
 The appearance editor supports light themes only. Import fetches exactly the

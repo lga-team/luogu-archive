@@ -61,7 +61,7 @@ const { data: lastCrawled } = useLazyAsyncData(
   { server: false },
 )
 
-const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total || 0) / pageSize)))
+const totalPages = computed(() => Math.min(20, Math.max(1, Math.ceil((data.value?.total || 0) / pageSize))))
 function chooseForum(slug: string) {
   if (selectedForum.value === slug) return
   selectedForum.value = slug
@@ -144,9 +144,8 @@ function chooseForum(slug: string) {
         <div v-if="!data?.items.length" class="empty">这个版块暂时没有已归档讨论</div>
       </div>
 
-      <DiscussionControls
+      <ArchivePagination
         v-if="!error && totalPages > 1"
-        mode="pagination"
         :page="page"
         :total-pages="totalPages"
         :pending="recordsPending"

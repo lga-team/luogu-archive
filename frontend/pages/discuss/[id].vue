@@ -191,7 +191,7 @@ function goPage(page: number) {
       </div>
       <p v-else class="empty-replies">本页没有已归档回复。</p>
 
-      <DiscussionControls v-if="totalPages > 1" mode="pagination" :page="currentPage" :total-pages="totalPages" :pending="recordsPending" @page="goPage" />
+      <ArchivePagination v-if="totalPages > 1" :page="currentPage" :total-pages="totalPages" :pending="recordsPending" @page="goPage" />
     </section>
   </div>
 </template>
