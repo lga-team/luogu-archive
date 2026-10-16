@@ -138,20 +138,20 @@ function chooseForum(slug: string) {
 
           <div class="post-main">
             <span class="discussion-title">{{ item.title }}</span>
-            <div class="post-meta">
+            <FitInline class="post-meta">
               <LuoguUserName v-if="item.author" :user="item.author" show-badge no-link />
               <span v-else class="muted">发帖人未收录</span>
               <time :datetime="item.source_time || item.crawled_at">
                 {{ format(item.source_time || item.crawled_at) }}
               </time>
-            </div>
+            </FitInline>
           </div>
 
           <div class="post-status">
             <span class="forum-label">
               <i aria-hidden="true" />{{ item.forum_name || '未知版块' }}
             </span>
-            <div class="reply-meta">
+            <FitInline class="reply-meta" align="right">
               <span class="reply-count">{{ item.stored_reply_count }} 条回复</span>
               <template v-if="item.latest_reply_author">
                 <LuoguUserName :user="item.latest_reply_author" no-link />
@@ -159,7 +159,7 @@ function chooseForum(slug: string) {
                   {{ format(item.latest_reply_time) }}
                 </time>
               </template>
-            </div>
+            </FitInline>
           </div>
         </NuxtLink>
 
@@ -201,7 +201,7 @@ function chooseForum(slug: string) {
 .discussion-list { display: grid; gap: 10px; }
 .discussion-card {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr) minmax(180px, 30%);
+  grid-template-columns: 34px minmax(0, 1fr) minmax(0, 1.1fr);
   align-items: center;
   gap: 12px;
   min-height: 90px;
@@ -219,12 +219,13 @@ function chooseForum(slug: string) {
 .avatar-fallback { display: grid; place-items: center; background: var(--hover); color: var(--text-muted); font-weight: 700; }
 .post-main, .post-status { min-width: 0; }
 .discussion-title { display: block; overflow-wrap: anywhere; font-size: 15px; font-weight: 500; line-height: 1.6; }
-.post-meta, .reply-meta, .forum-label { display: flex; align-items: center; }
-.post-meta { gap: 5px 9px; flex-wrap: wrap; margin-top: 6px; color: var(--text-muted); font-size: 12px; }
-.post-status { display: grid; justify-items: end; gap: 9px; }
+.forum-label { display: flex; align-items: center; }
+.post-meta { margin-top: 6px; color: var(--text-muted); font-size: 12px; }
+.post-status { display: grid; justify-items: end; gap: 9px; width: 100%; }
 .forum-label { gap: 6px; color: var(--text-muted); font-size: 12px; }
 .forum-label i { width: 8px; height: 8px; border-radius: 2px; background: var(--lg-blue); }
-.reply-meta { justify-content: flex-end; gap: 5px 8px; flex-wrap: wrap; min-width: 0; color: var(--text-muted); font-size: 12px; }
+.reply-meta { color: var(--text-muted); font-size: 12px; }
+.post-meta :deep(.lg-user-wrap), .reply-meta :deep(.lg-user-wrap), .post-meta time, .reply-meta time { flex-shrink: 0; white-space: nowrap; }
 .reply-count { white-space: nowrap; }
 .muted { color: var(--text-muted); }
 .empty { padding: 40px 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-muted); text-align: center; }
@@ -232,7 +233,6 @@ function chooseForum(slug: string) {
   .discussion-page { grid-template-columns: 1fr; }
   .forum-panel { position: static; }
   .discussion-card { grid-template-columns: 34px minmax(0, 1fr); padding: 14px; }
-  .post-status { grid-column: 2; justify-items: start; }
-  .reply-meta { justify-content: flex-start; flex-wrap: wrap; }
+  .post-status { grid-column: 1 / -1; justify-items: end; }
 }
 </style>
