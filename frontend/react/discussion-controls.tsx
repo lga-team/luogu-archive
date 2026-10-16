@@ -63,6 +63,7 @@ export function DiscussionControls(props: DiscussionControlsProps) {
           </Button>
           <UpdateButton state={props.state || 'idle'} message={props.message || ''} onUpdate={props.onUpdate} />
         </div>
+        {props.state === 'captcha' && props.message && <p className="judgement-heading-message" role="status">{props.message}</p>}
       </CardFooter>
     </Card>
   </div>

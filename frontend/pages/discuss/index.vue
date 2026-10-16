@@ -62,31 +62,6 @@ const { data: lastCrawled } = useLazyAsyncData(
 )
 
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total || 0) / pageSize)))
-const refreshState = ref<'idle' | 'pending' | 'success' | 'cooldown' | 'failed'>('idle')
-const refreshMessage = ref('')
-let resetTimer: ReturnType<typeof setTimeout> | undefined
-onBeforeUnmount(() => {
-  clearTimeout(resetTimer)
-})
-
-async function updateDiscussions() {
-  if (refreshState.value === 'pending') return
-  clearTimeout(resetTimer)
-  refreshState.value = 'pending'
-  refreshMessage.value = ''
-  try {
-    const result = await api<{ queued: boolean; message: string; retry_after: number }>('/discuss/refresh', {
-      method: 'POST',
-    })
-    refreshMessage.value = result.message || (result.queued ? '更新任务已提交' : `请在 ${result.retry_after || 60} 秒后重试`)
-    refreshState.value = result.queued ? 'success' : 'cooldown'
-  } catch (reason: any) {
-    refreshMessage.value = reason?.data?.message || '更新请求失败，请稍后重试'
-    refreshState.value = 'failed'
-  }
-  resetTimer = setTimeout(() => { refreshState.value = 'idle'; refreshMessage.value = '' }, 3000)
-}
-
 function chooseForum(slug: string) {
   if (selectedForum.value === slug) return
   selectedForum.value = slug
@@ -96,13 +71,17 @@ function chooseForum(slug: string) {
 
 <template>
   <div class="discussion-directory">
-    <DiscussionControls
-      mode="header"
-      :state="refreshState"
-      :message="refreshMessage"
-      :updated-at="lastCrawled?.last_crawled_at ? smart(lastCrawled.last_crawled_at) : ''"
-      @update="updateDiscussions"
-    />
+    <SaveButton content-type="discuss_list" content-id="all">
+      <template #default="{ state, message, save }">
+        <DiscussionControls
+          mode="header"
+          :state="state"
+          :message="message"
+          :updated-at="lastCrawled?.last_crawled_at ? smart(lastCrawled.last_crawled_at) : ''"
+          @update="save"
+        />
+      </template>
+    </SaveButton>
 
     <div class="discussion-page">
     <aside class="forum-panel" aria-label="讨论版块">
