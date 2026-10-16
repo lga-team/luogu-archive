@@ -32,9 +32,6 @@ export function DiscussionControls(props: DiscussionControlsProps) {
 
   if (props.mode === 'detail-toolbar') return <Card className="judgement-toolbar">
     <CardFooter className="judgement-heading-footer discussion-detail-toolbar">
-      <Button variant="ghost" size="sm" asChild><a href="/discuss" onClick={event => {
-        if (event.button === 0 && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) { event.preventDefault(); props.onBack() }
-      }}><ChevronLeft size={14} aria-hidden="true" />讨论区</a></Button>
       <span className="judgement-heading-updated">{props.updatedAt ? `上次更新：${props.updatedAt}` : ''}</span>
       <div className="judgement-heading-actions">
         <Button variant="outline" size="sm" asChild><a href={`https://www.luogu.com.cn/discuss/${props.discussionId}`} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} aria-hidden="true" />查看原文</a></Button>

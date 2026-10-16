@@ -55,7 +55,7 @@ const { data, status, error, refresh: refreshList } = useLazyAsyncData(
   { server: false, watch: [page, selectedForum] },
 )
 const recordsPending = computed(() => status.value === 'idle' || status.value === 'pending')
-const { data: lastCrawled, refresh: refreshCrawled } = useLazyAsyncData(
+const { data: lastCrawled } = useLazyAsyncData(
   'discussion-last-crawled',
   () => api<{ last_crawled_at: string | null }>('/last-crawled', { query: { type: 'discovery_discuss' } }),
   { server: false },
@@ -65,16 +65,13 @@ const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total || 0)
 const refreshState = ref<'idle' | 'pending' | 'success' | 'cooldown' | 'failed'>('idle')
 const refreshMessage = ref('')
 let resetTimer: ReturnType<typeof setTimeout> | undefined
-let reloadTimer: ReturnType<typeof setTimeout> | undefined
 onBeforeUnmount(() => {
   clearTimeout(resetTimer)
-  clearTimeout(reloadTimer)
 })
 
 async function updateDiscussions() {
   if (refreshState.value === 'pending') return
   clearTimeout(resetTimer)
-  clearTimeout(reloadTimer)
   refreshState.value = 'pending'
   refreshMessage.value = ''
   try {
@@ -83,9 +80,6 @@ async function updateDiscussions() {
     })
     refreshMessage.value = result.message || (result.queued ? '更新任务已提交' : `请在 ${result.retry_after || 60} 秒后重试`)
     refreshState.value = result.queued ? 'success' : 'cooldown'
-    if (result.queued) {
-      reloadTimer = setTimeout(() => { void refreshList(); void refreshCrawled() }, 3000)
-    }
   } catch (reason: any) {
     refreshMessage.value = reason?.data?.message || '更新请求失败，请稍后重试'
     refreshState.value = 'failed'
