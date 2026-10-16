@@ -202,6 +202,8 @@ function chooseForum(slug: string) {
 .discussion-link:focus-visible { outline: none; }
 .discussion-card:has(.discussion-link:focus-visible) { outline: 2px solid var(--link); outline-offset: 2px; }
 .post-meta :deep(.lg-user-wrap), .reply-meta :deep(.lg-user-wrap) { position: relative; z-index: 1; }
+.post-meta, .reply-meta { pointer-events: none; }
+.post-meta :deep(a.lg-name), .reply-meta :deep(a.lg-name) { pointer-events: auto; }
 .forum-label { display: flex; align-items: center; }
 .post-meta { margin-top: 6px; color: var(--text-muted); font-size: 12px; }
 .post-status { display: grid; justify-items: end; gap: 9px; width: 100%; }
