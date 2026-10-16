@@ -6,7 +6,7 @@ const hiddenArchiveExactPages = new Set(['/feed', '/fake-realtime'])
 const hiddenArchivePagePrefixes = ['/problem', '/contest', '/admin/problems', '/admin/contests']
 
 export default defineNuxtConfig({
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   ssr: true,
   vite: {
     server: { allowedHosts: true },
