@@ -14,7 +14,7 @@ html[data-archive-theme]:not(.dark) .archive-modern .archive-theme-backdrop {
   filter: var(--archive-theme-brightness); mask-image: var(--archive-theme-mask);
 }
 .layout-root.archive-modern { isolation: isolate; position: relative; }
-html[data-archive-theme]:not(.dark) .archive-modern .side-nav { background: var(--archive-theme-nav-bg); }
+html[data-archive-theme]:not(.dark) .archive-modern .side-nav { background: var(--archive-theme-nav-bg); border-right-color: transparent; }
 html[data-archive-theme]:not(.dark) .archive-modern .side-nav :is(.brand,.nav-item) { color: var(--archive-theme-nav-fg); }
 html[data-archive-theme]:not(.dark) .archive-modern .side-nav :is(.brand,.nav-item):hover,
 html[data-archive-theme]:not(.dark) .archive-modern .side-nav .nav-item.router-link-active { background: color-mix(in srgb, var(--archive-theme-nav-fg) 12%, transparent); }
