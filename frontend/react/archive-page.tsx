@@ -2,6 +2,7 @@ import * as React from 'react'
 import { ArrowRight, ArrowLeft, Search, Megaphone, ChevronRight, RefreshCw } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from './ui/card'
 import { parseArchiveAddress } from './parse-address'
 
 export interface Announcement { id: number; title: string; summary: string; content: string; published_at: string }
@@ -105,22 +106,34 @@ export function ArchivePage(props: ArchivePageProps) {
   </>
 
   return <section className="archive-announcements">
-    <header className="archive-announcement-heading">
-      <div><span className="archive-eyebrow">洛谷档案馆</span><h1>站点公告</h1></div>
-      {selected && <Button variant="ghost" onClick={() => props.navigate('/announcement')}><ArrowLeft size={16} />全部公告</Button>}
-    </header>
-    {loading ? <p role="status" className="archive-muted">loading……</p> : failed ? <div className="archive-load-error" role="alert"><p>公告加载失败，请稍后重试。</p><Button variant="outline" onClick={() => setRetry(value => value + 1)}><RefreshCw size={16} />重试</Button></div> : selected ? <article>
+    <Card className="judgement-heading">
+      <CardHeader className="judgement-heading-main">
+        <Megaphone className="judgement-heading-icon" size={56} strokeWidth={1.8} aria-hidden="true" />
+        <div className="judgement-heading-copy">
+          <CardTitle><h1>站点公告</h1></CardTitle>
+          <CardDescription>洛谷档案馆站点通知与公告</CardDescription>
+        </div>
+      </CardHeader>
+    </Card>
+    {selected && <Card className="judgement-toolbar">
+      <CardFooter className="judgement-heading-footer">
+        <Button variant="outline" size="sm" asChild>
+          <a href="/announcement" onClick={event => { event.preventDefault(); props.navigate('/announcement') }}><ArrowLeft size={14} aria-hidden="true" />全部公告</a>
+        </Button>
+      </CardFooter>
+    </Card>}
+    {loading ? <p role="status" className="archive-muted">正在加载公告…</p> : failed ? <div className="archive-load-error" role="alert"><p>公告加载失败，请稍后重试。</p><Button variant="outline" size="sm" onClick={() => setRetry(value => value + 1)}><RefreshCw size={14} aria-hidden="true" />重试</Button></div> : selected ? <Card className="archive-announcement-detail"><article>
       <h2 className="archive-detail-title">{selected.title}</h2>
       <time className="archive-muted" dateTime={selected.published_at}>{formatDate(selected.published_at)}</time>
       <div className="markdown-body archive-announcement-content" dangerouslySetInnerHTML={{ __html: props.renderMarkdown(selected.content) }} />
-    </article> : <>
+    </article></Card> : <>
       {props.selectedId && <p role="alert" className="archive-error">未找到这条公告，以下为现有公告。</p>}
       {!announcements.length && <p className="archive-muted">暂无公告。</p>}
-      <div className="archive-announcement-list">{announcements.map(item => <article key={item.id}>
+      <div className="archive-announcement-list">{announcements.map(item => <Card key={item.id} className="archive-announcement-item"><article>
         <a href={`/announcement?id=${item.id}`} onClick={event => { event.preventDefault(); props.navigate(`/announcement?id=${item.id}`) }}>
           <div><time dateTime={item.published_at}>{formatDate(item.published_at)}</time><h2>{item.title}</h2>{item.summary && <p>{item.summary}</p>}</div><ChevronRight size={20} aria-hidden="true" />
         </a>
-      </article>)}</div>
+      </article></Card>)}</div>
     </>}
   </section>
 }

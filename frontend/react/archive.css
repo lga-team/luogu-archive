@@ -35,19 +35,20 @@
 .archive-notice svg { flex-shrink: 0; }
 .archive-notice:hover { color: var(--link); text-decoration: none; }
 .archive-announcement-entry { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 13px; color: var(--text-muted); }
-.archive-announcements { width: min(100%, 850px); margin: 28px auto 0; }
-.archive-announcement-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-bottom: 28px; border-bottom: 1px solid var(--border); }
+.archive-announcements { display: grid; gap: 16px; width: min(100%, 1180px); margin: 0 auto; }
 .archive-eyebrow, .archive-muted { font-size: 14px; color: var(--text-muted); }
-.archive-announcement-heading h1 { margin: 4px 0 0; font-size: 28px; line-height: 1.4; }
-.archive-announcement-list article { border-bottom: 1px solid var(--border); }
-.archive-announcement-list a { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 26px 0; color: var(--text); text-decoration: none; }
+.archive-announcement-list { display: grid; gap: 12px; }
+.archive-react .archive-announcement-item { padding: 0; gap: 0; overflow: hidden; transition: border-color .15s, background .15s; }
+.archive-announcement-item:hover { border-color: var(--link); }
+.archive-announcement-list a { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; color: var(--text); text-decoration: none; }
 .archive-announcement-list a:hover h2 { color: var(--link); }
 .archive-announcement-list a > div { min-width: 0; }
 .archive-announcement-list svg { flex-shrink: 0; color: var(--text-muted); }
 .archive-announcement-list time { color: var(--text-muted); font-size: 13px; }
-.archive-announcement-list h2 { margin: 7px 0; font-size: 19px; line-height: 1.5; overflow-wrap: anywhere; }
+.archive-announcement-list h2 { margin: 7px 0; font-size: 17px; font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
 .archive-announcement-list p { margin: 0; color: var(--text-muted); font-size: 14px; overflow-wrap: anywhere; }
-.archive-detail-title { font-size: 24px; line-height: 1.5; overflow-wrap: anywhere; margin: 28px 0 8px; }
+.archive-react .archive-announcement-detail { display: block; min-width: 0; padding: 24px; }
+.archive-detail-title { font-size: 24px; line-height: 1.5; overflow-wrap: anywhere; margin: 0 0 8px; }
 .archive-announcement-content { margin-top: 26px; overflow-wrap: anywhere; }
 .archive-announcement-content img { max-width: 100%; }
 .archive-announcement-content pre { overflow-x: auto; }
@@ -64,10 +65,9 @@ html:has(.main-area .archive-react), html:has(.main-area .archive-react) body { 
   .archive-wordmark h1 { font-size: 28px; }
   .archive-react .archive-search { gap: 8px; padding-left: 14px; min-height: 56px; }
   .archive-react .archive-search .archive-input { font-size: 14px; }
-  .archive-announcements { margin-top: 12px; }
-  .archive-announcement-heading { align-items: flex-start; }
-  .archive-announcement-heading h1 { font-size: 24px; }
-  .archive-announcement-heading .archive-button { padding-left: 5px; padding-right: 5px; }
+  .archive-announcement-list a { padding: 16px; gap: 12px; }
+  .archive-react .archive-announcement-detail { padding: 18px 16px; }
+  .archive-detail-title { font-size: 21px; }
 }
 
 /* shadcn/ui controls share the migration's isolated theme tokens. */
