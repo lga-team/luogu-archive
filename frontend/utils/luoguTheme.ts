@@ -101,10 +101,16 @@ export function saveTheme(saved: SavedTheme) {
   window.dispatchEvent(new Event('archive-theme-saved'))
 }
 export function parseThemeId(value: string): number {
-  const url = new URL(value.trim())
-  const match = /^\/theme\/design\/([1-9]\d*)\/?$/.exec(url.pathname)
-  if (url.protocol !== 'https:' || !['www.luogu.com.cn', 'luogu.com.cn', 'www.luogu.com', 'luogu.com'].includes(url.hostname) || url.port || url.username || url.password || !match) throw Error('请输入洛谷 /theme/design/数字ID 链接')
-  const id = Number(match[1])
+  let idText = value.trim()
+  if (!/^[1-9]\d*$/.test(idText)) {
+    let url: URL
+    try { url = new URL(idText) }
+    catch { throw Error('请输入有效的洛谷主题编号或主题链接') }
+    const match = /^\/theme\/design\/([1-9]\d*)\/?$/.exec(url.pathname)
+    if (url.protocol !== 'https:' || !['www.luogu.com.cn', 'luogu.com.cn', 'www.luogu.com', 'luogu.com'].includes(url.hostname) || url.port || url.username || url.password || !match) throw Error('请输入有效的洛谷主题编号或主题链接')
+    idText = match[1]
+  }
+  const id = Number(idText)
   if (!Number.isSafeInteger(id)) throw Error('主题编号超出范围')
   return id
 }
