@@ -55,7 +55,7 @@ onBeforeUnmount(() => { disposed = true; root?.unmount() })
     <h1 v-if="mode === 'detail-header'" class="discussion-post-title">{{ title || `讨论 #${discussionId}` }}</h1>
     <div v-else-if="mode === 'header'" class="archive-card judgement-heading">
       <div class="archive-card-header judgement-heading-main">
-        <div class="judgement-heading-copy"><h1>讨论区</h1><p class="archive-card-description">洛谷讨论主帖与回复归档</p></div>
+        <div class="judgement-heading-copy"><h1>讨论区</h1><p class="archive-card-description">洛谷讨论区帖子与回复</p></div>
       </div>
     </div>
   </div>

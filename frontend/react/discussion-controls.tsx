@@ -50,7 +50,7 @@ export function DiscussionControls(props: DiscussionControlsProps) {
         <MessagesSquare className="judgement-heading-icon" size={56} strokeWidth={1.8} aria-hidden="true" />
         <div className="judgement-heading-copy">
           <CardTitle><h1>讨论区</h1></CardTitle>
-          <CardDescription>洛谷讨论主帖与回复归档</CardDescription>
+          <CardDescription>洛谷讨论区帖子与回复</CardDescription>
         </div>
       </CardHeader>
     </Card>

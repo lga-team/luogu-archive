@@ -14,7 +14,7 @@ export interface UpdateButtonProps {
 // Request ownership stays with the page/SaveButton; this component owns feedback.
 export function UpdateButton({ state, message, onUpdate, disabled = false }: UpdateButtonProps) {
   const pending = state === 'pending'
-  const [feedback, setFeedback] = useState<{ status: 'idle' | 'success' | 'failed'; result: 'success' | 'failed' }>({ status: 'idle', result: 'success' })
+  const [feedback, setFeedback] = useState<{ status: 'idle' | 'success' | 'failed'; result: 'success' | 'failed'; label: '派发' | '合并' }>({ status: 'idle', result: 'success', label: '派发' })
   const feedbackTimer = useRef<ReturnType<typeof window.setTimeout> | undefined>(undefined)
   const [errorOpen, setErrorOpen] = useState(false)
   const [failureReason, setFailureReason] = useState('')
@@ -28,7 +28,7 @@ export function UpdateButton({ state, message, onUpdate, disabled = false }: Upd
     }
     if (state !== 'success' && state !== 'failed' && state !== 'cooldown') return
     const result = state === 'success' ? 'success' : 'failed'
-    setFeedback({ status: result, result })
+    setFeedback({ status: result, result, label: message.includes('合并') ? '合并' : '派发' })
     if (result === 'failed') {
       setFailureReason(message || '更新请求未能提交，请稍后重试。')
       setErrorOpen(true)
@@ -53,7 +53,7 @@ export function UpdateButton({ state, message, onUpdate, disabled = false }: Upd
         disabled={pending || disabled}
         aria-disabled={pending || disabled || feedback.status !== 'idle'}
         aria-busy={pending}
-        aria-label={pending ? '正在提交更新' : feedback.status === 'success' ? '更新请求已提交' : feedback.status === 'failed' ? '更新失败' : '更新'}
+        aria-label={pending ? '正在提交更新' : feedback.status === 'success' ? (feedback.label === '合并' ? '已合并到进行中的任务' : '任务已派发') : feedback.status === 'failed' ? '更新失败' : '更新'}
         onClick={() => { if (!pending && !disabled && feedback.status === 'idle') onUpdate() }}
       >
         <span className="archive-update-label" aria-hidden="true">
@@ -61,7 +61,7 @@ export function UpdateButton({ state, message, onUpdate, disabled = false }: Upd
         </span>
         <span className="archive-update-result" aria-hidden="true">
           {feedback.result === 'success'
-            ? <><CircleCheck size={14} strokeWidth={1.75} />成功</>
+            ? <><CircleCheck size={14} strokeWidth={1.75} />{feedback.label}</>
             : <><CircleX size={14} strokeWidth={1.75} />失败</>}
         </span>
       </Button>
