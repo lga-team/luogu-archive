@@ -2,8 +2,8 @@
 import type { Root } from 'react-dom/client'
 import type { UserControlsProps } from '../react/user-controls'
 
-const props = defineProps<Omit<UserControlsProps, 'onUpdate' | 'onTab' | 'onFeed' | 'onDiscussion' | 'onAction'>>()
-const emit = defineEmits<{ update: []; tab: [tab: string]; feed: [value: boolean]; discussion: [value: boolean]; action: [] }>()
+const props = defineProps<Omit<UserControlsProps, 'onUpdate' | 'onTab' | 'onFeed' | 'onDiscussion' | 'onAction' | 'onFollow' | 'onCard'>>()
+const emit = defineEmits<{ update: []; tab: [tab: string]; feed: [value: boolean]; discussion: [value: boolean]; action: []; follow: []; card: [] }>()
 const host = ref<HTMLElement | null>(null)
 const failed = ref(false)
 let root: Root | undefined
@@ -24,6 +24,8 @@ onMounted(async () => {
       onFeed: (value: boolean) => emit('feed', value),
       onDiscussion: (value: boolean) => emit('discussion', value),
       onAction: () => emit('action'),
+      onFollow: () => emit('follow'),
+      onCard: () => emit('card'),
     }))
     draw()
   } catch {

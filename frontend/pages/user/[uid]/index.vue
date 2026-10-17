@@ -393,7 +393,6 @@ function formatScore(s: number): string {
           <h1 class="name-row">
             <LuoguUserName :user="userBrief" :hidden="profile.name_hidden" show-badge no-link />
           </h1>
-          <p class="user-uid">UID {{ profile.uid }}</p>
           <p v-if="profile.slogan" class="slogan">{{ profile.slogan }}</p>
 
           <div class="badges">
@@ -404,27 +403,22 @@ function formatScore(s: number): string {
           <dl class="stats">
             <div><dt>关注</dt><dd>{{ profile.following_count }}</dd></div>
             <div><dt>粉丝</dt><dd>{{ profile.follower_count }}</dd></div>
-            <div v-if="profile.passed_problem_count !== null"><dt>通过题目</dt><dd>{{ profile.passed_problem_count }}</dd></div>
             <div v-if="profile.submitted_problem_count !== null"><dt>提交题目</dt><dd>{{ profile.submitted_problem_count }}</dd></div>
+            <div v-if="profile.passed_problem_count !== null"><dt>通过题目</dt><dd>{{ profile.passed_problem_count }}</dd></div>
             <div v-if="profile.ranking !== null"><dt>做题榜</dt><dd>#{{ profile.ranking }}</dd></div>
             <div v-if="profile.ccf_level > 0"><dt>CCF</dt><dd>{{ profile.ccf_level }}</dd></div>
             <div v-if="profile.xcpc_level > 0"><dt>XCPC</dt><dd>{{ profile.xcpc_level }}</dd></div>
           </dl>
         </section>
-        <div v-if="profile" class="profile-actions">
-          <FollowButton :uid="profile.uid">
-            <template #default="{ following, loading, toggle }">
-              <UserControls mode="follow" :following="following" :pending="loading" @action="toggle" />
-            </template>
-          </FollowButton>
-          <UserControls mode="card" :uid="uid" @action="navigateTo(`/user/${uid}/card`)" />
-        </div>
-        <SaveButton content-type="user" :content-id="uid">
-          <template #default="{ state, message, save }">
-            <UserControls mode="toolbar" :uid="uid" :state="state" :message="message" :updated-at="profile?.last_crawled_at ? smart(profile.last_crawled_at) : ''" @update="save" />
+        <FollowButton :uid="Number(uid)">
+          <template #default="{ following, loading, toggle }">
+            <SaveButton content-type="user" :content-id="uid">
+              <template #default="{ state, message, save }">
+                <UserControls mode="toolbar" :uid="uid" :state="state" :message="message" :updated-at="profile?.last_crawled_at ? smart(profile.last_crawled_at) : ''" :show-profile-actions="!!profile" :following="following" :pending="loading" @update="save" @follow="toggle" @card="navigateTo(`/user/${uid}/card`)" />
+              </template>
+            </SaveButton>
           </template>
-        </SaveButton>
-        <p v-if="profile?.register_time" class="user-register-time">注册于 {{ format(profile.register_time, 'YYYY/MM/DD') }}</p>
+        </FollowButton>
         <div v-if="profile" class="user-sidebar-navigation">
           <UserControls mode="tabs" :tabs="visibleTabs" :active-tab="activeTab" @tab="selectTab" />
         </div>
@@ -689,9 +683,6 @@ function formatScore(s: number): string {
   border: 2px solid var(--border);
 }
 .avatar-fallback { display: grid; place-items: center; margin: 0 auto; background: var(--hover); color: var(--text-muted); font-size: 28px; }
-.user-uid, .user-register-time { margin: 8px 0; font-size: 12px; color: var(--text-muted); }
-.user-register-time { margin: 0; text-align: center; }
-.profile-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .name-row {
   margin: 10px 0 4px;
   font-size: 20px;
