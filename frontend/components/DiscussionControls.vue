@@ -1,66 +1,39 @@
 <script setup lang="ts">
-import type { Root } from 'react-dom/client'
-import type { DiscussionForum } from '../react/discussion-controls'
-
-const props = defineProps<{
+import { Check, Copy, ExternalLink, LayoutGrid, RefreshCw } from 'lucide-vue-next'
+import { Button } from './ui'
+defineProps<{
   mode: 'header' | 'forums' | 'retry' | 'detail-header' | 'detail-toolbar' | 'copy'
-  state?: string
-  message?: string
-  updatedAt?: string
-  forums?: DiscussionForum[]
-  selectedForum?: string
-  page?: number
-  totalPages?: number
-  pending?: boolean
-  title?: string
-  forumName?: string
-  discussionId?: number
-  copied?: boolean
-  copyDisabled?: boolean
+  state?: string; message?: string; updatedAt?: string
+  forums?: { name: string; slug: string; count: number }[]
+  selectedForum?: string; page?: number; totalPages?: number; pending?: boolean
+  title?: string; forumName?: string; discussionId?: number; copied?: boolean; copyDisabled?: boolean
 }>()
 const emit = defineEmits<{ update: []; forum: [slug: string]; page: [page: number]; retry: []; copy: []; back: [] }>()
-const host = ref<HTMLElement | null>(null)
-const loadFailed = ref(false)
-let root: Root | undefined
-let draw: (() => void) | undefined
-let disposed = false
-
-onMounted(async () => {
-  try {
-    const [{ createRoot }, { createElement }, { DiscussionControls }] = await Promise.all([
-      import('react-dom/client'), import('react'), import('../react/discussion-controls'),
-    ])
-    if (disposed || !host.value) return
-    root = createRoot(host.value)
-    draw = () => root?.render(createElement(DiscussionControls, {
-      ...props,
-      onUpdate: () => emit('update'),
-      onForum: (slug: string) => emit('forum', slug),
-      onPage: (page: number) => emit('page', page),
-      onRetry: () => emit('retry'),
-      onCopy: () => emit('copy'),
-      onBack: () => emit('back'),
-    }))
-    draw()
-  } catch {
-    if (!disposed) loadFailed.value = true
-  }
-})
-watch(() => ({ ...props }), () => draw?.(), { deep: true })
-onBeforeUnmount(() => { disposed = true; root?.unmount() })
 </script>
-
 <template>
-  <div ref="host" class="archive-react">
-    <h1 v-if="mode === 'detail-header'" class="discussion-post-title">{{ title || `讨论 #${discussionId}` }}</h1>
-    <div v-else-if="mode === 'header'" class="archive-card judgement-heading">
-      <div class="archive-card-header judgement-heading-main">
-        <div class="judgement-heading-copy"><h1>讨论区</h1><p class="archive-card-description">洛谷讨论区帖子与回复</p></div>
-      </div>
+  <div class="archive-ui">
+    <h1 v-if="mode === 'detail-header'" class="discussion-post-title">{{ title || '讨论 #' + discussionId }}</h1>
+    <div v-else-if="mode === 'header' || mode === 'detail-toolbar'" :class="mode === 'header' ? 'judgement-header-stack' : undefined">
+      <ArchivePageHeader v-if="mode === 'header'" title="讨论区" description="洛谷讨论区帖子与回复" icon="discussion" />
+      <div class="archive-card judgement-toolbar"><div class="archive-card-footer judgement-heading-footer" :class="{ 'discussion-detail-toolbar': mode === 'detail-toolbar' }">
+        <span class="judgement-heading-updated">{{ updatedAt ? '上次更新：' + updatedAt : '' }}</span>
+        <div class="judgement-heading-actions">
+          <Button variant="outline" size="sm" as-child><a :href="'https://www.luogu.com.cn/discuss' + (mode === 'detail-toolbar' ? '/' + discussionId : '')" target="_blank" rel="noopener noreferrer"><ExternalLink :size="14" aria-hidden="true" />{{ mode === 'detail-toolbar' ? '查看原文' : '查看源站' }}</a></Button>
+          <Button v-if="mode === 'detail-toolbar'" variant="outline" size="sm" class="discussion-copy" :disabled="copyDisabled" :aria-label="copied ? '原文已复制' : '复制 Markdown 原文'" @click="emit('copy')"><component :is="copied ? Check : Copy" :size="14" aria-hidden="true" />{{ copied ? '已复制' : '复制原文' }}</Button>
+          <ArchiveUpdateButton :state="state || 'idle'" :message="message" @update="emit('update')" />
+        </div>
+        <p v-if="state === 'captcha' && message" class="judgement-heading-message" role="status">{{ message }}</p>
+      </div></div>
     </div>
+    <div v-else-if="mode === 'forums'" class="archive-card discussion-forums">
+      <div class="archive-card-header discussion-forums-heading"><div class="archive-card-title">版块</div></div>
+      <nav class="discussion-forum-options" aria-label="讨论版块">
+        <Button variant="ghost" class="discussion-forum-option" :aria-pressed="!selectedForum" @click="emit('forum', '')"><LayoutGrid :size="14" aria-hidden="true" /><span>全部版块</span></Button>
+        <Button v-for="forum in forums || []" :key="forum.slug" variant="ghost" class="discussion-forum-option" :aria-pressed="selectedForum === forum.slug" @click="emit('forum', forum.slug)"><span class="discussion-forum-dot" :data-forum="forum.slug" aria-hidden="true" /><span>{{ forum.name }}</span><span class="discussion-forum-count">{{ forum.count.toLocaleString('zh-CN') }}</span></Button>
+      </nav>
+    </div>
+    <Button v-else-if="mode === 'retry'" variant="outline" size="sm" :disabled="pending" @click="emit('retry')"><RefreshCw :size="14" aria-hidden="true" />重试</Button>
+    <Button v-else-if="mode === 'copy'" variant="outline" size="sm" class="discussion-copy" :disabled="copyDisabled" :aria-label="copied ? '原文已复制' : '复制 Markdown 原文'" @click="emit('copy')"><component :is="copied ? Check : Copy" :size="14" aria-hidden="true" />{{ copied ? '已复制' : '复制原文' }}</Button>
   </div>
-  <p v-if="loadFailed" role="alert">控件加载失败，请刷新页面重试。</p>
 </template>
-
-<style src="../react/archive.css" />
-<style src="../react/discussion.css" />
+<style src="~/assets/css/discussion.css" />

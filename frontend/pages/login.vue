@@ -3,5 +3,5 @@ useHead({ title: '登录 - 洛谷档案馆' })
 </script>
 
 <template>
-  <SettingsReactPage login-only />
+  <SettingsPage login-only />
 </template>

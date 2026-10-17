@@ -3,5 +3,5 @@ useHead({ title: '设置 - 洛谷档案馆' })
 </script>
 
 <template>
-  <SettingsReactPage />
+  <SettingsPage />
 </template>

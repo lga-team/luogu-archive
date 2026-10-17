@@ -1,5 +1,3 @@
-import { transformWithEsbuild } from 'vite'
-
 const extendedArchiveModulesEnabled = process.env.NUXT_PUBLIC_EXTENDED_ARCHIVE_MODULES_ENABLED === 'true'
 
 const hiddenArchiveExactPages = new Set(['/feed', '/fake-realtime'])
@@ -10,19 +8,6 @@ export default defineNuxtConfig({
   ssr: true,
   vite: {
     server: { allowedHosts: true },
-    // Vue JSX 插件不能处理 React 页面，否则生成的是 Vue VNode。
-    vueJsx: { exclude: [/node_modules/, /[\\/]react[\\/].*\.tsx$/] },
-    plugins: [{
-      name: 'archive-react-pages',
-      enforce: 'pre',
-      async transform(code, id) {
-        if (!/[\\/]react[\\/].*\.tsx$/.test(id)) return
-        return transformWithEsbuild(code, id, {
-          loader: 'tsx', jsx: 'automatic', jsxImportSource: 'react',
-          tsconfigRaw: { compilerOptions: { jsx: 'react-jsx', jsxImportSource: 'react' } },
-        })
-      },
-    }],
   },
   modules: [
     '@nuxtjs/color-mode',
@@ -53,7 +38,7 @@ export default defineNuxtConfig({
     fallback: 'light',
     classSuffix: '',
   },
-  css: ['~/assets/css/base.css', 'katex/dist/katex.min.css', '~/assets/css/theme.css'],
+  css: ['~/assets/css/base.css', 'katex/dist/katex.min.css', '~/assets/css/archive.css', '~/assets/css/theme.css'],
   routeRules: {
     '/favicon.png': {
       headers: {

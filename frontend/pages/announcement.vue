@@ -4,5 +4,5 @@ useHead({ title: '站点公告 - 洛谷档案馆' })
 </script>
 
 <template>
-  <ArchiveReactPage page="announcement" />
+  <ArchivePage page="announcement" />
 </template>

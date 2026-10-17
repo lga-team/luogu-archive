@@ -1,0 +1,19 @@
+.user-profile-toolbar .judgement-heading-footer { flex-direction: column; align-items: center; padding: 16px; gap: 12px; }
+.user-profile-toolbar .judgement-heading-updated { margin: 0; flex-basis: auto; align-self: stretch; text-align: left; }
+.user-profile-toolbar .judgement-heading-actions { margin: 0; justify-content: center; flex-wrap: wrap; }
+.user-profile-toolbar .user-profile-actions[data-full=true] { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; }
+.user-profile-actions > .archive-button { flex-shrink: 0; }
+.user-profile-toolbar .judgement-heading-message { text-align: center; }
+.archive-ui .user-section-navigation { padding: 6px; gap: 0; }
+.user-section-tabs { display: grid; gap: 3px; }
+.archive-ui .user-section-tab { justify-content: flex-start; width: 100%; gap: 9px; height: 38px; padding: 8px 12px; color: var(--text); }
+.archive-ui .user-section-tab[aria-pressed=true] { background: var(--hover); color: var(--link); }
+@media (max-width: 768px) {
+  .user-section-tabs { display: flex; flex-wrap: wrap; }
+  .archive-ui .user-section-tab { justify-content: center; flex: 1 0 auto; width: auto; }
+}
+.user-activity-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.user-activity-filters label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); cursor: pointer; }
+.user-control-spin { animation: user-control-spin 1s linear infinite; }
+@keyframes user-control-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .user-control-spin { animation: none; } }

@@ -3,7 +3,7 @@ useHead({ title: '站点概览 - 洛谷档案馆' })
 </script>
 
 <template>
-  <SiteOverviewReactPage />
+  <SiteOverviewPage />
 </template>
 
 

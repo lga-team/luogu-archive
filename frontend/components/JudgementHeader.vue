@@ -1,51 +1,19 @@
 <script setup lang="ts">
-import type { Root } from 'react-dom/client'
-
-const props = defineProps<{ state: string; message: string; updatedAt: string }>()
+import { ExternalLink } from 'lucide-vue-next'
+import { Button } from './ui'
+defineProps<{ state: string; message: string; updatedAt: string }>()
 const emit = defineEmits<{ update: [] }>()
-const host = ref<HTMLElement | null>(null)
-const loadFailed = ref(false)
-let root: Root | undefined
-let draw: (() => void) | undefined
-let disposed = false
-
-onMounted(async () => {
-  try {
-    const [{ createRoot }, { createElement }, { JudgementHeader }] = await Promise.all([
-      import('react-dom/client'), import('react'), import('../react/judgement-header'),
-    ])
-    if (disposed || !host.value) return
-    root = createRoot(host.value)
-    draw = () => root?.render(createElement(JudgementHeader, {
-      state: props.state,
-      message: props.message,
-      updatedAt: props.updatedAt,
-      onUpdate: () => emit('update'),
-    }))
-    draw()
-  } catch {
-    if (!disposed) loadFailed.value = true
-  }
-})
-watch(() => [props.state, props.message, props.updatedAt], () => draw?.())
-onBeforeUnmount(() => {
-  disposed = true
-  root?.unmount()
-})
 </script>
-
 <template>
-  <div ref="host" class="archive-react">
-    <div class="archive-card judgement-heading" aria-busy="true">
-      <div class="archive-card-header judgement-heading-main">
-        <div class="judgement-heading-copy">
-          <h1>陶片放逐</h1>
-          <p class="archive-card-description">洛谷社区用户权限变更记录</p>
-        </div>
+  <div class="archive-ui judgement-header-stack">
+    <ArchivePageHeader title="陶片放逐" description="洛谷社区用户权限变更记录" icon="gavel" />
+    <div class="archive-card judgement-toolbar"><div class="archive-card-footer judgement-heading-footer">
+      <span class="judgement-heading-updated">{{ updatedAt ? '上次更新：' + updatedAt : '' }}</span>
+      <div class="judgement-heading-actions">
+        <Button variant="outline" size="sm" as-child><a href="https://www.luogu.com.cn/judgement" target="_blank" rel="noopener noreferrer"><ExternalLink :size="14" aria-hidden="true" />查看源站</a></Button>
+        <ArchiveUpdateButton :state="state" :message="message" @update="emit('update')" />
       </div>
-    </div>
+      <p v-if="state === 'captcha' && message" class="judgement-heading-message" role="status">{{ message }}</p>
+    </div></div>
   </div>
-  <p v-if="loadFailed" role="alert">操作栏加载失败，请刷新页面重试。</p>
 </template>
-
-<style src="../react/archive.css" />
