@@ -385,7 +385,7 @@ function formatScore(s: number): string {
 <template>
   <div ref="contentRef" class="user-page">
     <div class="two-col">
-      <!-- 左侧：用户信息 + Tab -->
+      <!-- 右侧：用户资料、操作与栏目 -->
       <aside class="sidebar">
         <section v-if="profile" class="profile-head archive-card">
           <img v-if="profile.avatar" :src="profile.avatar" class="avatar" alt="" width="96" height="96">
@@ -424,7 +424,7 @@ function formatScore(s: number): string {
         </div>
       </aside>
 
-      <!-- 右侧：tab 内容 -->
+      <!-- 左侧：栏目内容 -->
       <div v-if="profile" class="content">
         <!-- 活动 -->
         <section v-if="activeTab === 'activity'">
@@ -643,22 +643,26 @@ function formatScore(s: number): string {
 
 .two-col {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-areas: 'content sidebar';
+  gap: 20px 16px;
   align-items: start;
 }
-@media (max-width: 768px) {
-  .two-col { grid-template-columns: 1fr; gap: 16px; }
+.two-col > :not(.sidebar) { grid-area: content; min-width: 0; }
+@media (max-width: 1000px) {
+  .two-col { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'sidebar' 'content'; gap: 16px; }
 }
 
 .sidebar {
+  grid-area: sidebar;
+  min-width: 0;
   display: grid;
-  gap: 12px;
+  gap: 16px;
   position: sticky;
-  top: 16px;
+  top: 18px;
   align-self: start;
 }
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   /* 手机端：sidebar 变普通块，跟随页面向上滚出视口；tab 横向铺开 */
   .sidebar {
     position: static;
@@ -671,7 +675,7 @@ function formatScore(s: number): string {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 22px 18px;
+  padding: 22px 20px;
   text-align: center;
   margin-bottom: 0;
 }
