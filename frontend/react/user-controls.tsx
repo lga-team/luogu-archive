@@ -28,7 +28,7 @@ export interface UserControlsProps {
 const tabIcons = { activity: Activity, intro: FileText, prizes: Trophy, names: History }
 
 export function UserControls(props: UserControlsProps) {
-  if (props.mode === 'toolbar') return <Card className="judgement-toolbar">
+  if (props.mode === 'toolbar') return <Card className="judgement-toolbar user-profile-toolbar">
     <CardFooter className="judgement-heading-footer">
       <span className="judgement-heading-updated">{props.updatedAt ? `上次更新：${props.updatedAt}` : ''}</span>
       <div className="judgement-heading-actions">

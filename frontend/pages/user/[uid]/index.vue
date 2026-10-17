@@ -384,20 +384,10 @@ function formatScore(s: number): string {
 
 <template>
   <div ref="contentRef" class="user-page">
-    <SaveButton content-type="user" :content-id="uid">
-      <template #default="{ state, message, save }">
-        <UserControls mode="toolbar" :uid="uid" :state="state" :message="message" :updated-at="profile?.last_crawled_at ? smart(profile.last_crawled_at) : ''" @update="save" />
-      </template>
-    </SaveButton>
-  <div v-if="error" class="error-box archive-card" role="alert">
-    <h2>{{ error.data?.message || '用户未收录' }}</h2>
-    <p>已触发一次爬取，稍等片刻刷新即可。</p>
-  </div>
-
-    <div v-else-if="profile" class="two-col">
+    <div class="two-col">
       <!-- 左侧：用户信息 + Tab -->
       <aside class="sidebar">
-        <section class="profile-head archive-card">
+        <section v-if="profile" class="profile-head archive-card">
           <img v-if="profile.avatar" :src="profile.avatar" class="avatar" alt="" width="96" height="96">
           <div v-else class="avatar avatar-fallback" aria-hidden="true">{{ profile.name_hidden ? '?' : profile.name.slice(0, 1) }}</div>
           <h1 class="name-row">
@@ -411,15 +401,6 @@ function formatScore(s: number): string {
             <span v-if="profile.is_admin" class="tag admin">管理员</span>
           </div>
 
-          <div class="profile-actions">
-            <FollowButton :uid="profile.uid">
-              <template #default="{ following, loading, toggle }">
-                <UserControls mode="follow" :following="following" :pending="loading" @action="toggle" />
-              </template>
-            </FollowButton>
-            <UserControls mode="card" :uid="uid" @action="navigateTo(`/user/${uid}/card`)" />
-          </div>
-
           <dl class="stats">
             <div><dt>关注</dt><dd>{{ profile.following_count }}</dd></div>
             <div><dt>粉丝</dt><dd>{{ profile.follower_count }}</dd></div>
@@ -429,15 +410,28 @@ function formatScore(s: number): string {
             <div v-if="profile.ccf_level > 0"><dt>CCF</dt><dd>{{ profile.ccf_level }}</dd></div>
             <div v-if="profile.xcpc_level > 0"><dt>XCPC</dt><dd>{{ profile.xcpc_level }}</dd></div>
           </dl>
-          <p v-if="profile.register_time" class="user-register-time">注册于 {{ format(profile.register_time, 'YYYY/MM/DD') }}</p>
         </section>
-        <div class="user-sidebar-navigation">
+        <div v-if="profile" class="profile-actions">
+          <FollowButton :uid="profile.uid">
+            <template #default="{ following, loading, toggle }">
+              <UserControls mode="follow" :following="following" :pending="loading" @action="toggle" />
+            </template>
+          </FollowButton>
+          <UserControls mode="card" :uid="uid" @action="navigateTo(`/user/${uid}/card`)" />
+        </div>
+        <SaveButton content-type="user" :content-id="uid">
+          <template #default="{ state, message, save }">
+            <UserControls mode="toolbar" :uid="uid" :state="state" :message="message" :updated-at="profile?.last_crawled_at ? smart(profile.last_crawled_at) : ''" @update="save" />
+          </template>
+        </SaveButton>
+        <p v-if="profile?.register_time" class="user-register-time">注册于 {{ format(profile.register_time, 'YYYY/MM/DD') }}</p>
+        <div v-if="profile" class="user-sidebar-navigation">
           <UserControls mode="tabs" :tabs="visibleTabs" :active-tab="activeTab" @tab="selectTab" />
         </div>
       </aside>
 
       <!-- 右侧：tab 内容 -->
-      <div class="content">
+      <div v-if="profile" class="content">
         <!-- 活动 -->
         <section v-if="activeTab === 'activity'">
           <div class="section-head activity-heading">
@@ -634,8 +628,12 @@ function formatScore(s: number): string {
           </ol>
         </section>
       </div>
+      <div v-else-if="error" class="error-box archive-card" role="alert">
+        <h2>{{ error.data?.message || '用户未收录' }}</h2>
+        <p>已触发一次爬取，稍等片刻刷新即可。</p>
+      </div>
+      <LoadingPanel v-else-if="profileStatus === 'idle' || profileStatus === 'pending'" title="正在加载用户资料" text="" />
     </div>
-    <LoadingPanel v-else-if="profileStatus === 'idle' || profileStatus === 'pending'" title="正在加载用户资料" text="" />
   </div>
 </template>
 
@@ -660,6 +658,8 @@ function formatScore(s: number): string {
 }
 
 .sidebar {
+  display: grid;
+  gap: 12px;
   position: sticky;
   top: 16px;
   align-self: start;
@@ -690,8 +690,8 @@ function formatScore(s: number): string {
 }
 .avatar-fallback { display: grid; place-items: center; margin: 0 auto; background: var(--hover); color: var(--text-muted); font-size: 28px; }
 .user-uid, .user-register-time { margin: 8px 0; font-size: 12px; color: var(--text-muted); }
-.user-register-time { margin: 18px 0 0; }
-.profile-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 16px; }
+.user-register-time { margin: 0; text-align: center; }
+.profile-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .name-row {
   margin: 10px 0 4px;
   font-size: 20px;
