@@ -12,7 +12,7 @@ interface LoginRequiredDialogProps {
 export function LoginRequiredDialog({ open, onClose, onLogin }: LoginRequiredDialogProps) {
   const previousFocus = useRef<HTMLElement | null>(null)
   return <Dialog open={open} onOpenChange={value => { if (!value) onClose() }}>
-    <DialogContent onOpenAutoFocus={() => {
+    <DialogContent className="login-required-dialog" overlayClassName="login-required-overlay" onOpenAutoFocus={() => {
       previousFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     }} onCloseAutoFocus={event => {
       event.preventDefault()

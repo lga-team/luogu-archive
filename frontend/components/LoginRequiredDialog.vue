@@ -30,3 +30,4 @@ onBeforeUnmount(() => { disposed = true; root?.unmount() })
 </template>
 
 <style src="../react/archive.css" />
+<style src="../react/login-required-dialog.css" />
