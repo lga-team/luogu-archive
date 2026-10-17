@@ -46,6 +46,7 @@ async function toggle() {
 </script>
 
 <template>
+  <slot :following="following" :loading="loading" :toggle="toggle">
   <button
     class="follow-btn"
     :class="{ following }"
@@ -56,6 +57,7 @@ async function toggle() {
     <span v-else-if="following">✓ 已关注（取消）</span>
     <span v-else>+ 关注</span>
   </button>
+  </slot>
 </template>
 
 <style scoped>
