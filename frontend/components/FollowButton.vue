@@ -1,6 +1,6 @@
 <!--
   关注按钮。挂在用户主页上。
-  - 未登录：点击跳登录
+  - 未登录：确认后前往登录
   - 已关注：显示"取消关注"
   - 未关注：显示"关注"
 -->
@@ -11,6 +11,12 @@ const auth = useAuthStore()
 const api = useApi()
 const following = ref(false)
 const loading = ref(false)
+const loginRequired = ref(false)
+
+function login() {
+  loginRequired.value = false
+  void navigateTo('/login')
+}
 
 async function refresh() {
   if (!auth.isLoggedIn) return
@@ -21,11 +27,15 @@ async function refresh() {
 }
 
 onMounted(refresh)
-watch(() => auth.isLoggedIn, refresh)
+watch(() => auth.isLoggedIn, () => {
+  loginRequired.value = false
+  following.value = false
+  void refresh()
+})
 
 async function toggle() {
   if (!auth.isLoggedIn) {
-    navigateTo('/login')
+    loginRequired.value = true
     return
   }
   loading.value = true
@@ -46,6 +56,7 @@ async function toggle() {
 </script>
 
 <template>
+  <slot :following="following" :loading="loading" :toggle="toggle">
   <button
     class="follow-btn"
     :class="{ following }"
@@ -56,6 +67,8 @@ async function toggle() {
     <span v-else-if="following">✓ 已关注（取消）</span>
     <span v-else>+ 关注</span>
   </button>
+  </slot>
+  <LoginRequiredDialog :open="loginRequired" @close="loginRequired = false" @login="login" />
 </template>
 
 <style scoped>

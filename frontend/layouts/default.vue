@@ -152,7 +152,7 @@ const navItems = computed(() => allNavItems.filter(
 </script>
 
 <template>
-  <div class="layout-root" :class="{ 'archive-home-layout': route.path === '/', 'archive-modern': ['/', '/announcement', '/settings', '/login', '/judgement', '/discuss', '/site/overview'].includes(route.path) || /^\/discuss\/\d+\/?$/.test(route.path) }">
+  <div class="layout-root" :class="{ 'archive-home-layout': route.path === '/', 'archive-modern': ['/', '/announcement', '/settings', '/login', '/judgement', '/discuss', '/site/overview'].includes(route.path) || /^\/discuss\/\d+\/?$/.test(route.path) || /^\/user\/\d+\/?$/.test(route.path) }">
     <div class="archive-theme-backdrop" aria-hidden="true" />
     <aside class="side-nav">
       <div class="side-top">

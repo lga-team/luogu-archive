@@ -1,4 +1,5 @@
 <script setup lang="ts">
+definePageMeta({ key: route => route.path })
 const route = useRoute()
 const api = useApi()
 const { smart, format } = useTime()
@@ -107,11 +108,11 @@ function describePermission(bits: number): string[] {
   return out
 }
 
-// 用户页不阻塞首屏：资料回来前先显示加载窗口。
-const { data: profile, error, pending: profilePending } = useLazyAsyncData(`user-${uid}`, () =>
+const { data: profile, error, status: profileStatus } = useLazyAsyncData(`user-${uid}`, () =>
   api<UserProfile>(`/user/${uid}`),
   { server: false },
 )
+useHead({ title: computed(() => profile.value ? `${profile.value.name_hidden ? `UID ${uid}` : profile.value.name} - 用户档案 - 洛谷档案馆` : '用户档案 - 洛谷档案馆') })
 
 const includeFeed = ref(true)
 const includeDiscussion = ref(true)
@@ -120,12 +121,13 @@ const activity = ref<ActivityItem[]>([])
 const activityLoading = ref(false)
 const activityNoMore = ref(false)
 const activityBefore = ref<string | null>(null)
+const activityError = ref('')
 // 筛选变化后丢弃旧请求结果，避免快速切换开关时串入上一次筛选的数据。
 let activityRequestVersion = 0
 const PAGE_SIZE = 50
 
 // 活动第一页同样懒加载，避免用户资料页等待活动接口。
-const { data: firstPage, pending: activityInitialPending } = useLazyAsyncData(
+const { data: firstPage, status: activityInitialStatus, error: activityInitialError } = useLazyAsyncData(
   `user-activity-${uid}`,
   () =>
     api<ActivityItem[]>(`/user/${uid}/activity`, {
@@ -137,6 +139,7 @@ const { data: firstPage, pending: activityInitialPending } = useLazyAsyncData(
     }),
   { server: false },
 )
+const activityInitialPending = computed(() => activityInitialStatus.value === 'idle' || activityInitialStatus.value === 'pending')
 
 watch(firstPage, (page) => {
   if (!page || activityRequestVersion !== 0) return
@@ -149,6 +152,7 @@ async function loadMoreActivity() {
   if (activityLoading.value || activityInitialPending.value || activityNoMore.value) return
   const requestVersion = activityRequestVersion
   activityLoading.value = true
+  activityError.value = ''
   try {
     const q: Record<string, any> = {
       include_feed: includeFeed.value ? 'true' : 'false',
@@ -165,18 +169,21 @@ async function loadMoreActivity() {
       activityBefore.value = page[page.length - 1].time
       if (page.length < PAGE_SIZE) activityNoMore.value = true
     }
+  } catch (e: any) {
+    if (requestVersion === activityRequestVersion) activityError.value = e?.data?.message || '活动加载失败，请重试。'
   } finally {
     if (requestVersion === activityRequestVersion) activityLoading.value = false
   }
 }
 
 // 两种活动独立筛选；切换后重新分页，避免隐藏内容占用返回条数。
-watch([includeFeed, includeDiscussion], async () => {
+async function reloadActivity() {
   const requestVersion = ++activityRequestVersion
   activity.value = []
   activityBefore.value = null
   activityNoMore.value = false
   activityLoading.value = true
+  activityError.value = ''
   try {
     const page = await api<ActivityItem[]>(`/user/${uid}/activity`, {
       query: {
@@ -193,10 +200,13 @@ watch([includeFeed, includeDiscussion], async () => {
       activityBefore.value = page[page.length - 1].time
       if (page.length < PAGE_SIZE) activityNoMore.value = true
     }
+  } catch (e: any) {
+    if (requestVersion === activityRequestVersion) activityError.value = e?.data?.message || '活动加载失败，请重试。'
   } finally {
     if (requestVersion === activityRequestVersion) activityLoading.value = false
   }
-})
+}
+watch([includeFeed, includeDiscussion], reloadActivity)
 
 const { render } = useMarkdown()
 const introHtml = computed(() =>
@@ -257,12 +267,24 @@ function feedHtml(
 }
 
 const copiedIntroOriginal = ref(false)
+const copyError = ref('')
+let copyTimer: ReturnType<typeof setTimeout> | undefined
 async function copyIntroOriginal() {
   if (!profile.value?.introduction_md) return
-  await navigator.clipboard.writeText(profile.value.introduction_md)
-  copiedIntroOriginal.value = true
-  setTimeout(() => { copiedIntroOriginal.value = false }, 1400)
+  copyError.value = ''
+  try {
+    await navigator.clipboard.writeText(profile.value.introduction_md)
+    copiedIntroOriginal.value = true
+    if (copyTimer) clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => { copiedIntroOriginal.value = false }, 1400)
+  } catch {
+    copyError.value = '复制失败，请检查浏览器剪贴板权限。'
+  }
 }
+onBeforeUnmount(() => {
+  activityRequestVersion++
+  if (copyTimer) clearTimeout(copyTimer)
+})
 
 const userBrief = computed(() => profile.value ? {
   uid: profile.value.uid,
@@ -345,6 +367,10 @@ const tabs: Array<{ key: TabKey; label: string; show: () => boolean }> = [
   { key: 'prizes', label: 'OI 获奖', show: () => (profile.value?.prizes?.length ?? 0) > 0 },
   { key: 'names', label: '用户名历史', show: () => nameHistory.value.length > 1 },
 ]
+const visibleTabs = computed(() => tabs.filter(tab => tab.show()).map(({ key, label }) => ({ key, label })))
+function selectTab(tab: string) {
+  if (visibleTabs.value.some(item => item.key === tab)) activeTab.value = tab as TabKey
+}
 
 // 代码复制按钮：绑在右侧内容容器上，覆盖 activity / intro 两种 md 场景
 const contentRef = ref<HTMLElement | null>(null)
@@ -357,27 +383,13 @@ function formatScore(s: number): string {
 </script>
 
 <template>
-  <LoadingPanel v-if="profilePending" title="正在加载用户档案" text="页面已经打开，正在读取用户资料和活动记录…" />
-
-  <div v-else-if="error" class="error-box">
-    <h2>{{ error.data?.message || '用户未收录' }}</h2>
-    <p>已触发一次爬取，稍等片刻刷新即可。</p>
-  </div>
-
-  <div v-else-if="profile" class="user-page">
-    <OriginBanner
-      :origin-url="`https://www.luogu.com.cn/user/${uid}`"
-      compact
-      :crawled-at="profile.last_crawled_at"
-      content-type="user"
-      :content-id="String(uid)"
-    />
-
+  <div ref="contentRef" class="user-page">
     <div class="two-col">
-      <!-- 左侧：用户信息 + Tab -->
+      <!-- 右侧：用户资料、操作与栏目 -->
       <aside class="sidebar">
-        <section class="profile-head">
-          <img v-if="profile.avatar" :src="profile.avatar" class="avatar" alt="">
+        <section v-if="profile" class="profile-head archive-card">
+          <img v-if="profile.avatar" :src="profile.avatar" class="avatar" alt="" width="96" height="96">
+          <div v-else class="avatar avatar-fallback" aria-hidden="true">{{ profile.name_hidden ? '?' : profile.name.slice(0, 1) }}</div>
           <h1 class="name-row">
             <LuoguUserName :user="userBrief" :hidden="profile.name_hidden" show-badge no-link />
           </h1>
@@ -388,64 +400,47 @@ function formatScore(s: number): string {
             <span v-if="profile.is_admin" class="tag admin">管理员</span>
           </div>
 
-          <FollowButton :uid="profile.uid" />
-          <NuxtLink :to="`/user/${profile.uid}/card`" class="card-link-btn">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 19V5M9 19v-8M14 19v-5M19 19V9M3 19h18"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span>图卡</span>
-          </NuxtLink>
-
           <dl class="stats">
             <div><dt>关注</dt><dd>{{ profile.following_count }}</dd></div>
             <div><dt>粉丝</dt><dd>{{ profile.follower_count }}</dd></div>
-            <div v-if="profile.ranking !== null"><dt>做题榜</dt><dd>#{{ profile.ranking }}</dd></div>
-            <div v-if="profile.ccf_level > 0"><dt>CCF</dt><dd>{{ profile.ccf_level }}</dd></div>
-            <div v-if="profile.xcpc_level > 0"><dt>XCPC</dt><dd>{{ profile.xcpc_level }}</dd></div>
+            <div><dt>提交题目</dt><dd>{{ profile.submitted_problem_count ?? '—' }}</dd></div>
+            <div><dt>通过题目</dt><dd>{{ profile.passed_problem_count ?? '—' }}</dd></div>
           </dl>
+          <div v-if="profile.ccf_level > 0 || profile.xcpc_level > 0" class="user-certifications">
+            <span v-if="profile.ccf_level > 0">CCF {{ profile.ccf_level }}</span>
+            <span v-if="profile.xcpc_level > 0">XCPC {{ profile.xcpc_level }}</span>
+          </div>
         </section>
-
-        <!-- Tab 切换（垂直方向，侧栏底部） -->
-        <nav class="tabs">
-          <button
-            v-for="t in tabs.filter(x => x.show())"
-            :key="t.key"
-            :class="{ active: activeTab === t.key }"
-            @click="activeTab = t.key"
-          >{{ t.label }}</button>
-        </nav>
+        <FollowButton :uid="Number(uid)">
+          <template #default="{ following, loading, toggle }">
+            <SaveButton content-type="user" :content-id="uid">
+              <template #default="{ state, message, save }">
+                <UserControls mode="toolbar" :uid="uid" :state="state" :message="message" :updated-at="profile?.last_crawled_at ? smart(profile.last_crawled_at) : ''" :show-profile-actions="!!profile" :following="following" :pending="loading" @update="save" @follow="toggle" @card="navigateTo(`/user/${uid}/card`)" />
+              </template>
+            </SaveButton>
+          </template>
+        </FollowButton>
+        <div v-if="profile" class="user-sidebar-navigation">
+          <UserControls mode="tabs" :tabs="visibleTabs" :active-tab="activeTab" @tab="selectTab" />
+        </div>
       </aside>
 
-      <!-- 右侧：tab 内容 -->
-      <main ref="contentRef" class="content">
+      <!-- 左侧：栏目内容 -->
+      <div v-if="profile" class="content">
         <!-- 活动 -->
         <section v-if="activeTab === 'activity'">
-          <div class="section-head">
+          <div class="section-head activity-heading">
             <h2>活动</h2>
-            <div class="activity-filters">
-              <label class="toggle">
-                <input type="checkbox" v-model="includeFeed"> 显示犇犇
-              </label>
-              <label class="toggle">
-                <input type="checkbox" v-model="includeDiscussion"> 显示讨论
-              </label>
-            </div>
+            <UserControls mode="filters" :include-feed="includeFeed" :include-discussion="includeDiscussion" @feed="includeFeed = $event" @discussion="includeDiscussion = $event" />
           </div>
           <LoadingPanel
-            v-if="activityInitialPending && !activity.length"
+            v-if="(activityInitialPending || activityLoading) && !activity.length"
             title="正在加载活动记录"
-            text="用户资料已经打开，正在读取活动时间线…"
+            text=""
           />
 
           <ul v-else-if="activity && activity.length" class="activity-list">
-            <li v-for="(a, idx) in activity" :key="idx" :class="`act-${a.kind}`">
+            <li v-for="(a, idx) in activity" :key="idx" :class="`act-${a.kind}`" class="archive-card">
               <span class="kind-tag">{{ KIND_LABEL[a.kind] || a.kind }}</span>
               <span class="time">{{ smart(a.time) }}</span>
               <template v-if="a.kind === 'feed'">
@@ -533,41 +528,33 @@ function formatScore(s: number): string {
               </template>
             </li>
           </ul>
-          <p v-else class="empty">暂无活动记录</p>
+          <p v-else-if="!activityError && !(activityInitialError && activityRequestVersion === 0)" class="empty">暂无活动记录</p>
+          <div v-if="activityError || (activityInitialError && activityRequestVersion === 0)" class="activity-error" role="alert">
+            <p>{{ activityError || activityInitialError?.data?.message || '活动加载失败，请重试。' }}</p>
+            <UserControls mode="retry" :pending="activityLoading" @action="reloadActivity" />
+          </div>
 
           <!-- 加载更多 -->
           <div v-if="activity && activity.length" class="loader">
-            <button v-if="!activityNoMore" :disabled="activityLoading" @click="loadMoreActivity">
-              {{ activityLoading ? '加载中...' : '加载更多' }}
-            </button>
+            <UserControls v-if="!activityNoMore" mode="more" :pending="activityLoading" @action="loadMoreActivity" />
             <span v-else class="empty">没有更多了</span>
           </div>
         </section>
 
         <!-- 个人介绍 -->
-        <section v-if="activeTab === 'intro'">
+        <section v-if="activeTab === 'intro'" class="user-detail-panel archive-card">
           <div class="section-head">
             <h2>个人介绍</h2>
-            <button type="button" class="section-action-btn" @click="copyIntroOriginal">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M8 8h10v12H8zM6 16H4V4h12v2"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linejoin="round"
-                />
-              </svg>
-              <span>{{ copiedIntroOriginal ? '已复制' : '复制原文' }}</span>
-            </button>
+            <UserControls mode="copy" :copied="copiedIntroOriginal" @action="copyIntroOriginal" />
           </div>
+          <p v-if="copyError" class="activity-error" role="alert">{{ copyError }}</p>
           <article class="lg-content" v-html="introHtml" />
         </section>
 
         <!-- OI 获奖 -->
-        <section v-if="activeTab === 'prizes'">
+        <section v-if="activeTab === 'prizes'" class="user-detail-panel archive-card">
           <h2>OI 获奖</h2>
-          <table class="prize-table">
+          <div class="prize-table-scroll"><table class="prize-table">
             <thead>
               <tr>
                 <th>年份</th>
@@ -596,15 +583,14 @@ function formatScore(s: number): string {
                 </template>
               </tr>
             </tbody>
-          </table>
+          </table></div>
         </section>
 
         <!-- 用户名外显历史 -->
-        <section v-if="activeTab === 'names'" class="name-history-panel">
+        <section v-if="activeTab === 'names'" class="name-history-panel archive-card">
           <header class="name-history-head">
             <div>
               <h2>历史用户名外显</h2>
-              <p>追踪最近的用户名外显变动记录。</p>
             </div>
             <span>{{ nameHistory.length }} 次记录</span>
           </header>
@@ -636,36 +622,50 @@ function formatScore(s: number): string {
             </li>
           </ol>
         </section>
-      </main>
+      </div>
+      <div v-else-if="error" class="error-box archive-card" role="alert">
+        <h2>{{ error.data?.message || '用户未收录' }}</h2>
+        <p>已触发一次爬取，稍等片刻刷新即可。</p>
+      </div>
+      <LoadingPanel v-else-if="profileStatus === 'idle' || profileStatus === 'pending'" title="正在加载用户资料" text="" />
     </div>
   </div>
 </template>
 
 <style scoped>
 .user-page {
-  width: 100%;
-  margin: 0;
+  display: grid;
+  gap: 16px;
+  width: min(100%, 1180px);
+  margin: 0 auto;
   padding: 0;
   box-sizing: border-box;
 }
 
 .two-col {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 32px;
-  margin-top: 16px;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  grid-template-areas: 'content sidebar';
+  gap: 20px 16px;
   align-items: start;
 }
-@media (max-width: 768px) {
-  .two-col { grid-template-columns: 1fr; gap: 16px; }
+.two-col > :not(.sidebar) { grid-area: content; min-width: 0; }
+@media (max-width: 1000px) {
+  .two-col { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'sidebar' 'content'; gap: 16px; }
 }
 
 .sidebar {
+  container-type: inline-size;
+  container-name: user-sidebar;
+  grid-area: sidebar;
+  min-width: 0;
+  display: grid;
+  gap: 16px;
   position: sticky;
-  top: 16px;
+  top: 18px;
   align-self: start;
 }
-@media (max-width: 768px) {
+@media (max-width: 1000px) {
   /* 手机端：sidebar 变普通块，跟随页面向上滚出视口；tab 横向铺开 */
   .sidebar {
     position: static;
@@ -674,23 +674,28 @@ function formatScore(s: number): string {
 }
 
 .profile-head {
+  display: block;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 20px 16px;
+  padding: 22px 20px;
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 0;
 }
 .avatar {
-  width: 100px;
-  height: 100px;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
   border-radius: 50%;
   border: 2px solid var(--border);
 }
+.avatar-fallback { display: grid; place-items: center; margin: 0 auto; background: var(--hover); color: var(--text-muted); font-size: 28px; }
 .name-row {
   margin: 10px 0 4px;
   font-size: 20px;
+  overflow-wrap: anywhere;
 }
+.name-row :deep(.lg-user-wrap) { justify-content: center; flex-wrap: wrap; }
 .slogan {
   color: var(--text-muted);
   margin: 4px 0 12px;
@@ -738,19 +743,20 @@ function formatScore(s: number): string {
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  margin: 14px 0 0;
-  text-align: left;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 22px 0 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+  text-align: center;
 }
 .stats > div {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 5px 10px;
+  min-width: 0;
 }
 .stats dt { font-size: 11px; color: var(--text-muted); margin: 0; }
 .stats dd { margin: 0; font-weight: 600; font-size: 14px; }
+.stats dd { overflow-wrap: anywhere; }
+.user-certifications { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; color: var(--text-muted); font-size: 12px; }
 
 .tabs {
   display: flex;
@@ -790,10 +796,17 @@ function formatScore(s: number): string {
 }
 
 .content {
+  display: block;
   min-width: 0;
   width: 100%;
 }
-.content h2 { margin-top: 0; }
+.content h2 { margin-top: 0; font-size: 17px; font-weight: 600; }
+.content > section { min-width: 0; }
+.user-detail-panel { display: block; padding: 22px 24px; }
+.activity-heading { padding: 2px 0 4px; }
+.activity-error { color: var(--lg-red); font-size: 13px; }
+.prize-table-scroll { overflow-x: auto; }
+.user-detail-panel .prize-table { background: transparent; border: 0; border-radius: 0; min-width: 500px; }
 .section-head {
   display: flex;
   align-items: center;
@@ -845,21 +858,23 @@ function formatScore(s: number): string {
   margin: 0;
 }
 .activity-list li {
-  padding: 10px 14px;
+  display: block;
+  padding: 18px 20px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 6px;
-  margin-bottom: 8px;
+  border-radius: 8px;
+  margin-bottom: 12px;
 }
 .kind-tag {
   font-size: 11px;
   padding: 2px 8px;
   background: var(--hover);
   color: var(--text-muted);
-  border-radius: 10px;
+  border-radius: 4px;
   margin-right: 8px;
 }
 .time {
+  float: right;
   color: var(--text-muted);
   font-size: 13px;
   margin-left: 12px;
@@ -907,6 +922,8 @@ function formatScore(s: number): string {
 }
 .discussion-stats { margin-top: 10px; color: var(--text-muted); font-size: 12px; }
 .name-history-panel {
+  display: block;
+  padding: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -991,6 +1008,8 @@ function formatScore(s: number): string {
   font-weight: 500;
 }
 @media (max-width: 520px) {
+  .user-detail-panel { padding: 18px 16px; }
+  .activity-list li { padding: 16px; }
   .name-history-head {
     padding: 16px;
   }

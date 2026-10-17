@@ -1,0 +1,18 @@
+body[data-scroll-locked]:has(.login-required-overlay) { margin-right: 0 !important; --removed-body-scroll-bar-size: 0px; }
+.login-required-overlay[data-state=open] { animation: login-required-fade-in 200ms ease-out both; }
+.login-required-overlay[data-state=closed] { animation: login-required-fade-out 160ms ease-in both; }
+.login-required-dialog[data-state=open] { animation: login-required-enter 240ms cubic-bezier(.16, 1, .3, 1) both; }
+.login-required-dialog[data-state=closed] { animation: login-required-exit 160ms ease-in both; }
+@keyframes login-required-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes login-required-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes login-required-enter {
+  from { opacity: 0; transform: translate(-50%, -50%) translateY(8px) scale(.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) translateY(0) scale(1); }
+}
+@keyframes login-required-exit {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) translateY(4px) scale(.97); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .login-required-overlay[data-state], .login-required-dialog[data-state] { animation: none; }
+}
