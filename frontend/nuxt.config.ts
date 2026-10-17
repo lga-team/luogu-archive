@@ -10,6 +10,7 @@ export default defineNuxtConfig({
   ssr: true,
   vite: {
     server: { allowedHosts: true },
+    optimizeDeps: { include: ['@luogu-saver-next/markdown-renderer', 'dompurify'] },
   },
   nitro: {
     devProxy: previewUpstream ? {

@@ -80,6 +80,7 @@ function renderMergedSuffix(content: string, mergedSuffix: string) {
   const prefix = content.slice(0, Math.max(0, content.length - mergedSuffix.length))
   const prefixHtml = render(prefix)
   const suffixHtml = render(mergedSuffix)
+  if ((prefix && !prefixHtml) || !suffixHtml) return ''
   const suffixParagraph = suffixHtml.match(/^<p>([\s\S]*)<\/p>\s*$/)
 
   // 普通文字尾巴接回原段落；只有原 Markdown 明确换行或包含多个块时才另起一行。

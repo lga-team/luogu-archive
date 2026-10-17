@@ -42,12 +42,16 @@ export function useCopyCode(containerRef: Ref<HTMLElement | null | undefined>) {
     if (el) attach(el)
   }
 
+  let observer: MutationObserver | undefined
+  let stop: (() => void) | undefined
   onMounted(() => {
-    run()
-    const el = containerRef.value
-    if (!el) return
-    const mo = new MutationObserver(run)
-    mo.observe(el, { childList: true, subtree: true })
-    onBeforeUnmount(() => mo.disconnect())
+    stop = watch(containerRef, el => {
+      observer?.disconnect()
+      if (!el) return
+      run()
+      observer = new MutationObserver(run)
+      observer.observe(el, { childList: true, subtree: true })
+    }, { immediate: true, flush: 'post' })
   })
+  onBeforeUnmount(() => { stop?.(); observer?.disconnect() })
 }

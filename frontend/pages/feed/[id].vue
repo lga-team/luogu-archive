@@ -44,6 +44,7 @@ function renderMergedSuffix(content: string, mergedSuffix: string) {
   const prefix = content.slice(0, Math.max(0, content.length - mergedSuffix.length))
   const prefixHtml = render(prefix)
   const suffixHtml = render(mergedSuffix)
+  if ((prefix && !prefixHtml) || !suffixHtml) return ''
   const suffixParagraph = suffixHtml.match(/^<p>([\s\S]*)<\/p>\s*$/)
   if (!mergedSuffix.startsWith('\n') && suffixParagraph && /<\/p>\s*$/.test(prefixHtml)) {
     const marked = `<span class="feed-completion-wrap" tabindex="0"><span class="feed-auto-merged">${suffixParagraph[1]}</span><span class="feed-completion-popover" role="tooltip">${completionTip}</span></span>`

@@ -546,3 +546,21 @@ a:hover {
   color: var(--text);
 }
 .lg-epigraph p { margin: 0; }
+
+/* markdown-renderer 的 Shiki 双主题使用 CSS 变量，不跟随代码块外的主题覆盖。 */
+.lg-content .shiki,
+.lg-content .shiki span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+}
+.dark .lg-content .shiki,
+.dark .lg-content .shiki span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+}
+.lg-content .shiki { font-style: var(--shiki-light-font-style); font-weight: var(--shiki-light-font-weight); }
+.dark .lg-content .shiki { font-style: var(--shiki-dark-font-style); font-weight: var(--shiki-dark-font-weight); }
+.lg-content pre.lg-code-block:not(.has-line-numbers) { padding: 12px; }
+.lg-content .heading-anchor { display: inline-flex; vertical-align: middle; margin-right: 0.3em; }
+.lg-content .heading-anchor svg { width: 0.75em; height: 0.75em; fill: currentColor; }
+.lg-content .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
