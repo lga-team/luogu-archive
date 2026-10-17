@@ -1,4 +1,4 @@
-import { applyTheme, readTheme, THEME_KEY } from '../utils/luoguTheme'
+import { applyTheme, readTheme, THEME_KEY } from '../lib/luoguTheme'
 
 export default defineNuxtPlugin(() => {
   // 在挂载页面前恢复；CSS 作用域保证旧页面和暗色模式不受影响。

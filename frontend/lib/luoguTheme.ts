@@ -1,3 +1,4 @@
+// 主题工具仅显式导入，避免 Nuxt 自动扫描把嵌套配置字段误识别为导出。
 export interface ThemeConfig {
   lNavi: { back: string; fore: string; logo: string | null }
   lBody: {

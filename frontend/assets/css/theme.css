@@ -24,11 +24,11 @@ html[data-archive-theme]:not(.dark) .archive-modern :is(.archive-card,.archive-s
 .brand-logo-mono { display: none; }
 html[data-archive-theme][data-archive-logo=mono]:not(.dark) .archive-modern .brand-logo { display: none; }
 html[data-archive-theme][data-archive-logo=mono]:not(.dark) .archive-modern .brand-logo-mono {
-  display: block; width: 34px; height: 34px; flex-shrink: 0; margin-left: -4px;
+  display: block; width: 34px; height: 34px; flex-shrink: 0; margin-left: -6px;
   background: var(--archive-theme-logo); mask: url('/favicon.png') center / contain no-repeat;
 }
 @media (max-height: 640px) {
-  html[data-archive-theme][data-archive-logo=mono]:not(.dark) .archive-home-layout .brand-logo-mono { width: 28px; height: 28px; }
+  html[data-archive-theme][data-archive-logo=mono]:not(.dark) .archive-home-layout .brand-logo-mono { width: 28px; height: 28px; margin-left: -3px; }
 }
 @media (prefers-reduced-transparency: reduce) {
   html[data-archive-theme]:not(.dark) .archive-modern { --archive-theme-card: #ffffff; --archive-theme-blur: none; }

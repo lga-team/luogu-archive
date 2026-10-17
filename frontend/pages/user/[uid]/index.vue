@@ -114,6 +114,36 @@ const { data: profile, error, status: profileStatus } = useLazyAsyncData(`user-$
 )
 useHead({ title: computed(() => profile.value ? `${profile.value.name_hidden ? `UID ${uid}` : profile.value.name} - 用户档案 - 洛谷档案馆` : '用户档案 - 洛谷档案馆') })
 
+// 等级分只取官方缓存，独立加载，不阻塞资料卡，也不触发额外爬取。
+const { data: ratingHistory, execute: loadRatingHistory } = useLazyAsyncData(
+  `user-rating-${uid}`,
+  () => api<Array<{ rating: number | null }>>(`/user/${uid}/rating-history`),
+  { server: false, immediate: false },
+)
+watch(() => profile.value?.last_crawled_at, () => {
+  if (profile.value) void loadRatingHistory()
+}, { immediate: true })
+const latestRating = computed(() => ratingHistory.value?.at(-1)?.rating ?? null)
+const profileStats = computed(() => [
+  { label: '关注', value: profile.value?.following_count },
+  { label: '粉丝', value: profile.value?.follower_count },
+  { label: '提交', value: profile.value?.submitted_problem_count },
+  { label: '通过', value: profile.value?.passed_problem_count },
+  { label: '排名', value: profile.value?.ranking },
+  { label: '等级分', value: latestRating.value },
+])
+const userType = computed(() => profile.value?.is_banned ? '封禁用户' : profile.value?.is_admin ? '管理员' : '普通用户')
+const registrationDate = computed(() => {
+  const value = profile.value?.register_time
+  return value && !Number.isNaN(new Date(value).getTime()) ? format(value, 'YYYY-MM-DD') : '-'
+})
+const compactCount = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 })
+function formatProfileStat(value: number | null | undefined, label: string) {
+  if (value == null || !Number.isFinite(value)) return '-'
+  // 等级分保留精确整数；其他长计数用紧凑格式，悬停仍能查看完整值。
+  return label === '等级分' ? String(value) : compactCount.format(value).toLowerCase()
+}
+
 const includeFeed = ref(true)
 const includeDiscussion = ref(true)
 // 活动列表分页：游标 = 列表最后一条的 time（更老的时间）
@@ -388,28 +418,27 @@ function formatScore(s: number): string {
       <!-- 右侧：用户资料、操作与栏目 -->
       <aside class="sidebar">
         <section v-if="profile" class="profile-head archive-card">
-          <img v-if="profile.avatar" :src="profile.avatar" class="avatar" alt="" width="96" height="96">
-          <div v-else class="avatar avatar-fallback" aria-hidden="true">{{ profile.name_hidden ? '?' : profile.name.slice(0, 1) }}</div>
-          <h1 class="name-row">
-            <LuoguUserName :user="userBrief" :hidden="profile.name_hidden" show-badge no-link />
-          </h1>
-          <p v-if="profile.slogan" class="slogan">{{ profile.slogan }}</p>
-
-          <div class="badges">
-            <span v-if="profile.is_banned" class="tag banned">已封禁</span>
-            <span v-if="profile.is_admin" class="tag admin">管理员</span>
+          <div class="profile-identity">
+            <img v-if="profile.avatar" :src="profile.avatar" class="avatar" alt="" width="64" height="64">
+            <div v-else class="avatar avatar-fallback" aria-hidden="true">{{ profile.name_hidden ? '?' : profile.name.slice(0, 1) }}</div>
+            <div class="profile-identity-copy">
+              <h1 class="name-row">
+                <LuoguUserName :user="userBrief" :hidden="profile.name_hidden" show-badge no-link />
+              </h1>
+              <p v-if="profile.slogan" class="slogan">{{ profile.slogan }}</p>
+            </div>
           </div>
 
-          <dl class="stats">
-            <div><dt>关注</dt><dd>{{ profile.following_count }}</dd></div>
-            <div><dt>粉丝</dt><dd>{{ profile.follower_count }}</dd></div>
-            <div><dt>提交题目</dt><dd>{{ profile.submitted_problem_count ?? '—' }}</dd></div>
-            <div><dt>通过题目</dt><dd>{{ profile.passed_problem_count ?? '—' }}</dd></div>
+          <dl class="profile-details">
+            <div><dt>用户编号</dt><dd>{{ profile.uid ?? '-' }}</dd></div>
+            <div><dt>用户类型</dt><dd>{{ userType }}</dd></div>
+            <div><dt>注册时间</dt><dd>{{ registrationDate }}</dd></div>
+            <div v-if="profile.ccf_level > 0"><dt>OI 程序设计能力</dt><dd>{{ profile.ccf_level }} 级</dd></div>
+            <div v-if="profile.xcpc_level > 0"><dt>ICPC/CCPC 程序设计能力</dt><dd>{{ profile.xcpc_level }} 级</dd></div>
           </dl>
-          <div v-if="profile.ccf_level > 0 || profile.xcpc_level > 0" class="user-certifications">
-            <span v-if="profile.ccf_level > 0">CCF {{ profile.ccf_level }}</span>
-            <span v-if="profile.xcpc_level > 0">XCPC {{ profile.xcpc_level }}</span>
-          </div>
+          <dl class="stats">
+            <div v-for="stat in profileStats" :key="stat.label"><dt>{{ stat.label }}</dt><dd :title="stat.value == null ? undefined : String(stat.value)">{{ formatProfileStat(stat.value, stat.label) }}</dd></div>
+          </dl>
         </section>
         <FollowButton :uid="Number(uid)">
           <template #default="{ following, loading, toggle }">
@@ -679,43 +708,37 @@ function formatScore(s: number): string {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 22px 20px;
-  text-align: center;
+  text-align: left;
   margin-bottom: 0;
 }
+.profile-identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.profile-identity-copy { flex: 1; min-width: 0; }
 .avatar {
-  width: 96px;
-  height: 96px;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
   object-fit: cover;
   border-radius: 50%;
   border: 2px solid var(--border);
 }
-.avatar-fallback { display: grid; place-items: center; margin: 0 auto; background: var(--hover); color: var(--text-muted); font-size: 28px; }
+.avatar-fallback { display: grid; place-items: center; background: var(--hover); color: var(--text-muted); font-size: 24px; }
 .name-row {
-  margin: 10px 0 4px;
-  font-size: 20px;
+  margin: 0;
+  font-size: 18px;
   overflow-wrap: anywhere;
 }
-.name-row :deep(.lg-user-wrap) { justify-content: center; flex-wrap: wrap; }
+.name-row :deep(.lg-user-wrap) { justify-content: flex-start; flex-wrap: wrap; max-width: 100%; }
+.name-row :deep(.lg-name) { min-width: 0; overflow-wrap: anywhere; }
 .slogan {
   color: var(--text-muted);
-  margin: 4px 0 12px;
+  margin: 5px 0 0;
   font-size: 14px;
+  overflow-wrap: anywhere;
 }
-.badges {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.tag {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--hover);
-  color: var(--text-muted);
-}
-.tag.banned { background: #ffecec; color: var(--lg-red); }
-.tag.admin { background: #e9f5ff; color: var(--lg-blue); }
+.profile-details { display: grid; gap: 12px; margin: 22px 0 0; font-size: 14px; }
+.profile-details > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 12px; }
+.profile-details dt { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+.profile-details dd { margin: 0; text-align: right; font-weight: 400; font-variant-numeric: tabular-nums; }
 
 .card-link-btn {
   width: fit-content;
@@ -743,8 +766,8 @@ function formatScore(s: number): string {
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
   margin: 22px 0 0;
   padding-top: 18px;
   border-top: 1px solid var(--border);
@@ -753,10 +776,8 @@ function formatScore(s: number): string {
 .stats > div {
   min-width: 0;
 }
-.stats dt { font-size: 11px; color: var(--text-muted); margin: 0; }
-.stats dd { margin: 0; font-weight: 600; font-size: 14px; }
-.stats dd { overflow-wrap: anywhere; }
-.user-certifications { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; color: var(--text-muted); font-size: 12px; }
+.stats dt { font-size: 12px; color: var(--text-muted); margin: 0 0 3px; }
+.stats dd { margin: 0; font-weight: 400; font-size: 14px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 
 .tabs {
   display: flex;

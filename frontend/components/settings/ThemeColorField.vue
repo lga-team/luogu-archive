@@ -2,7 +2,7 @@
 import { useId } from 'vue'
 import { Minus } from 'lucide-vue-next'
 import { Input, Label, Button } from '../ui'
-import { normalizeTheme } from '~/utils/luoguTheme'
+import { normalizeTheme } from '~/lib/luoguTheme'
 defineProps<{ label: string; removable?: boolean }>()
 const model = defineModel<string>({ required: true })
 const emit = defineEmits<{ remove: [] }>()

@@ -16,7 +16,7 @@ const tabIcons: Record<string, typeof Activity> = { activity: Activity, intro: F
       <span class="judgement-heading-updated">{{ updatedAt ? '上次更新：' + updatedAt : '' }}</span>
       <div class="judgement-heading-actions user-profile-actions" :data-full="showProfileActions ? 'true' : undefined">
         <template v-if="showProfileActions">
-          <Button :variant="following ? 'outline' : 'default'" size="sm" :disabled="pending" @click="emit('follow')"><component :is="pending ? LoaderCircle : following ? UserRoundCheck : UserPlus" :size="14" :class="{ 'user-control-spin': pending }" aria-hidden="true" />{{ following ? '取消关注' : '关注' }}</Button>
+          <Button :variant="following ? 'outline' : 'default'" size="sm" class="user-follow-button" :data-following="following ? 'true' : 'false'" :disabled="pending" @click="emit('follow')"><component :is="pending ? LoaderCircle : following ? UserRoundCheck : UserPlus" :size="14" :class="{ 'user-control-spin': pending }" aria-hidden="true" />{{ following ? '取消' : '关注' }}</Button>
           <Button variant="outline" size="sm" as-child><NuxtLink :to="'/user/' + uid + '/card'" @click.prevent="emit('card')"><ChartNoAxesColumn :size="14" aria-hidden="true" />图卡</NuxtLink></Button>
         </template>
         <Button variant="outline" size="sm" as-child><a :href="'https://www.luogu.com.cn/user/' + uid" target="_blank" rel="noopener noreferrer"><ExternalLink :size="14" aria-hidden="true" />查看源站</a></Button>
@@ -33,7 +33,7 @@ const tabIcons: Record<string, typeof Activity> = { activity: Activity, intro: F
     </div>
     <Button v-else-if="mode === 'card'" variant="outline" size="sm" as-child><NuxtLink :to="'/user/' + uid + '/card'" @click.prevent="emit('action')"><ChartNoAxesColumn :size="14" aria-hidden="true" />图卡</NuxtLink></Button>
     <Button v-else-if="mode === 'retry'" variant="outline" size="sm" :disabled="pending" @click="emit('action')"><RefreshCw :size="14" aria-hidden="true" />重试</Button>
-    <Button v-else-if="mode === 'follow'" :variant="following ? 'outline' : 'default'" size="sm" :disabled="pending" @click="emit('action')"><component :is="pending ? LoaderCircle : following ? UserRoundCheck : UserPlus" :size="14" :class="{ 'user-control-spin': pending }" aria-hidden="true" />{{ following ? '取消关注' : '关注' }}</Button>
+    <Button v-else-if="mode === 'follow'" :variant="following ? 'outline' : 'default'" size="sm" class="user-follow-button" :data-following="following ? 'true' : 'false'" :disabled="pending" @click="emit('action')"><component :is="pending ? LoaderCircle : following ? UserRoundCheck : UserPlus" :size="14" :class="{ 'user-control-spin': pending }" aria-hidden="true" />{{ following ? '取消' : '关注' }}</Button>
     <Button v-else-if="mode === 'copy'" variant="outline" size="sm" :disabled="disabled" @click="emit('action')"><component :is="copied ? Check : Copy" :size="14" aria-hidden="true" />{{ copied ? '已复制' : '复制原文' }}</Button>
     <Button v-else variant="outline" size="sm" :disabled="pending" @click="emit('action')"><component :is="pending ? LoaderCircle : ArrowDown" :size="14" :class="{ 'user-control-spin': pending }" aria-hidden="true" />{{ pending ? '加载中…' : '加载更多' }}</Button>
   </div>

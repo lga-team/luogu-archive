@@ -3,6 +3,8 @@
 .user-profile-toolbar .judgement-heading-actions { margin: 0; justify-content: center; flex-wrap: wrap; }
 .user-profile-toolbar .user-profile-actions[data-full=true] { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; }
 .user-profile-actions > .archive-button { flex-shrink: 0; }
+.archive-ui .user-follow-button[data-following=false] { background: #0969da; border-color: #0969da; color: #fff; }
+.archive-ui .user-follow-button[data-following=false]:hover { background: #0758b8; border-color: #0758b8; color: #fff; }
 .user-profile-toolbar .judgement-heading-message { text-align: center; }
 .archive-ui .user-section-navigation { padding: 6px; gap: 0; }
 .user-section-tabs { display: grid; gap: 3px; }

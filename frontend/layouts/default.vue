@@ -225,6 +225,8 @@ const navItems = computed(() => allNavItems.filter(
 
 /* 左侧悬停展开导航栏 */
 .side-nav {
+  /* 显式保留 73px 总占位；导航项单独用 border-box，避免 padding 撑出侧栏。 */
+  box-sizing: content-box;
   position: fixed;
   top: 0;
   left: 0;
@@ -247,10 +249,11 @@ const navItems = computed(() => allNavItems.filter(
 
 .brand,
 .nav-item {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 9px 10px;
+  padding: 9px 17px;
   color: var(--text);
   text-decoration: none;
   border-radius: 6px;
@@ -263,6 +266,8 @@ const navItems = computed(() => allNavItems.filter(
   font-family: inherit;
   text-align: left;
   width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 .brand { font-weight: 700; font-size: 15px; margin-bottom: 6px; }
 .nav-item:hover,
@@ -289,7 +294,7 @@ const navItems = computed(() => allNavItems.filter(
   border-radius: 7px;
   object-fit: cover;
   display: block;
-  margin-left: -4px;
+  margin-left: -6px;
 }
 
 .label {
@@ -420,9 +425,9 @@ const navItems = computed(() => allNavItems.filter(
 .archive-home-layout .nav-items { min-height: 0; }
 .archive-home-layout .nav-items .nav-item { min-height: 0; }
 @media (max-height: 640px) {
-  .archive-home-layout .nav-item { padding: 6px 10px; }
+  .archive-home-layout .nav-item { padding: 6px 17px; }
   .archive-home-layout .brand { padding-top: 6px; padding-bottom: 6px; }
-  .archive-home-layout .brand-logo { width: 28px; height: 28px; }
+  .archive-home-layout .brand-logo { width: 28px; height: 28px; margin-left: -3px; }
 }
 
 @media (max-width: 768px) {

@@ -1,4 +1,4 @@
-import { applyTheme, defaultTheme, normalizeTheme, parseThemeId, prepareTheme, readTheme, saveTheme, type SavedTheme, type ThemeResult, type ThemeConfig } from '~/utils/luoguTheme'
+import { applyTheme, defaultTheme, normalizeTheme, parseThemeId, prepareTheme, readTheme, saveTheme, type SavedTheme, type ThemeResult, type ThemeConfig } from '~/lib/luoguTheme'
 
 const copyTheme = (value: SavedTheme): SavedTheme => JSON.parse(JSON.stringify(value))
 export function useThemeEditor() {

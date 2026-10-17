@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "nuxt dev",
+    "dev:preview": "nuxt dev --dotenv .env.preview.local --host 127.0.0.1 --port 3002",
     "build": "nuxt build",
     "preview": "nuxt preview",
     "generate": "nuxt generate",

@@ -1,4 +1,6 @@
 const extendedArchiveModulesEnabled = process.env.NUXT_PUBLIC_EXTENDED_ARCHIVE_MODULES_ENABLED === 'true'
+// 本地预览只代理到显式指定的主站；生产构建不启用，避免改变线上部署。
+const previewUpstream = process.env.ARCHIVE_PREVIEW_UPSTREAM?.replace(/\/+$/, '')
 
 const hiddenArchiveExactPages = new Set(['/feed', '/fake-realtime'])
 const hiddenArchivePagePrefixes = ['/problem', '/contest', '/admin/problems', '/admin/contests']
@@ -8,6 +10,12 @@ export default defineNuxtConfig({
   ssr: true,
   vite: {
     server: { allowedHosts: true },
+  },
+  nitro: {
+    devProxy: previewUpstream ? {
+      '/api/': { target: previewUpstream + '/api/', changeOrigin: true },
+      '/static/img/': { target: previewUpstream + '/static/img/', changeOrigin: true },
+    } : {},
   },
   modules: [
     '@nuxtjs/color-mode',
