@@ -34,11 +34,11 @@ export function UserControls(props: UserControlsProps) {
   if (props.mode === 'toolbar') return <Card className="judgement-toolbar user-profile-toolbar">
     <CardFooter className="judgement-heading-footer">
       <span className="judgement-heading-updated">{props.updatedAt ? `上次更新：${props.updatedAt}` : ''}</span>
-      {props.showProfileActions && <div className="judgement-heading-actions">
-        <UserControls {...props} mode="follow" onAction={props.onFollow} />
-        <UserControls {...props} mode="card" onAction={props.onCard} />
-      </div>}
-      <div className="judgement-heading-actions">
+      <div className="judgement-heading-actions user-profile-actions" data-full={props.showProfileActions ? 'true' : undefined}>
+        {props.showProfileActions && <>
+          <UserControls {...props} mode="follow" onAction={props.onFollow} />
+          <UserControls {...props} mode="card" onAction={props.onCard} />
+        </>}
         <Button variant="outline" size="sm" asChild><a href={`https://www.luogu.com.cn/user/${props.uid}`} target="_blank" rel="noopener noreferrer"><ExternalLink size={14} aria-hidden="true" />查看源站</a></Button>
         <UpdateButton state={props.state || 'idle'} message={props.message || ''} onUpdate={props.onUpdate} />
       </div>

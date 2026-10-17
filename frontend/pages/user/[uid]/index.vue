@@ -403,12 +403,13 @@ function formatScore(s: number): string {
           <dl class="stats">
             <div><dt>关注</dt><dd>{{ profile.following_count }}</dd></div>
             <div><dt>粉丝</dt><dd>{{ profile.follower_count }}</dd></div>
-            <div v-if="profile.submitted_problem_count !== null"><dt>提交题目</dt><dd>{{ profile.submitted_problem_count }}</dd></div>
-            <div v-if="profile.passed_problem_count !== null"><dt>通过题目</dt><dd>{{ profile.passed_problem_count }}</dd></div>
-            <div v-if="profile.ranking !== null"><dt>做题榜</dt><dd>#{{ profile.ranking }}</dd></div>
-            <div v-if="profile.ccf_level > 0"><dt>CCF</dt><dd>{{ profile.ccf_level }}</dd></div>
-            <div v-if="profile.xcpc_level > 0"><dt>XCPC</dt><dd>{{ profile.xcpc_level }}</dd></div>
+            <div><dt>提交题目</dt><dd>{{ profile.submitted_problem_count ?? '—' }}</dd></div>
+            <div><dt>通过题目</dt><dd>{{ profile.passed_problem_count ?? '—' }}</dd></div>
           </dl>
+          <div v-if="profile.ccf_level > 0 || profile.xcpc_level > 0" class="user-certifications">
+            <span v-if="profile.ccf_level > 0">CCF {{ profile.ccf_level }}</span>
+            <span v-if="profile.xcpc_level > 0">XCPC {{ profile.xcpc_level }}</span>
+          </div>
         </section>
         <FollowButton :uid="Number(uid)">
           <template #default="{ following, loading, toggle }">
@@ -654,6 +655,8 @@ function formatScore(s: number): string {
 }
 
 .sidebar {
+  container-type: inline-size;
+  container-name: user-sidebar;
   grid-area: sidebar;
   min-width: 0;
   display: grid;
@@ -740,18 +743,20 @@ function formatScore(s: number): string {
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
   margin: 22px 0 0;
   padding-top: 18px;
   border-top: 1px solid var(--border);
-  text-align: left;
+  text-align: center;
 }
 .stats > div {
   min-width: 0;
 }
 .stats dt { font-size: 11px; color: var(--text-muted); margin: 0; }
 .stats dd { margin: 0; font-weight: 600; font-size: 14px; }
+.stats dd { overflow-wrap: anywhere; }
+.user-certifications { display: flex; justify-content: center; flex-wrap: wrap; gap: 12px; margin-top: 14px; color: var(--text-muted); font-size: 12px; }
 
 .tabs {
   display: flex;
