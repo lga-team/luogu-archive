@@ -3,7 +3,7 @@
 .user-profile-toolbar .judgement-heading-actions { margin: 0; justify-content: center; flex-wrap: wrap; }
 .user-profile-toolbar .user-profile-actions[data-full=true] { display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; }
 .user-profile-actions > .archive-button { flex-shrink: 0; }
-@container user-sidebar (max-width: 380px) {
+@container user-sidebar (max-width: 420px) {
   .user-profile-toolbar .judgement-heading-footer { padding-inline: 10px; }
   .user-profile-toolbar .user-profile-actions[data-full=true] { gap: 4px; }
   .archive-react .user-profile-actions > .archive-button:not(.archive-update) { padding-inline: 4px; gap: 4px; font-size: 12px; }

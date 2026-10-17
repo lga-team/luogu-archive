@@ -644,7 +644,7 @@ function formatScore(s: number): string {
 
 .two-col {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(420px, 1.12fr);
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
   grid-template-areas: 'content sidebar';
   gap: 20px 16px;
   align-items: start;
