@@ -44,10 +44,12 @@ export function normalizeTheme(value: unknown): ThemeConfig {
   if (!['none', 'all', 'x', 'y'].includes(repeat) || !Array.isArray(position) || position.length !== 2) throw Error('图片设置不正确')
   const blur = body.blur ?? 0
   if (![0, 1000, 1010].includes(blur)) throw Error('毛玻璃档位不正确')
+  // 洛谷使用 ±1000 表示淡出方向，本站编辑器使用 ±1；统一方向并兼容旧配置。
+  const fade = Math.sign(number(body.fade ?? 0, -1000, 1000))
   return {
     lNavi: { back: color(nav.back ?? '#ffffff'), fore: color(nav.fore ?? '#333333'), logo: nav.logo ? color(nav.logo) : null },
     lBody: { back: color(body.back ?? '#efefef'), image, color: colors.filter(Boolean).map(color), blur,
-      fade: number(body.fade ?? 0, -1, 1), midOpts: { degree: number(opts.degree ?? 0, 0, 360), brightness: number(opts.brightness ?? 0, -100, 100), repeat, size, position: position.map((v: unknown) => number(v, 0, 100)) } },
+      fade, midOpts: { degree: number(opts.degree ?? 0, 0, 360), brightness: number(opts.brightness ?? 0, -100, 100), repeat, size, position: position.map((v: unknown) => number(v, 0, 100)) } },
   }
 }
 export function readTheme(): SavedTheme {
