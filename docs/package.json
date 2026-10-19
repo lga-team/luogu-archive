@@ -1,0 +1,17 @@
+{
+  "name": "luogu-archive-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vitepress dev --host 127.0.0.1 --port 5174 --strictPort",
+    "build": "vitepress build",
+    "preview": "vitepress preview --host 127.0.0.1 --port 4174 --strictPort"
+  },
+  "devDependencies": {
+    "@vscode/markdown-it-katex": "1.1.1",
+    "katex": "^0.16.11",
+    "markdown-it-footnote": "^4.0.0",
+    "vitepress": "1.6.4",
+    "vue": "^3.5.0"
+  }
+}

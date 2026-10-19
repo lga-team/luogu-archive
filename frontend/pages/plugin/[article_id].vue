@@ -24,6 +24,8 @@ const toast = ref('')
 const reportOpen = ref(false)
 const reportType = ref('dangerous_request')
 const reportDescription = ref('')
+const claiming = ref(false)
+const claimError = ref('')
 useCopyCode(articleRef)
 
 const pendingSnapshot = computed(() => detail.value?.pending_application?.snapshot || null)
@@ -131,6 +133,21 @@ async function submitReport() {
   }
 }
 
+async function claimPlugin() {
+  if (claiming.value) return
+  claiming.value = true
+  claimError.value = ''
+  try {
+    await api(`/plugins/${articleId}/claim`, { method: 'POST' })
+    await load()
+    showToast('认领成功，插件已转入你的账号')
+  } catch (error: any) {
+    claimError.value = error?.data?.message || '认领失败，请稍后重试'
+  } finally {
+    claiming.value = false
+  }
+}
+
 onMounted(async () => {
   if (!auth.initialized) await auth.tryRefresh()
   await load()
@@ -171,6 +188,17 @@ useHead(() => ({ title: `${displayName.value} - 插件广场` }))
       </div>
       <PluginRequestLevelBadge v-if="displayVersion" :level="displayVersion.final_request_level" />
     </header>
+
+    <div v-if="detail.can_claim" class="claim-banner" role="status">
+      <div>
+        <strong>此插件可能为你所有</strong>
+        <p>原文章作者与你绑定的洛谷账号一致，认领后可管理和更新此插件。</p>
+        <p v-if="claimError" class="claim-error">{{ claimError }}</p>
+      </div>
+      <button type="button" class="archive-action-button" :disabled="claiming" @click="claimPlugin">
+        {{ claiming ? '认领中…' : '认领' }}
+      </button>
+    </div>
 
     <div v-if="detail.pending_application" class="pending-banner">
       <div>
@@ -340,6 +368,10 @@ useHead(() => ({ title: `${displayName.value} - 插件广场` }))
 .pending-banner, .down-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-left: 4px solid var(--lg-orange); background: var(--surface); }
 .pending-banner p { margin: 3px 0 0; color: var(--text-muted); font-size: 13px; }
 .pending-banner button { flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 7px 11px; cursor: pointer; }
+.claim-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-left: 4px solid var(--link); background: var(--surface); }
+.claim-banner p { margin: 3px 0 0; color: var(--text-muted); font-size: 13px; }
+.claim-banner .claim-error { color: var(--lg-red); }
+.claim-banner button { flex-shrink: 0; }
 .down-banner { justify-content: flex-start; border-left-color: var(--lg-red); }
 .tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; border-bottom: 1px solid var(--border); }
 .tab-options { display: flex; gap: 22px; }
@@ -383,7 +415,7 @@ select, textarea { border: 1px solid var(--border); border-radius: 6px; backgrou
 .toast { position: fixed; z-index: 900; left: 50%; bottom: 28px; transform: translateX(-50%); margin: 0; padding: 9px 15px; border-radius: 6px; background: #222; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.24); }
 .error-box { padding: 36px; border: 1px solid var(--border); color: var(--lg-red); text-align: center; }
 @media (max-width: 760px) {
-  .plugin-header, .pending-banner, .code-toolbar, .detail-footer { align-items: flex-start; flex-direction: column; }
+  .plugin-header, .pending-banner, .claim-banner, .code-toolbar, .detail-footer { align-items: flex-start; flex-direction: column; }
   .tabs { align-items: stretch; flex-direction: column; gap: 0; }
   .tab-options { overflow-x: auto; }
   .article-links { align-self: flex-end; padding-top: 7px; }

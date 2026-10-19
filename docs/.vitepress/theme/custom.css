@@ -1,0 +1,40 @@
+:root {
+  --vp-c-brand-1: #0969da;
+  --vp-c-brand-2: #0758b8;
+  --vp-c-brand-3: #064b9d;
+  --vp-c-brand-soft: rgba(9, 105, 218, 0.1);
+  --vp-font-family-base: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+}
+
+.dark {
+  --vp-c-brand-1: #71b2ff;
+  --vp-c-brand-2: #99c8ff;
+  --vp-c-brand-3: #b9daff;
+  --vp-c-brand-soft: rgba(113, 178, 255, 0.12);
+}
+
+.vp-doc h1,
+.vp-doc h2,
+.vp-doc h3,
+.VPNavBarTitle .title {
+  letter-spacing: 0;
+}
+
+.vp-doc h1 {
+  font-size: 28px;
+  overflow-wrap: anywhere;
+}
+
+.vp-doc .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+}
+
+.vp-doc .katex-display > .katex {
+  white-space: nowrap;
+}
+
+.vp-doc .custom-block {
+  border-radius: 6px;
+}

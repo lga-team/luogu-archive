@@ -421,6 +421,17 @@ async def job_problem_catalog_sync() -> None:
 
 def build_scheduler() -> AsyncIOScheduler:
     sched = AsyncIOScheduler(timezone="UTC")
+    from app.core.site_totals import refresh_site_totals
+
+    sched.add_job(
+        refresh_site_totals,
+        "interval",
+        hours=1,
+        next_run_time=utcnow(),
+        id="refresh_site_totals",
+        max_instances=1,
+        coalesce=True,
+    )
     if not proactive_crawling_enabled():
         # 保留下面所有旧任务定义与注册代码，只在当前规范模式下不注册。
         # worker 执行层还有第二道校验，可安全消化升级前已经排队的旧消息。

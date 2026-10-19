@@ -13,6 +13,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
+
+from app.core.site_totals import increment_site_totals
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import db_session
@@ -137,6 +139,7 @@ async def _crawl_inner(uid: int, page: int, *, trigger: str) -> set[int]:
                         if cur is None or cur < new_dt:
                             target_user.last_active_feed_at = new_dt
                 await session.commit()
+                await increment_site_totals(feeds=inserted)
 
             dur = int((_t.monotonic() - start) * 1000)
             await record_task_done(
@@ -242,8 +245,8 @@ async def _insert_feeds(session: AsyncSession, rows: list) -> int:
     if not data:
         return 0
     stmt = mysql_insert(Feed).values(data).prefix_with("IGNORE")
-    await session.execute(stmt)
-    return len(data)
+    result = await session.execute(stmt)
+    return max(0, result.rowcount)
 
 
 async def _sync_users_from_feeds(session: AsyncSession, rows: list) -> None:

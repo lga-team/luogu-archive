@@ -14,7 +14,6 @@ from app.core.exceptions import NotFoundError
 from app.crawler.revalidate import is_stale, schedule_refresh_user
 from app.models.luogu_content import (
     Article,
-    ArticleVersion,
     Discussion,
     DiscussionReply,
     DiscussionReplyVersion,
@@ -22,7 +21,6 @@ from app.models.luogu_content import (
     Feed,
     Judgement,
     Paste,
-    PasteVersion,
 )
 from app.models.luogu_user import (
     LuoguUser,
@@ -303,13 +301,14 @@ async def user_activity(
     items: list[ActivityItem] = []
 
     if include_feed:
+        feed_time = func.coalesce(Feed.time, Feed.crawled_at)
         fq = select(Feed).where(
             Feed.author_uid == uid,
             visible_content_clause("feed", Feed.id, Feed.author_uid),
         )
         if before is not None:
-            fq = fq.where(Feed.time < before)
-        fq = fq.order_by(desc(Feed.time)).limit(limit)
+            fq = fq.where(feed_time < before)
+        fq = fq.order_by(desc(feed_time)).limit(limit)
         feed_rows = list((await db.execute(fq)).scalars().all())
         merged_feeds = await merge_feed_rows(db, feed_rows)
         for f in feed_rows:
@@ -317,7 +316,7 @@ async def user_activity(
             items.append(
                 ActivityItem(
                     kind="feed",
-                    time=f.time,
+                    time=f.time if f.time is not None else f.crawled_at,
                     feed_id=f.id,
                     feed_content=display.content_md,
                     feed_merged_suffix_md=display.merged_suffix_md,
@@ -327,40 +326,40 @@ async def user_activity(
                 )
             )
 
-    # 排序按"产生新版本的时间"，即 current_version 的 crawled_at —— 这是真正
-    # 反映"上次有变化"的时间。Article.last_crawled_at 每次扫描都会被更新，
-    # 哪怕内容没变；用它排会把"刚被定时扫了但内容未变"的文章顶上来，误导用户。
+    # 活动统一按源站发布时间排序，缺失时回退到首次归档时间。
+    article_time = func.coalesce(Article.source_time, Article.first_crawled_at)
     aq = (
-        select(Article, ArticleVersion.crawled_at.label("changed_at"))
-        .join(ArticleVersion, ArticleVersion.id == Article.current_version_id)
+        select(Article, article_time.label("activity_time"))
+        .where(Article.current_version_id.is_not(None))
         .where(Article.author_uid == uid, visible_content_clause("article", Article.article_id, Article.author_uid))
     )
     if before is not None:
-        aq = aq.where(ArticleVersion.crawled_at < before)
-    aq = aq.order_by(desc(ArticleVersion.crawled_at)).limit(limit)
-    for a, changed_at in (await db.execute(aq)).all():
+        aq = aq.where(article_time < before)
+    aq = aq.order_by(desc(article_time)).limit(limit)
+    for a, activity_time in (await db.execute(aq)).all():
         items.append(
             ActivityItem(
                 kind="article",
-                time=changed_at,
+                time=activity_time,
                 article_id=a.article_id,
                 article_title=a.title,
             )
         )
 
+    paste_time = func.coalesce(Paste.source_time, Paste.first_crawled_at)
     pq = (
-        select(Paste, PasteVersion.crawled_at.label("changed_at"))
-        .join(PasteVersion, PasteVersion.id == Paste.current_version_id)
+        select(Paste, paste_time.label("activity_time"))
+        .where(Paste.current_version_id.is_not(None))
         .where(Paste.author_uid == uid, visible_content_clause("paste", Paste.paste_id, Paste.author_uid))
     )
     if before is not None:
-        pq = pq.where(PasteVersion.crawled_at < before)
-    pq = pq.order_by(desc(PasteVersion.crawled_at)).limit(limit)
-    for p, changed_at in (await db.execute(pq)).all():
+        pq = pq.where(paste_time < before)
+    pq = pq.order_by(desc(paste_time)).limit(limit)
+    for p, activity_time in (await db.execute(pq)).all():
         items.append(
             ActivityItem(
                 kind="paste",
-                time=changed_at,
+                time=activity_time,
                 paste_id=p.paste_id,
             )
         )
@@ -377,7 +376,8 @@ async def user_activity(
                 discussion_time.label("activity_time"),
             )
             .join(DiscussionVersion, DiscussionVersion.id == Discussion.current_version_id)
-            .where(Discussion.author_uid == uid)
+            .where(Discussion.author_uid == uid,
+                visible_content_clause("discuss", Discussion.discussion_id, Discussion.author_uid))
         )
         if before is not None:
             dq = dq.where(discussion_time < before)
@@ -408,6 +408,8 @@ async def user_activity(
             .join(DiscussionVersion, DiscussionVersion.id == Discussion.current_version_id)
             .where(
                 DiscussionReply.author_uid == uid,
+                # 整帖下架后，其他用户活动中的回复也不能继续展示。
+                visible_content_clause("discuss", Discussion.discussion_id, Discussion.author_uid),
                 func.length(func.trim(DiscussionReplyVersion.content_md)) > 0,
             )
         )
@@ -453,15 +455,16 @@ async def user_activity(
                 )
             )
 
+    judgement_time = func.coalesce(Judgement.time, Judgement.crawled_at)
     jq = select(Judgement).where(Judgement.uid == uid)
     if before is not None:
-        jq = jq.where(Judgement.time < before)
-    jq = jq.order_by(desc(Judgement.time)).limit(limit)
+        jq = jq.where(judgement_time < before)
+    jq = jq.order_by(desc(judgement_time)).limit(limit)
     for j in (await db.execute(jq)).scalars().all():
         items.append(
             ActivityItem(
                 kind="judgement",
-                time=j.time,
+                time=j.time if j.time is not None else j.crawled_at,
                 judgement_reason=j.reason,
                 judgement_revoked=j.revoked_permission,
                 judgement_added=j.added_permission,

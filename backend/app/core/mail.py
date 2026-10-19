@@ -146,6 +146,36 @@ async def send_plugin_result_email(
     return await send_email(to, subject, text, html)
 
 
+async def send_plugin_claim_email(
+    to: str,
+    *,
+    plugin_name: str,
+    article_id: str,
+    author_uid: int,
+) -> bool:
+    plugin_url = f"{settings.WEB_PUBLIC_ORIGIN.rstrip('/')}/plugin/{article_id}"
+    subject = f"[洛谷档案馆] 插件已被原文章作者认领：{plugin_name}"
+    text = (
+        f"你发布的插件「{plugin_name}」（文章 {article_id}）已被原文章作者认领。\n"
+        f"作者洛谷 UID：{author_uid}\n"
+        "插件管理和更新权限已转移至作者绑定的站内账号。\n"
+        "插件现有代码、版本和审核结果均予以保留。\n"
+        "你此前提交的待审核申请已撤销。\n"
+        f"查看插件：{plugin_url}\n"
+    )
+    content = f"""
+          <tr><td style="padding:36px 32px 24px;">
+            <h1 style="margin:0 0 20px;font-size:21px;color:#1f2328;">插件已被原文章作者认领</h1>
+            {_email_info_table((("插件", plugin_name), ("文章编号", article_id), ("作者洛谷 UID", str(author_uid))))}
+            <p style="font-size:14px;line-height:1.7;color:#57606a;">插件管理和更新权限已转移至作者绑定的站内账号。现有代码、版本和审核结果均予以保留。你此前提交的待审核申请已撤销。</p>
+          </td></tr>
+          {_email_button_row(plugin_url, "查看插件", "#0969da")}"""
+    ok = await send_email(to, subject, text, _email_shell(content))
+    if not ok:
+        log.error("email.plugin_claim_failed", article_id=article_id)
+    return ok
+
+
 async def send_plugin_admin_notice(
     recipients: list[str],
     *,

@@ -228,7 +228,15 @@ async def review_plugin_application(
         raise ValidationError("拒绝申请必须填写原因")
 
     applicant = await db.get(SiteUser, row.applicant_user_id)
-    plugin = await db.get(Plugin, row.plugin_id) if row.plugin_id else None
+    plugin = (await db.execute(
+        select(Plugin).where(Plugin.id == row.plugin_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )).scalar_one_or_none() if row.plugin_id else None
+    if body.approved and row.application_type != "publish":
+        if plugin is None:
+            raise NotFoundError("对应插件不存在")
+        if plugin.owner_user_id != row.applicant_user_id:
+            raise ConflictError("插件归属已变更，该申请不能通过审核")
     plugin_name = plugin.name if plugin else row.article_id
 
     if body.approved:

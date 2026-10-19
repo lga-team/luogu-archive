@@ -14,7 +14,7 @@ from app.api.deps import get_client_ip
 from app.auth.deps import get_current_site_user, get_optional_site_user
 from app.core.db import get_db
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, RateLimitError, ValidationError
-from app.core.mail import send_plugin_admin_notice
+from app.core.mail import send_plugin_admin_notice, send_plugin_claim_email
 from app.core.ratelimit import SlidingWindowLimiter, ratelimit_key
 from app.core.redis_client import get_redis
 from app.models._common import utcnow
@@ -382,6 +382,11 @@ async def plugin_detail(
         }
 
     is_owner = bool(user and user.id == plugin.owner_user_id)
+    article = await db.get(Article, article_id)
+    can_claim = bool(
+        user and user.luogu_uid is not None and article
+        and user.luogu_uid == article.author_uid and not is_owner
+    )
     current = await db.get(PluginVersion, plugin.current_version_id) if plugin.current_version_id else None
     if current is None:
         raise NotFoundError("插件正式版本缺失")
@@ -403,6 +408,7 @@ async def plugin_detail(
         "is_listed": plugin.is_listed,
         "down_reason": plugin.down_reason if not plugin.is_listed else None,
         "is_owner": is_owner,
+        "can_claim": can_claim,
         "pending_only": False,
         "tags": await plugin_tag_names(db, plugin.id),
         "updated_at": plugin.updated_at.isoformat(),
@@ -419,6 +425,54 @@ async def plugin_detail(
             "tags": await _tags_by_ids(db, pending_snapshot.tag_ids),
         } if pending and pending_snapshot else None),
     }
+
+
+@router.post("/{article_id}/claim")
+async def claim_plugin(
+    article_id: str,
+    request: Request,
+    user: SiteUser = Depends(get_current_site_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    _require_bound_user(user)
+    await _write_limit(user, request, "claim", limit=5)
+    await _ensure_plugin_article_visible(db, article_id)
+
+    # 与审核保持相同的加锁顺序：先申请，后插件。
+    applications = (await db.execute(
+        select(PluginApplication).where(
+            PluginApplication.article_id == article_id,
+            PluginApplication.status == "pending",
+        ).order_by(PluginApplication.id).with_for_update()
+    )).scalars().all()
+    plugin = (await db.execute(
+        select(Plugin).where(Plugin.article_id == article_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )).scalar_one_or_none()
+    if plugin is None:
+        raise NotFoundError("插件不存在")
+    article = await db.get(Article, article_id)
+    if article is None or article.author_uid != user.luogu_uid:
+        raise ForbiddenError("只有绑定原文章作者账号的用户可以认领插件")
+    if plugin.owner_user_id == user.id:
+        raise ConflictError("插件已经属于你")
+
+    previous_owner = await db.get(SiteUser, plugin.owner_user_id)
+    for application in applications:
+        if application.applicant_user_id != user.id:
+            application.status = "cancelled"
+            application.review_note = "插件已被原文章作者认领，此申请已撤销。"
+    plugin.owner_user_id = user.id
+    await db.commit()
+
+    if previous_owner:
+        await send_plugin_claim_email(
+            previous_owner.email,
+            plugin_name=article.title,
+            article_id=article_id,
+            author_uid=user.luogu_uid,
+        )
+    return {"message": "认领成功，插件已转入你的账号"}
 
 
 @router.get("/{article_id}/versions/{version_id}")

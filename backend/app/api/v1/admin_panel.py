@@ -140,6 +140,9 @@ async def delete_feed(
     await db.delete(f)
     await _audit(db, admin, request, "delete_feed", target_type="feed", target_id=str(feed_id))
     await db.commit()
+    from app.core.site_totals import increment_site_totals
+
+    await increment_site_totals(feeds=-1)
     return {"message": "已删除"}
 
 

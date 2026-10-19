@@ -10,6 +10,7 @@
 所有模型从 app.core.db.Base 继承。
 """
 from app.core.db import Base
+from app.models.theme import LuoguTheme
 from app.models.admin import (
     Admin,
     AdminAuditLog,
@@ -86,6 +87,7 @@ __all__ = [
     "FeedCompletion",
     "Judgement",
     "LuoguUser",
+    "LuoguTheme",
     "Paste",
     "PasteVersion",
     "Problem",

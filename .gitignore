@@ -19,6 +19,13 @@ frontend/.env
 frontend/.env.*
 !frontend/.env.example
 
+# 文档站
+.pnpm-store/
+docs/node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/.vitepress/.temp/
+
 # IDE
 .vscode/
 .idea/
@@ -58,3 +65,6 @@ test/
 # 开发临时文件
 .devcontainer
 .venv
+
+# Local shadcn source cache
+/vendor/shadcn/

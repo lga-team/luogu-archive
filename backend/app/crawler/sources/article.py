@@ -25,10 +25,12 @@ from app.core.crawl_policy import automatic_cascade_allowed, crawl_trigger_allow
 from app.core.exceptions import CrawlerError
 from app.core.logging import get_logger
 from app.core.redis_client import get_redis
+from app.core.site_totals import increment_site_totals
 from app.crawler.http import fetch_anon
 from app.crawler.lentille import data_from_lentille
 from app.crawler.nodes import NodeKind, get_default_node
 from app.crawler.sources.base import (
+    parse_source_time,
     record_task_done,
     record_task_start,
     sha256_hex,
@@ -85,6 +87,7 @@ def _extract_article_fields(data: dict) -> dict[str, Any]:
                 "content_md": str(content),
                 "author_uid": int(author_uid) if author_uid else None,
                 "author_raw": author_raw,
+                "source_time": parse_source_time(node.get("time")),
                 "admin_note": (
                     str(node["adminNote"])
                     if node.get("adminNote") is not None
@@ -114,9 +117,11 @@ async def _crawl_inner(article_id: str, *, trigger: str) -> None:
 
         async with db_session() as session:
             await ensure_content_visible(session, "article", article_id, fields.get("author_uid"))
-            await _upsert_article(session, article_id, fields, node_id=node.node_id)
+            created = await _upsert_article(session, article_id, fields, node_id=node.node_id)
             await _upsert_author_brief(session, fields.get("author_raw"))
             await session.commit()
+            if created:
+                await increment_site_totals(articles=1)
 
         # 作者用户若 author_raw 里信息不全（比如缺 slogan/introduction），
         # 额外派一次完整用户爬取（带去重锁，不会重复）
@@ -152,7 +157,7 @@ async def _upsert_article(
     fields: dict[str, Any],
     *,
     node_id: str,
-) -> None:
+) -> bool:
     now = utcnow()
     content_hash = sha256_hex(fields["content_md"])
 
@@ -163,6 +168,7 @@ async def _upsert_article(
             author_uid=fields.get("author_uid"),
             title=fields["title"][:500],
             admin_note=fields.get("admin_note"),
+            source_time=fields.get("source_time"),
             first_crawled_at=now,
             last_crawled_at=now,
         )
@@ -179,7 +185,10 @@ async def _upsert_article(
         session.add(v)
         await session.flush()
         art.current_version_id = v.id
-        return
+        return True
+
+    if fields.get("source_time") is not None:
+        existing.source_time = fields["source_time"]
 
     # 已存在：判重
     q = select(ArticleVersion).where(
@@ -191,7 +200,7 @@ async def _upsert_article(
         # 管理员提示与正文独立变化，即使正文未改也必须同步当前提示。
         existing.admin_note = fields.get("admin_note")
         existing.last_crawled_at = now
-        return
+        return False
 
     # 内容变化 → 新版本
     v = ArticleVersion(
@@ -209,6 +218,7 @@ async def _upsert_article(
     existing.admin_note = fields.get("admin_note")
     existing.current_version_id = v.id
     existing.last_crawled_at = now
+    return False
 
 
 async def _upsert_author_brief(session: AsyncSession, author: dict | None) -> None:

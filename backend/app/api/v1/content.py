@@ -7,7 +7,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Body, Depends, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -65,7 +65,9 @@ class ArticleDetail(BaseModel):
     content_md: str
     admin_note: str | None
     author: _UserBrief | None
+    source_time: datetime | None
     crawled_at: datetime
+    last_crawled_at: datetime
     version_count: int
 
 
@@ -73,6 +75,7 @@ class PasteDetail(BaseModel):
     paste_id: str
     content_md: str
     author: _UserBrief | None
+    source_time: datetime | None
     crawled_at: datetime
     version_count: int
 
@@ -308,7 +311,9 @@ async def get_article(
         content_md=v.content_md,
         admin_note=art.admin_note,
         author=await _user_brief(db, art.author_uid),
+        source_time=art.source_time,
         crawled_at=v.crawled_at,
+        last_crawled_at=art.last_crawled_at,
         version_count=versions_count,
     )
 
@@ -382,6 +387,7 @@ async def get_paste(
         paste_id=paste_id,
         content_md=v.content_md,
         author=await _user_brief(db, p.author_uid),
+        source_time=p.source_time,
         crawled_at=v.crawled_at,
         version_count=versions_count,
     )
@@ -434,7 +440,9 @@ async def list_discussions(
     db: AsyncSession = Depends(get_db),
 ) -> DiscussionListResponse:
     keyword = q.strip()
-    filters = [Discussion.current_version_id.is_not(None)]
+    # 列表、总数与板块数量都排除已下架主帖，不暴露标题或回复摘要。
+    filters = [Discussion.current_version_id.is_not(None),
+        visible_content_clause("discuss", Discussion.discussion_id, Discussion.author_uid)]
     if forum:
         filters.append(Discussion.forum_slug == forum.strip())
     if keyword:
@@ -468,41 +476,22 @@ async def list_discussions(
                 Discussion.current_version_id.is_not(None),
                 Discussion.forum_name.is_not(None),
                 Discussion.forum_slug.is_not(None),
+                visible_content_clause("discuss", Discussion.discussion_id, Discussion.author_uid),
             )
             .group_by(Discussion.forum_name, Discussion.forum_slug)
             .order_by(desc(func.count(Discussion.discussion_id)))
         )
     ).all()
 
-    reply_counts = (
-        select(
-            DiscussionReply.discussion_id.label("discussion_id"),
-            func.count(DiscussionReply.reply_id).label("reply_count"),
-        )
-        .join(
-            DiscussionReplyVersion,
-            DiscussionReplyVersion.id == DiscussionReply.current_version_id,
-        )
-        .where(
-            DiscussionReplyVersion.content_md != "",
-            func.length(func.trim(DiscussionReplyVersion.content_md)) > 0,
-        )
-        .group_by(DiscussionReply.discussion_id)
-        .subquery()
-    )
     stmt = (
         select(
             Discussion,
-            DiscussionVersion,
-            func.coalesce(reply_counts.c.reply_count, 0),
+            DiscussionVersion.title,
+            DiscussionVersion.crawled_at,
         )
         .join(
             DiscussionVersion,
             DiscussionVersion.id == Discussion.current_version_id,
-        )
-        .outerjoin(
-            reply_counts,
-            reply_counts.c.discussion_id == Discussion.discussion_id,
         )
         .where(*filters)
         .order_by(
@@ -513,13 +502,16 @@ async def list_discussions(
         .limit(page_size)
     )
     rows = (await db.execute(stmt)).all()
-    discussion_ids = [discussion.discussion_id for discussion, _version, _count in rows]
+    discussion_ids = [discussion.discussion_id for discussion, _title, _crawled_at in rows]
     latest_replies: dict[int, DiscussionReply] = {}
+    reply_counts: dict[int, int] = {}
     if discussion_ids:
+        # Only aggregate replies for the posts selected on this page.
         latest_reply_ids = (
             select(
                 DiscussionReply.discussion_id.label("discussion_id"),
                 func.max(DiscussionReply.reply_id).label("reply_id"),
+                func.count(DiscussionReply.reply_id).label("reply_count"),
             )
             .join(
                 DiscussionReplyVersion,
@@ -535,21 +527,22 @@ async def list_discussions(
         )
         reply_rows = (
             await db.execute(
-                select(DiscussionReply)
+                select(DiscussionReply, latest_reply_ids.c.reply_count)
                 .join(
                     latest_reply_ids,
                     latest_reply_ids.c.reply_id == DiscussionReply.reply_id,
                 )
             )
-        ).scalars().all()
-        for reply in reply_rows:
+        ).all()
+        for reply, reply_count in reply_rows:
             latest_replies[reply.discussion_id] = reply
+            reply_counts[reply.discussion_id] = int(reply_count)
 
     users = await _user_brief_map(
         db,
         {
             uid
-            for discussion, _version, _count in rows
+            for discussion, _title, _crawled_at in rows
             for uid in (
                 discussion.author_uid,
                 latest_replies.get(discussion.discussion_id).author_uid
@@ -564,12 +557,12 @@ async def list_discussions(
         items=[
             DiscussionListItem(
                 discussion_id=discussion.discussion_id,
-                title=version.title,
+                title=title,
                 author=users.get(discussion.author_uid) if discussion.author_uid else None,
                 forum_name=discussion.forum_name,
                 source_time=discussion.source_time,
-                crawled_at=version.crawled_at,
-                stored_reply_count=int(reply_count),
+                crawled_at=crawled_at,
+                stored_reply_count=reply_counts.get(discussion.discussion_id, 0),
                 latest_reply_author=(
                     users.get(latest_replies[discussion.discussion_id].author_uid)
                     if discussion.discussion_id in latest_replies
@@ -582,7 +575,7 @@ async def list_discussions(
                     else None
                 ),
             )
-            for discussion, version, reply_count in rows
+            for discussion, title, crawled_at in rows
         ],
         forums=[
             DiscussionForumItem(name=name, slug=slug, count=int(count))
@@ -595,26 +588,20 @@ async def list_discussions(
 
 
 @router.post("/discuss/refresh", response_model=DiscussionRefreshResponse)
-async def refresh_discussions() -> DiscussionRefreshResponse:
-    """提交一次讨论区首页发现任务；全站共享短冷却以避免重复抓取。"""
-    from app.core.redis_client import get_redis
-    from app.tasks.actors.crawl import discover_from_discuss_hi
+async def refresh_discussions(
+    request: Request,
+    captcha_token: str | None = Body(None, embed=True),
+) -> DiscussionRefreshResponse:
+    """兼容旧入口，统一使用保存接口的合并、IP 限流与人机验证。"""
+    from app.api.v1.save import SaveReq, save
 
-    redis = get_redis()
-    cooldown_key = "manual:discussion_discovery"
-    queued = await redis.set(cooldown_key, "1", ex=60, nx=True)
-    if not queued:
-        retry_after = max(1, int(await redis.ttl(cooldown_key)))
-        return DiscussionRefreshResponse(
-            queued=False,
-            message="更新任务刚刚提交过，请稍后再试",
-            retry_after=retry_after,
-        )
-
-    discover_from_discuss_hi.send("manual")
+    result = await save(
+        SaveReq(content_type="discuss_list", id="all", captcha_token=captcha_token),
+        request,
+    )
     return DiscussionRefreshResponse(
         queued=True,
-        message="更新任务已提交",
+        message="已合并到进行中的任务" if result.merged else "更新任务已提交",
     )
 
 
@@ -625,6 +612,7 @@ async def get_discussion(
     per_page: int = Query(10, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ) -> DiscussionDetail:
+    await ensure_content_visible(db, "discuss", str(discussion_id))
     discussion = await db.get(Discussion, discussion_id)
     if discussion is None:
         from app.crawler.sources.discussion import enqueue_discussion_crawl
@@ -637,6 +625,9 @@ async def get_discussion(
             background=False,
         )
         raise NotFoundError("讨论未被本站收录，已触发爬取，请稍后刷新")
+
+    # 隐藏检查先于正文、回复和修复任务，翻页不能绕过整帖下架。
+    await ensure_content_visible(db, "discuss", str(discussion_id), discussion.author_uid)
 
     version = (
         await db.get(DiscussionVersion, discussion.current_version_id)
@@ -731,7 +722,7 @@ async def get_discussion(
         author=users.get(discussion.author_uid) if discussion.author_uid else None,
         forum_name=discussion.forum_name,
         source_time=discussion.source_time,
-        crawled_at=version.crawled_at,
+        crawled_at=discussion.last_crawled_at,
         source_reply_count=discussion.observed_reply_count,
         stored_reply_count=stored_count,
         page=page,
@@ -832,6 +823,7 @@ async def list_judgement(
     batch_size = min(max(limit * 10, 200), 1000)
     max_raw_rows = max(batch_size, min(20000, limit * 200))
     has_more = True
+    groups: list[list[Judgement]] = []
 
     while has_more and len(raw_rows) < max_raw_rows:
         q = select(Judgement).order_by(desc(Judgement.time)).limit(batch_size)
@@ -845,18 +837,40 @@ async def list_judgement(
         cursor = batch[-1].time
         has_more = len(batch) == batch_size
 
-        groups = await _group_judgements(db, raw_rows)
+        groups = _group_judgements(raw_rows)
         # 多拿 1 组作为边界缓冲，减少分页边界切在同一批处罚组里的概率。
         if len(groups) >= limit + 1:
-            return groups[:limit]
+            break
 
-    groups = await _group_judgements(db, raw_rows)
-    return groups[:limit]
+    selected = groups[:limit]
+    users = await _user_brief_map(db, {row.uid for group in selected for row in group})
+    return [
+        JudgementGroup(
+            group_key=f"{hash((group[0].reason, group[0].revoked_permission, group[0].added_permission, int(group[0].time.timestamp()))):x}",
+            reason=group[0].reason,
+            revoked_permission=group[0].revoked_permission,
+            added_permission=group[0].added_permission,
+            time_start=group[0].time,
+            time_end=group[-1].time,
+            users=[
+                users[row.uid]
+                if row.uid in users
+                else _UserBrief(
+                    uid=row.uid,
+                    name=row.username_snapshot,
+                    color="Gray",
+                    badge=None,
+                    avatar=None,
+                )
+                for row in group
+            ],
+            count=len(group),
+        )
+        for group in selected
+    ]
 
 
-async def _group_judgements(
-    session: AsyncSession, rows: list[Judgement]
-) -> list[JudgementGroup]:
+def _group_judgements(rows: list[Judgement]) -> list[list[Judgement]]:
     """按 3.md 4.4.1 的合并规则生成分组。
 
     规则：三者同时满足才合并 —— reason 相同、两个 permission 相同、相邻时间 ≤ 30 min。
@@ -869,51 +883,24 @@ async def _group_judgements(
         buckets[(r.reason, r.revoked_permission, r.added_permission)].append(r)
 
     # 每桶内按时间排序再按 30min 切分为子组
-    groups: list[JudgementGroup] = []
-    for (reason, revoked, added), items in buckets.items():
+    groups: list[list[Judgement]] = []
+    for items in buckets.values():
         items.sort(key=lambda x: x.time)
         current: list[Judgement] = []
         prev_time: datetime | None = None
-
-        async def _flush(bucket: list[Judgement]) -> None:
-            if not bucket:
-                return
-            users_info: list[_UserBrief] = []
-            for jt in bucket:
-                u = await _user_brief(session, jt.uid)
-                if u is None:
-                    u = _UserBrief(
-                        uid=jt.uid,
-                        name=jt.username_snapshot,
-                        color="Gray",
-                        badge=None,
-                        avatar=None,
-                    )
-                users_info.append(u)
-            groups.append(
-                JudgementGroup(
-                    group_key=f"{hash((reason, revoked, added, int(bucket[0].time.timestamp()))):x}",
-                    reason=reason,
-                    revoked_permission=revoked,
-                    added_permission=added,
-                    time_start=bucket[0].time,
-                    time_end=bucket[-1].time,
-                    users=users_info,
-                    count=len(bucket),
-                )
-            )
 
         for it in items:
             if prev_time is None or (it.time - prev_time).total_seconds() <= window_sec:
                 current.append(it)
             else:
-                await _flush(current)
+                groups.append(current)
                 current = [it]
             prev_time = it.time
-        await _flush(current)
+        if current:
+            groups.append(current)
 
     # 按 time_end 倒序
-    groups.sort(key=lambda g: g.time_end, reverse=True)
+    groups.sort(key=lambda g: g[-1].time, reverse=True)
     return groups
 
 

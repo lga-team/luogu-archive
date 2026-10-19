@@ -55,6 +55,7 @@ export interface PluginDetail {
   is_listed: boolean
   down_reason?: string | null
   is_owner: boolean
+  can_claim?: boolean
   pending_only: boolean
   tags: PluginTag[]
   updated_at?: string
