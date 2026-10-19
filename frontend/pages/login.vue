@@ -1,13 +1,15 @@
 <script setup lang="ts">
-const form = ref({ email: '', password: '' })
-const err = ref('')
-const loading = ref(false)
-
-// 邮箱未验证时出现"重发验证邮件"入口
-const needVerify = ref(false)
-const resendMsg = ref('')
-const resendCooldown = ref(0)
-let cooldownTimer: ReturnType<typeof setInterval> | null = null
+import { toTypedSchema } from '@vee-validate/zod'
+import { useForm } from 'vee-validate'
+import { toast } from 'vue-sonner'
+import * as z from 'zod'
+import {
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '~/components/ui/form'
 
 const api = useApi()
 const auth = useAuthStore()
@@ -19,28 +21,39 @@ const safeRedirect = computed(() => {
   return value.startsWith('/') && !value.startsWith('//') ? value : '/'
 })
 
-async function submit() {
-  err.value = ''
+const needVerify = ref(false)
+const serverError = ref('')
+const resendMsg = ref('')
+const resendCooldown = ref(0)
+let cooldownTimer: ReturnType<typeof setInterval> | null = null
+
+const { handleSubmit, isSubmitting, values } = useForm({
+  validationSchema: toTypedSchema(z.object({
+    email: z.string().min(1, '请输入邮箱').email('邮箱格式不正确'),
+    password: z.string().min(1, '请输入密码'),
+  })),
+  initialValues: { email: '', password: '' },
+})
+
+const onSubmit = handleSubmit(async (formValues) => {
+  serverError.value = ''
   needVerify.value = false
   resendMsg.value = ''
-  loading.value = true
   try {
     const data = await api<any>('/auth/login', {
       method: 'POST',
-      body: form.value,
+      body: formValues,
     })
     auth.setTokens(data)
-    navigateTo(safeRedirect.value)
+    await navigateTo(safeRedirect.value)
   } catch (e: any) {
-    err.value = e?.data?.message || '登录失败'
+    serverError.value = e?.data?.message || '登录失败'
     // 后端对未验证邮箱返回"请先验证邮箱"
-    if (typeof err.value === 'string' && err.value.includes('验证邮箱')) {
+    if (typeof serverError.value === 'string' && serverError.value.includes('验证邮箱')) {
       needVerify.value = true
     }
-  } finally {
-    loading.value = false
   }
-}
+})
 
 function startCooldown(sec: number) {
   resendCooldown.value = sec
@@ -56,21 +69,23 @@ function startCooldown(sec: number) {
 
 async function resend() {
   if (resendCooldown.value > 0) return
-  if (!form.value.email) {
-    resendMsg.value = '请先填写邮箱'
+  if (!values.email) {
+    toast.warning('请先填写邮箱')
     return
   }
   resendMsg.value = ''
   try {
     const data = await api<{ message: string }>('/auth/resend-verification', {
       method: 'POST',
-      body: { email: form.value.email },
+      body: { email: values.email },
     })
     resendMsg.value = data.message || '已重新发送，请查收'
+    toast.success('验证邮件已发送')
     startCooldown(60)
   } catch (e: any) {
     const retry = e?.data?.data?.retry_after_sec
     resendMsg.value = e?.data?.message || '发送失败'
+    toast.error(resendMsg.value)
     if (typeof retry === 'number' && retry > 0) startCooldown(retry)
   }
 }
@@ -78,77 +93,92 @@ async function resend() {
 onUnmounted(() => {
   if (cooldownTimer) clearInterval(cooldownTimer)
 })
+
+useHead({ title: '登录 - 洛谷档案馆' })
+
 </script>
 
 <template>
-  <div class="wrap">
-    <h1>登录</h1>
-    <form @submit.prevent="submit">
-      <label>邮箱</label>
-      <input v-model="form.email" type="email" autocomplete="email" required>
-      <label>密码</label>
-      <input v-model="form.password" type="password" autocomplete="current-password" required>
-      <button :disabled="loading" type="submit">
-        {{ loading ? '登录中...' : '登录' }}
-      </button>
-      <p v-if="err" class="err">{{ err }}</p>
-    </form>
-
-    <div v-if="needVerify" class="resend-box">
-      <p>邮箱还没验证？</p>
-      <button class="resend-btn" :disabled="resendCooldown > 0" @click="resend">
-        {{ resendCooldown > 0 ? `重新发送（${resendCooldown}s）` : '重新发送验证邮件' }}
-      </button>
-      <p v-if="resendMsg" class="resend-msg">{{ resendMsg }}</p>
+  <div class="mx-auto w-full max-w-[380px] py-10 sm:py-16">
+    <div class="mb-6 text-center">
+      <img src="/favicon.png" alt="" class="mx-auto mb-4 size-12 rounded-xl">
+      <h1 class="text-2xl font-semibold tracking-tight text-foreground">
+        登录
+      </h1>
+      <p class="mt-1.5 text-sm text-muted-foreground">
+        登录后可以关注内容、追踪版本变化
+      </p>
     </div>
 
-    <p class="tip">还没账号？<NuxtLink to="/register">注册</NuxtLink></p>
+    <Card class="gap-0 py-0">
+      <CardContent class="p-6">
+        <form class="flex flex-col gap-4" @submit="onSubmit">
+          <FormField v-slot="{ componentField }" name="email">
+            <FormItem>
+              <FormLabel>邮箱</FormLabel>
+              <FormControl>
+                <Input
+                  type="email"
+                  autocomplete="email"
+                  placeholder="you@example.com"
+                  v-bind="componentField"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ componentField }" name="password">
+            <FormItem>
+              <FormLabel>密码</FormLabel>
+              <FormControl>
+                <Input
+                  type="password"
+                  autocomplete="current-password"
+                  v-bind="componentField"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <Alert v-if="serverError" variant="destructive" class="px-3 py-2">
+            <AlertDescription class="text-sm">
+              {{ serverError }}
+            </AlertDescription>
+          </Alert>
+
+          <Button type="submit" class="w-full" :disabled="isSubmitting">
+            {{ isSubmitting ? '登录中...' : '登录' }}
+          </Button>
+        </form>
+
+        <div v-if="needVerify" class="mt-4 rounded-lg border border-border bg-muted/60 p-3">
+          <p class="text-sm text-muted-foreground">
+            邮箱还没验证？
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            class="mt-2 w-full"
+            :disabled="resendCooldown > 0"
+            @click="resend"
+          >
+            {{ resendCooldown > 0 ? `重新发送（${resendCooldown}s）` : '重新发送验证邮件' }}
+          </Button>
+          <p v-if="resendMsg" class="mt-2 text-xs text-muted-foreground">
+            {{ resendMsg }}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+
+    <p class="mt-6 text-center text-sm text-muted-foreground">
+      还没账号？
+      <NuxtLink to="/register" class="font-medium text-primary hover:underline">
+        注册
+      </NuxtLink>
+    </p>
   </div>
 </template>
-
-<style scoped>
-.wrap { max-width: 400px; margin: 40px auto; }
-label { display: block; margin-top: 12px; font-weight: 500; }
-input {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  box-sizing: border-box;
-}
-button {
-  margin-top: 16px;
-  padding: 10px 20px;
-  background: var(--link);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  width: 100%;
-}
-.err { color: var(--lg-red); margin-top: 10px; }
-.tip { margin-top: 12px; color: var(--text-muted); }
-
-.resend-box {
-  margin-top: 16px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-}
-.resend-box > p { margin: 0 0 8px; color: var(--text-muted); font-size: 14px; }
-.resend-btn {
-  margin-top: 0;
-  background: transparent;
-  color: var(--link);
-  border: 1px solid var(--link);
-}
-.resend-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.resend-msg { margin: 10px 0 0; font-size: 13px; color: var(--text-muted); }
-</style>

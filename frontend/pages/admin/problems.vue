@@ -49,6 +49,9 @@ async function submit() {
 onMounted(() => {
   if (!admin.isLoggedIn) navigateTo('/admin/login')
 })
+
+useHead({ title: '题目管理 - 洛谷档案馆' })
+
 </script>
 
 <template>

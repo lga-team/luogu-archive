@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ExternalLink, RefreshCw } from '@lucide/vue'
+
 const api = useApi()
 const route = useRoute()
 const { fromNow } = useTime()
@@ -89,13 +91,13 @@ async function saveProblemList() {
   }
 }
 
-// 按洛谷难度顺序排序
 async function onCaptchaVerified(token: string) {
   if (saveState.value !== 'captcha') return
   captchaToken.value = token
   await saveProblemList()
 }
 
+// 按洛谷难度顺序排序
 const diffOrder = [
   '入门', '普及-', '普及', '普及+/提高-',
   '提高', '提高+/省选-', '省选/NOI-', 'NOI/NOI+/CTS',
@@ -110,6 +112,7 @@ const sortedKeys = computed(() => {
   })
 })
 
+// 难度 → 洛谷色名（配合 lg-name 的 data-color 上色）
 const diffColor: Record<string, string> = {
   '入门': 'Red',
   '普及-': 'Orange',
@@ -125,6 +128,14 @@ const diffColor: Record<string, string> = {
   'unknown_8': 'Black',
   '暂无评定': 'Gray',
 }
+
+const saveButtonCls = computed(() => ({
+  success: 'text-[var(--lg-green)] border-[var(--lg-green)]',
+  failed: 'text-[var(--lg-red)] border-[var(--lg-red)]',
+  cooldown: 'text-[var(--lg-orange)] border-[var(--lg-orange)]',
+  captcha: 'text-[var(--lg-orange)] border-[var(--lg-orange)]',
+}[saveState.value] ?? ''))
+
 // 通过 ?difficulty=xxx 切到单档全列表视图
 const selectedDiff = computed<string | null>(() => {
   const d = route.query.difficulty
@@ -157,32 +168,32 @@ function previewFor(k: string): ProblemItem[] {
 function totalFor(k: string): number {
   return data.value?.[k]?.total || 0
 }
+
+useHead({ title: '题目库 - 洛谷档案馆' })
+
 </script>
 
 <template>
   <div>
-    <section class="problem-hero">
-      <h1>题目库</h1>
-      <div class="hero-meta">
-        <span class="attr">
-          <a href="https://www.luogu.com.cn/problem/list" target="_blank" rel="noopener noreferrer">
-            查看洛谷原文
-          </a>
-          · 上次更新：{{ relTime }}
-        </span>
-        <button
-          class="archive-action-button hero-save-btn"
-          :class="{
-            success: saveState === 'success',
-            error: saveState === 'failed',
-            cooldown: saveState === 'cooldown' || saveState === 'captcha',
-          }"
+    <!-- 页面头：裸排 + border-b -->
+    <header class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+      <div class="min-w-0">
+        <p class="text-xs font-medium tracking-wide text-muted-foreground">题解开放状态</p>
+        <h1 class="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">题目库</h1>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-muted-foreground">上次更新 · {{ relTime }}</span>
+        <Button
+          variant="outline"
+          size="sm"
+          class="gap-1.5"
+          :class="saveButtonCls"
           :disabled="saveState === 'pending'"
           @click="saveProblemList"
         >
-          <span v-if="saveState === 'idle'">立即更新</span>
-          <span v-else>{{ saveMessage }}</span>
-        </button>
+          <RefreshCw class="size-3.5" />
+          {{ saveState === 'idle' ? '立即更新' : saveMessage }}
+        </Button>
         <CaptchaChallenge
           v-if="showCaptcha"
           ref="captchaRef"
@@ -190,188 +201,110 @@ function totalFor(k: string): number {
           @verified="onCaptchaVerified"
         />
       </div>
-    </section>
-    <p v-if="selectedDiff" class="note diff-current">
-      当前难度：
-      <span class="lg-name" :data-color="diffColor[selectedDiff] || 'Gray'">{{ selectedDiff }}</span>
-      · <NuxtLink to="/problem/list">← 返回所有难度</NuxtLink>
+    </header>
+
+    <p v-if="selectedDiff" class="mt-4 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+      当前难度
+      <span class="lg-name font-semibold" :data-color="diffColor[selectedDiff] || 'Gray'">{{ selectedDiff }}</span>
+      ·
+      <NuxtLink to="/problem/list" class="font-medium text-foreground transition-colors hover:text-primary">← 返回所有难度</NuxtLink>
     </p>
-    <p v-else class="note">
-      允许提交题解的题目，按洛谷难度分档，每档仅显示前 {{ PREVIEW_LIMIT }} 道，点"查看全部"看完整列表。
+    <p v-else class="mt-4 text-sm text-muted-foreground">
+      允许提交题解的题目，按洛谷难度分档，每档仅显示前 {{ PREVIEW_LIMIT }} 道，点「查看全部」看完整列表。
+      <a
+        href="https://www.luogu.com.cn/problem/list"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="ml-1 inline-flex items-center gap-0.5 font-medium text-foreground transition-colors hover:text-primary"
+      >查看洛谷原文<ExternalLink class="size-3" /></a>
     </p>
 
-    <LoadingPanel
-      v-if="listPending && !data"
-      title="正在加载题目库"
-      text="页面已经打开，正在读取题目和题解开放状态…"
-    />
+    <!-- 首屏骨架：难度段同构 -->
+    <div v-if="listPending && !data" class="mt-5 space-y-7">
+      <div v-for="i in 4" :key="i">
+        <div class="flex items-center gap-2.5">
+          <Skeleton class="h-5 w-20" />
+          <Skeleton class="h-3.5 w-10" />
+        </div>
+        <div class="mt-3 grid gap-2 sm:grid-cols-2">
+          <Skeleton v-for="j in 6" :key="j" class="h-9 rounded-md" />
+        </div>
+      </div>
+    </div>
 
     <!-- 单档全量视图 -->
-    <section v-else-if="selectedDiff" class="diff-section">
-      <h2>
-        <span class="lg-name" :data-color="diffColor[selectedDiff] || 'Gray'">{{ selectedDiff }}</span>
-        <span class="count">{{ fullList?.length || 0 }}</span>
-      </h2>
-      <p v-if="fullPending" class="empty">加载中...</p>
-      <ul v-else-if="fullList && fullList.length" class="problem-list">
+    <section v-else-if="selectedDiff" class="mt-5">
+      <div class="flex items-center gap-2.5">
+        <h2 class="text-lg font-semibold tracking-tight">
+          <span class="lg-name" :data-color="diffColor[selectedDiff] || 'Gray'">{{ selectedDiff }}</span>
+        </h2>
+        <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+          {{ fullList?.length || 0 }}
+        </span>
+      </div>
+
+      <div v-if="fullPending" class="mt-3 grid gap-2 sm:grid-cols-2">
+        <Skeleton v-for="i in 10" :key="i" class="h-9 rounded-md" />
+      </div>
+      <ul v-else-if="fullList && fullList.length" class="mt-3 grid list-none gap-2 sm:grid-cols-2">
         <li v-for="p in fullList" :key="p.pid">
-          <a :href="`https://www.luogu.com.cn/problem/${p.pid}`" target="_blank" rel="noopener">
-            <span class="pid lg-name" :data-color="diffColor[selectedDiff] || 'Gray'">{{ p.pid }}</span>
-            <span class="title">{{ p.title }}</span>
+          <a
+            :href="`https://www.luogu.com.cn/problem/${p.pid}`"
+            target="_blank"
+            rel="noopener"
+            class="flex min-w-0 items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
+          >
+            <span class="lg-name shrink-0 font-mono text-[13px] font-semibold" :data-color="diffColor[selectedDiff] || 'Gray'">{{ p.pid }}</span>
+            <span class="min-w-0 truncate">{{ p.title }}</span>
           </a>
         </li>
       </ul>
-      <p v-else class="empty">该档暂无题目</p>
+      <p v-else class="mt-3 rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        该档暂无题目
+      </p>
     </section>
 
     <!-- 总览：所有难度的预览 -->
-    <section v-for="k in visibleKeys" v-else :key="k" class="diff-section">
-      <h2>
-        <span class="lg-name" :data-color="diffColor[k] || 'Gray'">{{ k }}</span>
-        <span class="count">{{ totalFor(k) }}</span>
+    <section v-for="k in visibleKeys" v-else :key="k" class="mt-7">
+      <div class="flex flex-wrap items-center gap-2.5">
+        <h2 class="text-lg font-semibold tracking-tight">
+          <span class="lg-name" :data-color="diffColor[k] || 'Gray'">{{ k }}</span>
+        </h2>
+        <span class="rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+          {{ totalFor(k) }}
+        </span>
         <NuxtLink
           v-if="totalFor(k) > PREVIEW_LIMIT"
           :to="{ path: '/problem/list', query: { difficulty: k } }"
-          class="view-all"
+          class="ml-auto text-[13px] text-muted-foreground transition-colors hover:text-foreground"
         >
           查看全部 →
         </NuxtLink>
-      </h2>
-      <ul class="problem-list">
+      </div>
+
+      <ul class="mt-3 grid list-none gap-2 sm:grid-cols-2">
         <li v-for="p in previewFor(k)" :key="p.pid">
-          <a :href="`https://www.luogu.com.cn/problem/${p.pid}`" target="_blank" rel="noopener">
-            <span class="pid lg-name" :data-color="diffColor[k] || 'Gray'">{{ p.pid }}</span>
-            <span class="title">{{ p.title }}</span>
+          <a
+            :href="`https://www.luogu.com.cn/problem/${p.pid}`"
+            target="_blank"
+            rel="noopener"
+            class="flex min-w-0 items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
+          >
+            <span class="lg-name shrink-0 font-mono text-[13px] font-semibold" :data-color="diffColor[k] || 'Gray'">{{ p.pid }}</span>
+            <span class="min-w-0 truncate">{{ p.title }}</span>
           </a>
         </li>
       </ul>
+
       <p
         v-if="totalFor(k) > PREVIEW_LIMIT"
-        class="more-hint"
+        class="mt-2 text-[13px] text-muted-foreground"
       >
         仅显示前 {{ PREVIEW_LIMIT }} 道（共 {{ totalFor(k) }} 道），
-        <NuxtLink :to="{ path: '/problem/list', query: { difficulty: k } }">
+        <NuxtLink :to="{ path: '/problem/list', query: { difficulty: k } }" class="font-medium text-foreground transition-colors hover:text-primary">
           查看该档全部题目 →
         </NuxtLink>
       </p>
     </section>
   </div>
 </template>
-
-<style scoped>
-.problem-hero {
-  position: relative;
-  border-radius: 12px;
-  padding: 22px 26px;
-  margin-bottom: 20px;
-  overflow: hidden;
-  background: var(--hero-bg);
-  border: 1px solid var(--hero-border);
-}
-.problem-hero h1 {
-  margin: 0 0 10px;
-  color: var(--hero-text);
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 0.3px;
-}
-.hero-meta {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.attr {
-  flex: 1;
-  min-width: 0;
-  color: var(--hero-text-muted);
-  font-size: 13.5px;
-}
-.attr a {
-  color: var(--link);
-  text-decoration: none;
-}
-.attr a:hover {
-  text-decoration: underline;
-}
-.hero-save-btn {
-  flex-shrink: 0;
-}
-.hero-save-btn.success { color: var(--lg-green); border-color: var(--lg-green); }
-.hero-save-btn.error { color: var(--lg-red); border-color: var(--lg-red); }
-.hero-save-btn.cooldown { color: var(--lg-orange); border-color: var(--lg-orange); }
-.note { color: var(--text-muted); }
-.sub { font-size: 18px; font-weight: normal; margin-left: 4px; }
-.diff-section {
-  margin-bottom: 24px;
-  min-width: 0;
-}
-.diff-section h2 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-.count {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: normal;
-}
-.view-all {
-  font-size: 13px;
-  font-weight: normal;
-  margin-left: auto;
-}
-.problem-list {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  min-width: 0;
-}
-.problem-list li {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.problem-list a {
-  color: var(--text);
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-}
-.pid { font-family: monospace; font-weight: 600; }
-.title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.more-hint {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-@media (max-width: 768px) {
-  .problem-hero {
-    padding: 18px 16px;
-  }
-  .problem-list {
-    grid-template-columns: 1fr;
-  }
-  .view-all {
-    margin-left: 0;
-  }
-}
-</style>

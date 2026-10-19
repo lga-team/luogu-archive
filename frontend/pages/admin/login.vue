@@ -21,6 +21,9 @@ async function submit() {
     loading.value = false
   }
 }
+
+useHead({ title: '管理登录 - 洛谷档案馆' })
+
 </script>
 
 <template>

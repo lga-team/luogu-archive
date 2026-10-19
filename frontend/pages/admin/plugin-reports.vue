@@ -7,6 +7,9 @@ const statusNames: Record<string,string> = { pending:'待处理', resolved:'已�
 async function load(){ rows.value = await api('/admin/plugin-reports',{query:{status:status.value}}) }
 async function handle(id:number,next:'resolved'|'dismissed'){ const note=prompt('处理备注（可留空）：')||''; await api(`/admin/plugin-reports/${id}/handle`,{method:'POST',body:{status:next,admin_note:note}}); await load() }
 onMounted(async()=>{ if(!admin.isLoggedIn)return navigateTo('/admin/login'); await load() }); watch(status,()=>void load())
+
+useHead({ title: '插件举报管理 - 洛谷档案馆' })
+
 </script>
 
 <template><div><h1>插件举报</h1><select v-model="status"><option value="pending">待处理</option><option value="resolved">已解决</option><option value="dismissed">已驳回</option><option value="all">全部</option></select>

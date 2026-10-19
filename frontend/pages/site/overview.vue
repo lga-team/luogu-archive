@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ClipboardList, FileText, ListChecks, MessageSquare, RefreshCw, TrendingUp } from '@lucide/vue'
+
 const api = useApi()
 const { format, smart } = useTime()
 
@@ -59,11 +61,11 @@ async function refreshOverview() {
 const metricCards = computed(() => {
   const totals = data.value?.totals
   return [
-    { key: 'crawl_tasks', label: '总保存任务', value: totals?.crawl_tasks ?? 0, icon: 'M5 12l4 4L19 6M5 20h14M5 4h14' },
-    { key: 'articles', label: '文章', value: totals?.articles ?? 0, icon: 'M6 4h10l4 4v12H6V4zM9 13h6M9 17h7' },
-    { key: 'pastes', label: '剪贴板', value: totals?.pastes ?? 0, icon: 'M9 4h6l1 2h3v14H5V6h3l1-2zM9 11h6M9 15h6' },
-    { key: 'feeds', label: '犇犇', value: totals?.feeds ?? 0, icon: 'M4 5h16v10H7l-3 3V5z' },
-    { key: 'judgements', label: '陶片记录', value: totals?.judgements ?? 0, icon: 'M4 14l6-6 4 4 6-6M4 20h16' },
+    { key: 'crawl_tasks', label: '总保存任务', value: totals?.crawl_tasks ?? 0, icon: ListChecks },
+    { key: 'articles', label: '文章', value: totals?.articles ?? 0, icon: FileText },
+    { key: 'pastes', label: '剪贴板', value: totals?.pastes ?? 0, icon: ClipboardList },
+    { key: 'feeds', label: '犇犇', value: totals?.feeds ?? 0, icon: MessageSquare },
+    { key: 'judgements', label: '陶片记录', value: totals?.judgements ?? 0, icon: TrendingUp },
   ]
 })
 
@@ -110,6 +112,14 @@ function triggerLabel(trigger: string): string {
   return map[trigger] || trigger
 }
 
+const statusCls: Record<string, string> = {
+  success: 'text-[var(--lg-green)]',
+  failed: 'text-[var(--lg-red)]',
+  rate_limited: 'text-[var(--lg-red)]',
+  running: 'text-[var(--lg-yellow)]',
+  pending: 'text-[var(--lg-yellow)]',
+}
+
 function statusLabel(status: string): string {
   const map: Record<string, string> = {
     pending: '等待中',
@@ -121,423 +131,125 @@ function statusLabel(status: string): string {
   }
   return map[status] || status
 }
+
+useHead({ title: '站点概览 - 洛谷档案馆' })
+
 </script>
 
 <template>
-  <div class="overview-page">
-    <PageHero
-      title="站点概览"
-      subtitle="归档内容与后台处理通道的实时数据"
-    >
-      <template #extra>
-        <div class="hero-actions">
-          <span class="refresh-time">
-            {{ data?.generated_at ? `更新于 ${format(data.generated_at, 'HH:mm:ss')}` : '等待数据' }}
-          </span>
-          <button type="button" class="refresh-btn" :disabled="refreshing" @click="refreshOverview">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M20 12a8 8 0 01-14.8 4.2M4 12A8 8 0 0118.8 7.8M18 4v4h-4M6 20v-4h4"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span>{{ refreshing ? '刷新中' : '刷新' }}</span>
-          </button>
-        </div>
-      </template>
-    </PageHero>
+  <div>
+    <!-- 页面头：裸排 + border-b -->
+    <header class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+      <div>
+        <p class="text-xs font-medium tracking-wide text-muted-foreground">后台数据</p>
+        <h1 class="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">站点概览</h1>
+        <p class="mt-1 text-sm text-muted-foreground">归档内容与后台处理通道的实时数据。</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-[13px] text-muted-foreground">
+          {{ data?.generated_at ? `更新于 ${format(data.generated_at, 'HH:mm:ss')}` : '等待数据' }}
+        </span>
+        <Button variant="outline" size="sm" :disabled="refreshing" @click="refreshOverview">
+          <RefreshCw class="size-3.5" :class="refreshing && 'animate-spin'" />
+          {{ refreshing ? '刷新中' : '刷新' }}
+        </Button>
+      </div>
+    </header>
 
-    <LoadingPanel v-if="pending && !data" title="正在加载站点概览" text="页面已经打开，正在读取统计数据…" />
-
-    <div v-else-if="error" class="error-box">
-      <h2>{{ error.data?.message || '加载失败' }}</h2>
-      <button type="button" @click="refreshOverview">重试</button>
+    <!-- 首屏骨架 -->
+    <div v-if="pending && !data" class="mt-5 space-y-4">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <Skeleton v-for="i in 5" :key="i" class="h-[74px] rounded-xl" />
+      </div>
+      <Skeleton class="h-72 rounded-xl" />
+      <Skeleton class="h-80 rounded-xl" />
     </div>
 
-    <div v-else-if="data" class="overview-grid">
-      <section class="metric-grid" aria-label="站点总量">
-        <article v-for="card in metricCards" :key="card.key" class="metric-card">
-          <div class="metric-icon">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                :d="card.icon"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
+    <!-- 加载失败 -->
+    <div v-else-if="error" class="mt-5 rounded-xl border border-dashed border-border p-10 text-center">
+      <h2 class="text-lg font-semibold">{{ error.data?.message || '加载失败' }}</h2>
+      <Button variant="outline" size="sm" class="mt-4" @click="refreshOverview">重试</Button>
+    </div>
+
+    <div v-else-if="data" class="mt-5 space-y-4">
+      <!-- 总量指标 -->
+      <section class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="站点总量">
+        <article
+          v-for="card in metricCards"
+          :key="card.key"
+          class="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-4"
+        >
+          <div class="grid size-9 shrink-0 place-items-center rounded-lg bg-[color-mix(in_srgb,var(--primary)_10%,transparent)] text-[var(--primary)]">
+            <component :is="card.icon" class="size-[18px]" />
           </div>
-          <div class="metric-main">
-            <span>{{ card.label }}</span>
-            <strong>{{ numberText(card.value) }}</strong>
+          <div class="grid min-w-0 gap-0.5">
+            <span class="text-[13px] text-muted-foreground">{{ card.label }}</span>
+            <strong class="truncate text-[23px] font-extrabold leading-tight">{{ numberText(card.value) }}</strong>
           </div>
         </article>
       </section>
 
-      <section class="queue-panel">
-        <header class="section-head">
-          <div>
-            <h2>处理通道</h2>
-            <p>每 10 秒自动刷新。</p>
-          </div>
-        </header>
-
-        <div class="queue-list">
-          <article v-for="queue in data.queues" :key="queue.key" class="queue-row">
-            <div class="queue-main">
-              <strong>{{ queue.label }}</strong>
-              <span>{{ queue.key }}</span>
+      <!-- 处理通道 -->
+      <Card class="gap-0 py-0">
+        <CardHeader class="border-b border-border px-5 pb-4 pt-5">
+          <CardTitle class="text-base">处理通道</CardTitle>
+          <CardDescription class="text-[13px]">每 10 秒自动刷新。</CardDescription>
+        </CardHeader>
+        <CardContent class="px-0 py-0">
+          <div
+            v-for="(queue, i) in data.queues"
+            :key="queue.key"
+            class="grid grid-cols-[minmax(0,1fr)_86px] items-center gap-x-4 gap-y-2 px-5 py-3.5 sm:grid-cols-[minmax(180px,1fr)_100px_minmax(240px,42%)]"
+            :class="i > 0 && 'border-t border-border'"
+          >
+            <div class="grid min-w-0 gap-0.5">
+              <strong class="text-[15px]">{{ queue.label }}</strong>
+              <span class="font-mono text-xs text-muted-foreground">{{ queue.key }}</span>
             </div>
-            <div class="queue-size">{{ numberText(queue.size) }}</div>
-            <div class="queue-bar" aria-hidden="true">
-              <span :style="{ width: `${queuePressure(queue.size)}%` }" />
+            <div class="text-right text-[22px] font-extrabold tabular-nums">{{ numberText(queue.size) }}</div>
+            <div class="col-span-2 h-2 overflow-hidden rounded-full bg-muted sm:col-span-1" aria-hidden="true">
+              <span
+                class="block h-full rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--lg-cyan)]"
+                :style="{ width: `${queuePressure(queue.size)}%` }"
+              />
             </div>
-          </article>
-        </div>
-      </section>
-
-      <section class="recent-panel">
-        <header class="section-head">
-          <div>
-            <h2>最近保存任务</h2>
-            <p>按爬取任务开始时间倒序。</p>
           </div>
-        </header>
+        </CardContent>
+      </Card>
 
-        <div class="recent-table">
-          <div class="table-head table-row">
+      <!-- 最近保存任务 -->
+      <Card class="gap-0 py-0 overflow-hidden">
+        <CardHeader class="border-b border-border px-5 pb-4 pt-5">
+          <CardTitle class="text-base">最近保存任务</CardTitle>
+          <CardDescription class="text-[13px]">按爬取任务开始时间倒序。</CardDescription>
+        </CardHeader>
+        <CardContent class="px-0 py-0">
+          <div class="hidden grid-cols-[110px_minmax(0,1fr)_110px_110px_150px] items-center gap-3.5 border-b border-border bg-muted/60 px-5 py-2.5 text-xs font-bold text-muted-foreground sm:grid">
             <span>类型</span>
             <span>目标</span>
             <span>触发</span>
             <span>状态</span>
             <span>时间</span>
           </div>
-          <div v-for="item in data.recent_tasks" :key="item.id" class="table-row">
+          <div
+            v-for="(item, i) in data.recent_tasks"
+            :key="item.id"
+            class="grid grid-cols-[80px_minmax(0,1fr)] items-center gap-x-3 gap-y-1 px-5 py-2.5 text-sm sm:grid-cols-[110px_minmax(0,1fr)_110px_110px_150px]"
+            :class="i > 0 && 'border-t border-border'"
+          >
             <span>{{ typeLabel(item.task_type) }}</span>
-            <span class="target-id">{{ item.target }}</span>
-            <span>{{ triggerLabel(item.trigger) }}</span>
+            <span class="truncate font-mono text-[13px]">{{ item.target }}</span>
+            <span class="text-xs text-muted-foreground sm:text-sm">{{ triggerLabel(item.trigger) }}</span>
             <span>
-              <span class="status-chip" :data-status="item.status">{{ statusLabel(item.status) }}</span>
+              <span class="inline-flex rounded-full bg-muted px-2 py-px text-xs" :class="statusCls[item.status] || 'text-muted-foreground'">
+                {{ statusLabel(item.status) }}
+              </span>
             </span>
-            <span>{{ smart(item.started_at) }}</span>
+            <span class="text-xs text-muted-foreground sm:text-sm">{{ smart(item.started_at) }}</span>
           </div>
-          <p v-if="!data.recent_tasks.length" class="empty">暂无爬取任务</p>
-        </div>
-      </section>
+          <p v-if="!data.recent_tasks.length" class="border-t border-border px-5 py-6 text-center text-sm text-muted-foreground">暂无爬取任务</p>
+        </CardContent>
+      </Card>
     </div>
   </div>
 </template>
-
-<style scoped>
-.overview-page {
-  display: grid;
-  gap: 18px;
-}
-
-.hero-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-}
-
-.refresh-time {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.refresh-btn,
-.error-box button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--hero-border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 5px 11px;
-}
-
-.refresh-btn:hover:not(:disabled),
-.error-box button:hover {
-  border-color: var(--link);
-  color: var(--link);
-}
-
-.refresh-btn:disabled {
-  cursor: wait;
-  opacity: 0.65;
-}
-
-.refresh-btn svg {
-  width: 15px;
-  height: 15px;
-}
-
-.overview-grid {
-  display: grid;
-  gap: 16px;
-}
-
-.metric-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.metric-card,
-.queue-panel,
-.recent-panel,
-.error-box {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
-
-.metric-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-  padding: 15px 16px;
-}
-
-.metric-icon {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--link) 10%, transparent);
-  color: var(--link);
-  flex: 0 0 auto;
-}
-
-.metric-icon svg {
-  width: 18px;
-  height: 18px;
-}
-
-.metric-main {
-  min-width: 0;
-  display: grid;
-  gap: 2px;
-}
-
-.metric-main span {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.metric-main strong {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text);
-  font-size: 23px;
-  line-height: 1.15;
-  font-weight: 800;
-}
-
-.queue-panel,
-.recent-panel {
-  overflow: hidden;
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 15px 18px 12px;
-  border-bottom: 1px solid var(--border);
-}
-
-.section-head h2 {
-  margin: 0;
-  font-size: 17px;
-  line-height: 1.3;
-}
-
-.section-head p {
-  margin: 3px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.queue-list {
-  display: grid;
-}
-
-.queue-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) 100px minmax(240px, 42%);
-  align-items: center;
-  gap: 18px;
-  padding: 14px 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-}
-
-.queue-row:last-child {
-  border-bottom: 0;
-}
-
-.queue-main {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-
-.queue-main strong {
-  font-size: 15px;
-}
-
-.queue-main span {
-  color: var(--text-muted);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-}
-
-.queue-size {
-  text-align: right;
-  font-size: 22px;
-  font-weight: 800;
-}
-
-.queue-bar {
-  height: 8px;
-  border-radius: 999px;
-  background: var(--hover);
-  overflow: hidden;
-}
-
-.queue-bar span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--link), var(--lg-cyan));
-}
-
-.recent-table {
-  display: grid;
-}
-
-.table-row {
-  display: grid;
-  grid-template-columns: 110px minmax(0, 1fr) 110px 110px 150px;
-  align-items: center;
-  gap: 14px;
-  min-height: 42px;
-  padding: 0 18px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  font-size: 14px;
-}
-
-.table-row:last-child {
-  border-bottom: 0;
-}
-
-.table-head {
-  min-height: 36px;
-  color: var(--text-muted);
-  background: color-mix(in srgb, var(--hover) 70%, transparent);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.target-id {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-}
-
-.status-chip {
-  display: inline-flex;
-  align-items: center;
-  border-radius: 999px;
-  padding: 1px 8px;
-  background: var(--hover);
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.status-chip[data-status="success"] {
-  color: var(--lg-green);
-}
-
-.status-chip[data-status="failed"],
-.status-chip[data-status="rate_limited"] {
-  color: var(--lg-red);
-}
-.status-chip[data-status="running"],
-.status-chip[data-status="pending"] {
-  color: var(--lg-yellow);
-}
-
-.status-chip[data-status="skipped"] {
-  color: var(--text-muted);
-}
-
-.empty {
-  margin: 0;
-  padding: 22px 18px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.error-box {
-  padding: 30px;
-  text-align: center;
-}
-
-.error-box h2 {
-  margin: 0 0 12px;
-  font-size: 18px;
-}
-
-@media (max-width: 1100px) {
-  .metric-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .queue-row {
-    grid-template-columns: minmax(0, 1fr) 86px;
-  }
-
-  .queue-bar {
-    grid-column: 1 / -1;
-  }
-}
-
-@media (max-width: 720px) {
-  .metric-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .table-row {
-    grid-template-columns: 80px minmax(0, 1fr);
-    gap: 6px 12px;
-    padding: 9px 14px;
-  }
-
-  .table-row span:nth-child(3),
-  .table-row span:nth-child(4),
-  .table-row span:nth-child(5) {
-    color: var(--text-muted);
-    font-size: 12px;
-  }
-}
-</style>
-
-

@@ -32,6 +32,9 @@ onMounted(() => {
   }
   loadMore()
 })
+
+useHead({ title: '审计日志 - 洛谷档案馆' })
+
 </script>
 
 <template>

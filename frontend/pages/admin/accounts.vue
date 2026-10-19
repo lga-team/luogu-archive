@@ -42,6 +42,9 @@ async function toggle(a: any) {
   await api(`/admin/crawler-accounts/${a.id}/${action}`, { method: 'POST' })
   await load()
 }
+
+useHead({ title: '账号管理 - 洛谷档案馆' })
+
 </script>
 
 <template>

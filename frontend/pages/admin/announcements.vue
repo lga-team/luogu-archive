@@ -129,6 +129,9 @@ function formatTime(value: string | null) {
   if (!value) return '-'
   return new Date(value).toLocaleString('zh-CN', { hour12: false })
 }
+
+useHead({ title: '公告管理 - 洛谷档案馆' })
+
 </script>
 
 <template>

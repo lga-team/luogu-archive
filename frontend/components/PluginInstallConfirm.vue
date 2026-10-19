@@ -1,5 +1,14 @@
 <script setup lang="ts">
 import type { PluginVersion } from '~/types/plugin'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 const props = defineProps<{
   open: boolean
@@ -73,50 +82,51 @@ async function confirm() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="dialog-backdrop" @click.self="emit('close')">
-      <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="install-title">
-        <header>
-          <h2 id="install-title">确认{{ action === 'copy' ? '复制' : '下载' }}代码</h2>
-          <button type="button" class="close" title="关闭" aria-label="关闭" @click="emit('close')">×</button>
-        </header>
-        <dl>
-          <div><dt>插件</dt><dd>{{ pluginName }}</dd></div>
-          <div><dt>版本</dt><dd>{{ version.version }}</dd></div>
-          <div><dt>请求等级</dt><dd><PluginRequestLevelBadge :level="version.final_request_level" compact /></dd></div>
-          <div><dt>运行方式</dt><dd>{{ runtimeMode(version.runtime_mode) }}</dd></div>
-          <div><dt>最后验证</dt><dd>{{ version.last_verified_on }}</dd></div>
-          <div><dt>SHA-256</dt><dd><code>{{ version.code_sha256 }}</code></dd></div>
-        </dl>
-        <p class="notice">代码由上传者提供，本站不会执行或自动验证代码。安装前请阅读请求分析并自行确认风险。</p>
-        <p v-if="copyBlocked" class="copy-warning">
-          完整代码大小为 {{ codeSize }}，超过 100 KiB，不能复制，请下载文件。
-        </p>
-        <footer>
-          <button type="button" class="analysis-link" @click="emit('analysis')">查看请求分析</button>
-          <button type="button" class="archive-action-button" @click="emit('close')">取消</button>
-          <button type="button" class="archive-action-button" :disabled="copyBlocked" @click="confirm">确认{{ action === 'copy' ? '复制' : '下载' }}</button>
-        </footer>
-      </section>
-    </div>
-  </Teleport>
-</template>
+  <Dialog :open="open" @update:open="(v: boolean) => !v && emit('close')">
+    <DialogContent class="max-w-[620px] gap-0 p-0">
+      <DialogHeader class="border-b border-border px-5 py-4">
+        <DialogTitle class="text-lg">确认{{ action === 'copy' ? '复制' : '下载' }}代码</DialogTitle>
+        <DialogDescription class="sr-only">
+          确认{{ action === 'copy' ? '复制' : '下载' }}插件代码
+        </DialogDescription>
+      </DialogHeader>
 
-<style scoped>
-.dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(0, 0, 0, .52); }
-.dialog { width: min(620px, 100%); max-height: calc(100vh - 36px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 18px 55px rgba(0, 0, 0, .28); }
-header, footer { display: flex; align-items: center; padding: 16px 18px; }
-header { justify-content: space-between; border-bottom: 1px solid var(--border); }
-header h2 { margin: 0; font-size: 19px; }
-.close { border: 0; background: transparent; color: var(--text-muted); font-size: 26px; cursor: pointer; }
-dl { margin: 0; padding: 16px 18px; display: grid; gap: 11px; }
-dl > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
-dt { color: var(--text-muted); }
-dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-code { font-size: 12px; }
-.notice { margin: 0 18px; padding: 11px 13px; border-left: 3px solid var(--lg-orange); background: var(--hover); color: var(--text-muted); font-size: 13px; }
-.copy-warning { margin: 10px 18px 0; padding: 11px 13px; border-left: 3px solid var(--lg-yellow); background: color-mix(in srgb, var(--lg-yellow) 10%, var(--surface)); color: var(--text-muted); font-size: 13px; }
-footer { justify-content: flex-end; gap: 10px; }
-.analysis-link { margin-right: auto; border: 0; background: transparent; color: var(--link); }
-@media (max-width: 520px) { dl > div { grid-template-columns: 1fr; gap: 3px; } }
-</style>
+      <dl class="grid gap-2.5 px-5 py-4">
+        <div v-for="row in [
+          { label: '插件', slot: 'name' },
+          { label: '版本', slot: 'version' },
+          { label: '请求等级', slot: 'level' },
+          { label: '运行方式', slot: 'mode' },
+          { label: '最后验证', slot: 'verified' },
+          { label: 'SHA-256', slot: 'sha' },
+        ]" :key="row.slot" class="grid grid-cols-1 gap-0.5 max-[520px]:grid-cols-1 sm:grid-cols-[96px_minmax(0,1fr)] sm:gap-3">
+          <dt class="text-sm text-muted-foreground">{{ row.label }}</dt>
+          <dd class="m-0 min-w-0 break-words text-sm">
+            <template v-if="row.slot === 'name'">{{ pluginName }}</template>
+            <template v-else-if="row.slot === 'version'">{{ version.version }}</template>
+            <template v-else-if="row.slot === 'level'"><PluginRequestLevelBadge :level="version.final_request_level" compact /></template>
+            <template v-else-if="row.slot === 'mode'">{{ runtimeMode(version.runtime_mode) }}</template>
+            <template v-else-if="row.slot === 'verified'">{{ version.last_verified_on }}</template>
+            <template v-else><span class="font-mono text-xs">{{ version.code_sha256 }}</span></template>
+          </dd>
+        </div>
+      </dl>
+
+      <p class="mx-5 mb-4 border-l-[3px] border-[var(--lg-orange)] bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
+        代码由上传者提供，本站不会执行或自动验证代码。安装前请阅读请求分析并自行确认风险。
+      </p>
+      <p
+        v-if="copyBlocked"
+        class="mx-5 mb-4 border-l-[3px] border-[var(--lg-yellow)] bg-[color-mix(in_srgb,var(--lg-yellow)_10%,var(--card))] px-3 py-2.5 text-[13px] text-muted-foreground"
+      >
+        完整代码大小为 {{ codeSize }}，超过 100 KiB，不能复制，请下载文件。
+      </p>
+
+      <DialogFooter class="items-center border-t border-border px-5 py-4">
+        <Button variant="link" class="mr-auto px-0" @click="emit('analysis')">查看请求分析</Button>
+        <Button variant="outline" @click="emit('close')">取消</Button>
+        <Button :disabled="copyBlocked" @click="confirm">确认{{ action === 'copy' ? '复制' : '下载' }}</Button>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+</template>

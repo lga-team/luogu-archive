@@ -21,47 +21,32 @@ const { data, error, pending } = useLazyAsyncData(`paste-history-${id}`, () =>
   api<PasteHistoryResp>(`/paste/${id}/history`),
   { server: false },
 )
+useHead(() => ({ title: '剪贴板历史版本 - 洛谷档案馆' }))
+
 </script>
 
 <template>
-  <LoadingPanel v-if="pending" title="正在加载历史版本" text="正在读取这个剪贴板的历史版本…" />
+  <div class="mx-auto w-full max-w-3xl">
+    <div v-if="pending" class="space-y-3 py-2">
+      <Skeleton class="h-6 w-48" />
+      <Skeleton v-for="i in 3" :key="i" class="h-24 rounded-xl" />
+    </div>
 
-  <div v-else-if="error" class="error-box">
-    <h2>{{ error.data?.message || '加载失败' }}</h2>
-  </div>
+    <div v-else-if="error" class="rounded-xl border border-dashed border-border p-10 text-center">
+      <p class="text-sm font-medium text-foreground">{{ error.data?.message || '加载失败' }}</p>
+      <Button variant="outline" size="sm" class="mt-4" @click="navigateTo(`/paste/${id}`)">返回剪贴板</Button>
+    </div>
 
-  <div v-else-if="data" class="history-page">
-    <PageHero
-      :title="`剪贴板 ${id}`"
-      subtitle="剪贴板历史版本"
-    >
-      <template #extra>
-        <NuxtLink :to="`/paste/${id}`" class="hero-link">返回剪贴板</NuxtLink>
-      </template>
-    </PageHero>
+    <div v-else-if="data" class="space-y-4">
+      <header class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+        <div class="min-w-0">
+          <h1 class="text-xl font-semibold tracking-tight">剪贴板 <span class="font-mono">{{ id }}</span> 的历史版本</h1>
+          <p class="mt-1 text-sm text-muted-foreground">按抓取时间分组，展示相邻版本的正文差异</p>
+        </div>
+        <Button variant="outline" size="sm" @click="navigateTo(`/paste/${id}`)">返回剪贴板</Button>
+      </header>
 
-    <VersionHistoryTimeline :versions="data.versions" empty-text="暂无剪贴板历史版本" />
+      <VersionHistoryTimeline :versions="data.versions" empty-text="暂无剪贴板历史版本" />
+    </div>
   </div>
 </template>
-
-<style scoped>
-.history-page {
-  display: grid;
-  gap: 18px;
-}
-
-.hero-link {
-  display: inline-flex;
-  margin-top: 12px;
-  color: var(--link);
-  font-size: 14px;
-}
-
-.error-box {
-  padding: 30px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-}
-</style>

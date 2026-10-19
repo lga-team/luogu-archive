@@ -1,6 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
 
+import { ArrowRight, Copy } from '@lucide/vue'
+
 type FixMode = 'local' | 'ai'
 type DiffKind = 'same' | 'add' | 'remove' | 'change'
 
@@ -255,465 +257,126 @@ function buildDiff(leftText: string, rightText: string): DiffRow[] {
   }
   return rows
 }
+
+useHead({ title: '题解修 - 洛谷档案馆' })
+
 </script>
 
 <template>
-  <div class="fix-page">
-    <PageHero
-      title="题解修"
-      subtitle="对题解 Markdown 做格式修正，保留洛谷扩展语法；AI 模式需要登录。"
-    />
+  <div>
+    <!-- 页面头：裸排 + border-b -->
+    <header class="border-b border-border pb-4">
+      <p class="text-xs font-medium tracking-wide text-muted-foreground">工具</p>
+      <h1 class="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">题解修</h1>
+      <p class="mt-1 text-sm text-muted-foreground">对题解 Markdown 做格式修正，保留洛谷扩展语法；AI 模式需要登录。</p>
+    </header>
 
-    <section class="fix-shell">
-      <div class="input-panel">
-        <div class="panel-head">
-          <h2>输入</h2>
-        </div>
-
-        <textarea
-          v-model="sourceText"
-          class="source-input textarea"
-          placeholder="粘贴题解 Markdown..."
-          spellcheck="false"
-        />
-
-        <label class="article-link-field">
-          <span>粘贴文章链接...</span>
-          <input
+    <section class="mt-5 grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-stretch">
+      <!-- 输入 -->
+      <Card class="grid grid-rows-[auto_auto_auto_auto_auto_auto] gap-3.5 py-5 lg:min-h-[560px]">
+        <CardHeader class="px-5">
+          <CardTitle class="text-lg">输入</CardTitle>
+        </CardHeader>
+        <CardContent class="min-h-[220px] px-5">
+          <Textarea
+            v-model="sourceText"
+            placeholder="粘贴题解 Markdown..."
+            spellcheck="false"
+            class="min-h-[260px] h-full resize-y font-mono text-[13px] leading-relaxed"
+          />
+        </CardContent>
+        <CardContent class="grid gap-1.5 px-5 pt-0">
+          <span class="text-xs font-semibold text-muted-foreground">粘贴文章链接...</span>
+          <Input
             v-model="articleLink"
-            class="source-input"
             placeholder="/article/xxxxxxxx、www.luogu.com.cn/article/xxxxxxxx 或纯 ID"
             spellcheck="false"
-          >
-        </label>
-
-        <div class="mode-row" aria-label="修正模式">
-          <button type="button" :class="{ active: fixMode === 'local' }" @click="fixMode = 'local'">
-            本地修正
-          </button>
-          <button type="button" :class="{ active: fixMode === 'ai' }" @click="fixMode = 'ai'">
-            AI 修正
-          </button>
-        </div>
-
-        <button class="primary-btn" type="button" :disabled="!canRun" @click="runFix">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-          <span>{{ busy ? '处理中...' : '开始修正' }}</span>
-        </button>
-
-        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-        <div v-if="notes.length" class="note-list">
-          <span v-for="note in notes" :key="note">{{ note }}</span>
-        </div>
-      </div>
-
-      <div class="result-panel">
-        <div class="result-toolbar">
-          <div>
-            <h2>{{ articleTitle || '修正结果' }}</h2>
-            <p>{{ fixedText ? `变更行 ${changedCount}` : '等待输入后生成差异对比' }}</p>
+          />
+        </CardContent>
+        <CardContent class="px-5 pt-0">
+          <Tabs v-model="fixMode" class="w-full">
+            <TabsList class="grid w-full grid-cols-2">
+              <TabsTrigger value="local">本地修正</TabsTrigger>
+              <TabsTrigger value="ai">AI 修正</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </CardContent>
+        <CardContent class="px-5 pt-0">
+          <Button class="w-full" :disabled="!canRun" @click="runFix">
+            <ArrowRight class="size-4" />
+            {{ busy ? '处理中...' : '开始修正' }}
+          </Button>
+        </CardContent>
+        <CardContent class="space-y-2.5 px-5 pt-0">
+          <p v-if="errorMessage" class="text-[13px] text-[var(--lg-red)]">{{ errorMessage }}</p>
+          <div v-if="notes.length" class="flex flex-wrap gap-2">
+            <span
+              v-for="note in notes"
+              :key="note"
+              class="rounded-full border border-border px-2.5 py-0.5 text-xs text-muted-foreground"
+            >{{ note }}</span>
           </div>
-          <button type="button" class="copy-btn" :disabled="!fixedText" @click="copyResult">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 8h10v12H8zM6 16H4V4h12v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-            </svg>
-            <span>{{ copied ? '已复制' : '复制' }}</span>
-          </button>
+        </CardContent>
+      </Card>
+
+      <!-- 结果 -->
+      <Card class="grid min-w-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 overflow-hidden py-0">
+        <CardHeader class="border-b border-border px-5 py-4">
+          <CardTitle class="text-lg">{{ articleTitle || '修正结果' }}</CardTitle>
+          <CardDescription class="text-[13px]">
+            {{ fixedText ? `变更行 ${changedCount}` : '等待输入后生成差异对比' }}
+          </CardDescription>
+          <CardAction>
+            <Button variant="outline" size="sm" :disabled="!fixedText" @click="copyResult">
+              <Copy class="size-3.5" />
+              {{ copied ? '已复制' : '复制' }}
+            </Button>
+          </CardAction>
+        </CardHeader>
+
+        <div class="grid grid-cols-2 border-b border-border bg-muted/60 text-xs font-bold text-muted-foreground">
+          <span class="border-r border-border px-3 py-1.5">原文</span>
+          <span class="px-3 py-1.5">修正后</span>
         </div>
 
-        <div class="diff-head">
-          <span>原文</span>
-          <span>修正后</span>
-        </div>
-        <div class="diff-view">
+        <div class="min-h-[460px] overflow-auto font-mono text-xs leading-normal">
           <div
             v-for="(row, idx) in diffRows"
             :key="idx"
-            class="diff-row"
-            :class="row.kind"
+            class="grid min-h-6 grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
           >
-            <div class="line-cell">
-              <span class="line-no">{{ row.leftNo || '' }}</span>
-              <code>{{ row.left }}</code>
+            <div
+              class="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] border-r border-border"
+              :class="(row.kind === 'remove' || row.kind === 'change') && 'bg-[color-mix(in_srgb,var(--lg-red)_12%,transparent)]'"
+            >
+              <span class="select-none bg-muted/70 px-2 py-[3px] text-right text-muted-foreground">{{ row.leftNo || '' }}</span>
+              <code class="whitespace-pre-wrap px-2.5 py-[3px] [overflow-wrap:anywhere]">{{ row.left }}</code>
             </div>
-            <div class="line-cell">
-              <span class="line-no">{{ row.rightNo || '' }}</span>
-              <code>{{ row.right }}</code>
+            <div
+              class="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)]"
+              :class="(row.kind === 'add' || row.kind === 'change') && 'bg-[color-mix(in_srgb,var(--lg-green)_14%,transparent)]'"
+            >
+              <span class="select-none bg-muted/70 px-2 py-[3px] text-right text-muted-foreground">{{ row.rightNo || '' }}</span>
+              <code class="whitespace-pre-wrap px-2.5 py-[3px] [overflow-wrap:anywhere]">{{ row.right }}</code>
             </div>
           </div>
-          <div v-if="!diffRows.length" class="empty-state">暂无结果</div>
+          <div v-if="!diffRows.length" class="grid min-h-[360px] place-items-center text-sm text-muted-foreground">暂无结果</div>
         </div>
-      </div>
+      </Card>
     </section>
 
-    <section class="trace-panel">
+    <!-- 模型思路 / 处理记录 -->
+    <Card class="mt-4 gap-0 overflow-hidden py-0">
       <details open>
-        <summary>模型思路 / 处理记录</summary>
-        <div class="trace-grid">
-          <pre>{{ thoughts || '当前模型未返回可展示的思考内容。' }}</pre>
-          <ul>
+        <summary class="cursor-pointer border-b border-border px-4 py-3 font-bold">模型思路 / 处理记录</summary>
+        <div class="grid lg:grid-cols-[minmax(0,1fr)_320px]">
+          <pre class="m-0 max-h-[260px] min-h-[120px] overflow-auto whitespace-pre-wrap border-b border-border px-4 py-3.5 font-mono text-[13px] leading-relaxed text-muted-foreground lg:border-b-0 lg:border-r">{{ thoughts || '当前模型未返回可展示的思考内容。' }}</pre>
+          <ul class="m-0 max-h-[260px] min-h-[120px] list-decimal overflow-auto px-9 py-3.5 text-[13px] text-muted-foreground">
             <li v-for="(log, idx) in logs" :key="idx">{{ log }}</li>
             <li v-if="!logs.length">等待开始</li>
           </ul>
         </div>
       </details>
-    </section>
+    </Card>
   </div>
 </template>
-
-<style scoped>
-.fix-page {
-  display: grid;
-  gap: 18px;
-}
-
-.fix-shell {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 18px;
-  align-items: stretch;
-}
-
-.input-panel,
-.result-panel,
-.trace-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.input-panel {
-  padding: 18px;
-  display: grid;
-  grid-template-rows: auto minmax(220px, 1fr) auto auto auto auto;
-  gap: 14px;
-  min-height: 560px;
-}
-
-.panel-head,
-.result-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-h2 {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.3;
-}
-
-.result-toolbar p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.segmented,
-.mode-row {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--surface);
-}
-
-.segmented button,
-.mode-row button {
-  border: 0;
-  border-right: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  min-height: 34px;
-  padding: 0 12px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-}
-
-.segmented button:last-child,
-.mode-row button:last-child {
-  border-right: 0;
-}
-
-.segmented button.active,
-.mode-row button.active {
-  background: color-mix(in srgb, var(--link) 10%, transparent);
-  color: var(--link);
-}
-
-.article-link-field {
-  display: grid;
-  gap: 6px;
-}
-
-.article-link-field span {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.mode-row {
-  width: 100%;
-}
-
-.mode-row button {
-  flex: 1;
-}
-
-.source-input {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  padding: 10px 12px;
-}
-
-.textarea {
-  min-height: 260px;
-  resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.source-input:focus {
-  outline: 2px solid color-mix(in srgb, var(--link) 28%, transparent);
-  border-color: var(--link);
-}
-
-.primary-btn,
-.copy-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--link);
-  border-radius: 6px;
-  background: var(--link);
-  color: #fff;
-  min-height: 40px;
-  padding: 0 16px;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 700;
-}
-
-.primary-btn svg,
-.copy-btn svg {
-  width: 17px;
-  height: 17px;
-}
-
-.primary-btn:disabled,
-.copy-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.copy-btn {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--border);
-  font-weight: 500;
-}
-
-.copy-btn:hover:not(:disabled) {
-  color: var(--link);
-  border-color: var(--link);
-}
-
-.error-text {
-  margin: 0;
-  color: var(--lg-red);
-  font-size: 13px;
-}
-
-.note-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.note-list span {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
-  padding: 2px 9px;
-  font-size: 12px;
-}
-
-.result-panel {
-  min-width: 0;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  overflow: hidden;
-}
-
-.result-toolbar {
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-}
-
-.diff-head {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-bottom: 1px solid var(--border);
-  background: var(--hover);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.diff-head span {
-  padding: 7px 12px;
-}
-
-.diff-head span + span {
-  border-left: 1px solid var(--border);
-}
-
-.diff-view {
-  overflow: auto;
-  min-height: 460px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.5;
-}
-
-.diff-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: 24px;
-}
-
-.line-cell {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
-  min-width: 0;
-}
-
-.line-cell + .line-cell {
-  border-left: 1px solid var(--border);
-}
-
-.line-no {
-  padding: 3px 8px;
-  color: var(--text-muted);
-  text-align: right;
-  user-select: none;
-  background: color-mix(in srgb, var(--hover) 70%, transparent);
-}
-
-.line-cell code {
-  padding: 3px 10px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font: inherit;
-}
-
-.diff-row.add .line-cell:nth-child(2),
-.diff-row.change .line-cell:nth-child(2) {
-  background: color-mix(in srgb, var(--lg-green) 14%, transparent);
-}
-
-.diff-row.remove .line-cell:nth-child(1),
-.diff-row.change .line-cell:nth-child(1) {
-  background: color-mix(in srgb, var(--lg-red) 12%, transparent);
-}
-
-.empty-state {
-  min-height: 360px;
-  display: grid;
-  place-items: center;
-  color: var(--text-muted);
-}
-
-.trace-panel {
-  overflow: hidden;
-}
-
-.trace-panel summary {
-  cursor: pointer;
-  padding: 12px 16px;
-  font-weight: 700;
-  border-bottom: 1px solid var(--border);
-}
-
-.trace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 0;
-}
-
-.trace-grid pre,
-.trace-grid ul {
-  margin: 0;
-  min-height: 120px;
-  max-height: 260px;
-  overflow: auto;
-  padding: 14px 16px;
-  box-sizing: border-box;
-}
-
-.trace-grid pre {
-  white-space: pre-wrap;
-  color: var(--text-muted);
-  border-right: 1px solid var(--border);
-  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-.trace-grid ul {
-  color: var(--text-muted);
-  font-size: 13px;
-  padding-left: 34px;
-}
-
-@media (max-width: 980px) {
-  .fix-shell,
-  .trace-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .input-panel {
-    min-height: auto;
-  }
-
-  .trace-grid pre {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-@media (max-width: 640px) {
-  .panel-head,
-  .result-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .copy-btn,
-  .primary-btn {
-    width: 100%;
-  }
-
-  .diff-head,
-  .diff-row {
-    grid-template-columns: 1fr;
-  }
-
-  .diff-head span + span,
-  .line-cell + .line-cell {
-    border-left: 0;
-  }
-}
-</style>

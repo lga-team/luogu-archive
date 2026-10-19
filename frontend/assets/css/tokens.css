@@ -1,0 +1,85 @@
+/*
+ * 全局 token 与元素默认样式。
+ * 迁移完成前保留 --bg/--surface/--text 等别名，供尚未迁移的页面使用。
+ */
+
+@layer components {
+:root {
+  /* 兼容期别名：指向 tailwind.css 里的 shadcn token。
+     尚未迁移的页面继续用 var(--surface) / var(--text) 等，迁移完成后统一清理。 */
+  --bg: var(--background);
+  --page-bg: var(--background);
+  --surface: var(--card);
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --link: var(--primary);
+  --hover: var(--accent);
+  /* --border 沿用 tailwind.css 的定义，语义一致，不再重复声明。 */
+
+  --banner-bg: #fff8e1;
+  --banner-border: #f0c040;
+
+  --page-max-width: 1180px;
+  --page-gutter: 40px;
+
+  /* 洛谷难度 / 用户颜色（沿用官方色值） */
+  --lg-gray: #bfbfbf;
+  --lg-blue: #3498db;
+  --lg-green: #53c41a;
+  --lg-orange: #f39c11;
+  --lg-yellow: #ffc629;
+  --lg-red: #fe4c61;
+  --lg-purple: #9c3dcf;
+  --lg-cyan: #13c2c2;
+  --lg-black: #0e1d69;
+  /* 洛谷"黑题"在深色模式下用浅蓝（与官方一致），浅色模式使用公告里的深蓝色 */
+  --lg-black-name: var(--lg-black);
+  --lg-cheater: #ffdd54;          /* 棕名：名字色 */
+  --lg-cheater-tag: #bb9915;      /* 棕名：tag 背景色 */
+}
+
+.dark {
+  --banner-bg: #3b2f00;
+  --banner-border: #8b6e00;
+  /* 黑题在深色模式下用浅蓝，跟洛谷官方一致 */
+  --lg-black-name: #accbf4;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-size: 16px;
+  line-height: 1.7;
+  transition: background-color var(--duration-base) var(--ease-out-soft),
+    color var(--duration-base) var(--ease-out-soft);
+}
+
+/* html 上不可设置非 visible 的 overflow（如 overflow-x: clip）：
+   html 非 visible 时 body 的 overflow 不再传播到视口，
+   弹层锁 body overflow:hidden 会失效（滚动条不消失、padding 补偿落空成缺口），
+   且 body 自身会变成滚动容器，页面内 sticky 元素失去参照。 */
+
+a {
+  color: var(--link);
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  :root {
+    /* 手机端也保留明确边界，避免内容贴到屏幕右侧。 */
+    --page-gutter: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  :root {
+    /* 极窄屏稍微收一点边界，优先保证正文还能舒展。 */
+    --page-gutter: 16px;
+  }
+}
+
+/* 对齐块：:::align{center|right} */
+}

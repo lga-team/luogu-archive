@@ -1,10 +1,13 @@
 <!--
   关注按钮。挂在用户主页上。
   - 未登录：点击跳登录
-  - 已关注：显示"取消关注"
+  - 已关注：显示"已关注"，点击取消
   - 未关注：显示"关注"
 -->
 <script setup lang="ts">
+import { Check, Loader2, UserPlus } from '@lucide/vue'
+import { toast } from 'vue-sonner'
+
 const props = defineProps<{ uid: number }>()
 
 const auth = useAuthStore()
@@ -38,7 +41,7 @@ async function toggle() {
       following.value = true
     }
   } catch (e: any) {
-    alert(e?.data?.message || '操作失败')
+    toast.error(e?.data?.message || '操作失败')
   } finally {
     loading.value = false
   }
@@ -46,31 +49,16 @@ async function toggle() {
 </script>
 
 <template>
-  <button
-    class="follow-btn"
-    :class="{ following }"
+  <Button
+    type="button"
+    :variant="following ? 'outline' : 'default'"
+    size="sm"
     :disabled="loading"
     @click="toggle"
   >
-    <span v-if="!auth.isLoggedIn">关注（需登录）</span>
-    <span v-else-if="following">✓ 已关注（取消）</span>
-    <span v-else>+ 关注</span>
-  </button>
+    <Loader2 v-if="loading" class="size-3.5 animate-spin" />
+    <Check v-else-if="following" class="size-3.5" />
+    <UserPlus v-else class="size-3.5" />
+    {{ !auth.isLoggedIn ? '关注' : following ? '已关注' : '关注' }}
+  </Button>
 </template>
-
-<style scoped>
-.follow-btn {
-  padding: 6px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--link);
-  background: var(--link);
-  color: white;
-  cursor: pointer;
-  font-size: 14px;
-}
-.follow-btn.following {
-  background: var(--surface);
-  color: var(--link);
-}
-.follow-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-</style>

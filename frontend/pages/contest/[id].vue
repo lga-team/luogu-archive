@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Search } from '@lucide/vue'
+
 const api = useApi()
 const { format } = useTime()
 const route = useRoute()
@@ -86,7 +88,7 @@ const { data, pending, error, refresh } = useLazyAsyncData(
   { server: false, watch: [contestId, page, appliedKeyword] },
 )
 
-useHead(() => ({ title: data.value?.contest.name || '比赛' }))
+useHead(() => ({ title: data.value ? `${data.value.contest.name} - 洛谷档案馆` : '比赛 - 洛谷档案馆' }))
 
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.total || 0) / 50)))
 const ratingTitle = computed(() =>
@@ -118,84 +120,136 @@ function formatScore(value: number | undefined) {
 }
 
 function problemScoreClass(value: number | undefined) {
-  if (value === undefined || value === null) return {}
+  if (value === undefined || value === null) return ''
 
   if (data.value?.contest.method === ICPC_CONTEST_METHOD) {
-    return {
-      accepted: value >= 0,
-      rejected: value < 0,
-    }
+    return value >= 0 ? 'text-[var(--lg-green)]' : 'text-[var(--lg-red)]'
   }
 
-  return { accepted: value > 0 }
+  return value > 0 ? 'text-[var(--lg-green)]' : ''
 }
 
 function toggleWarning(uid: number) {
   openWarningUid.value = openWarningUid.value === uid ? null : uid
 }
+
+function userBrief(row: ScoreboardRow) {
+  return {
+    uid: row.uid,
+    name: row.name,
+    color: row.color,
+    avatar: row.avatar,
+    badge: row.badge,
+    ccf_level: row.ccf_level,
+    xcpc_level: row.xcpc_level,
+    is_admin: row.is_admin,
+  }
+}
 </script>
 
 <template>
-  <div class="scoreboard-page" @click="openWarningUid = null">
-    <LoadingPanel v-if="pending && !data" title="loading……" text="loading……" />
+  <div @click="openWarningUid = null">
+    <!-- 首屏骨架 -->
+    <div v-if="pending && !data">
+      <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-border pb-4">
+        <div class="min-w-0">
+          <Skeleton class="h-3.5 w-14" />
+          <Skeleton class="mt-2.5 h-8 w-72" />
+          <Skeleton class="mt-2 h-4 w-64" />
+        </div>
+        <div class="flex gap-8">
+          <div><Skeleton class="h-3 w-8" /><Skeleton class="mt-1.5 h-6 w-8" /></div>
+          <div><Skeleton class="h-3 w-14" /><Skeleton class="mt-1.5 h-6 w-10" /></div>
+        </div>
+      </div>
+      <Card class="mt-5 gap-0 overflow-hidden py-0">
+        <div class="flex items-center justify-between border-b border-border px-4 py-3">
+          <Skeleton class="h-4 w-16" />
+          <Skeleton class="h-9 w-64 rounded-md" />
+        </div>
+        <div v-for="i in 8" :key="i" class="flex items-center gap-6 border-b border-border px-4 py-4 last:border-b-0">
+          <Skeleton class="h-4 w-10" />
+          <Skeleton class="h-4 w-36" />
+          <Skeleton class="ml-auto h-3.5 w-16" />
+          <Skeleton v-for="j in 5" :key="j" class="h-3.5 w-12" />
+        </div>
+      </Card>
+    </div>
 
     <template v-else-if="data">
-      <section class="contest-summary">
-        <div class="contest-copy">
-          <NuxtLink to="/contest" class="back-link">比赛 /</NuxtLink>
-          <h1>{{ data.contest.name }}</h1>
-          <p>{{ format(data.contest.start_time) }} 至 {{ format(data.contest.end_time) }}</p>
+      <!-- 页面头：裸排 + border-b -->
+      <header class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4 border-b border-border pb-4">
+        <div class="min-w-0">
+          <NuxtLink
+            to="/contest"
+            class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >比赛 /</NuxtLink>
+          <h1 class="mt-1.5 text-2xl font-bold tracking-tight [overflow-wrap:anywhere] sm:text-3xl">{{ data.contest.name }}</h1>
+          <p class="mt-1 text-sm text-muted-foreground">{{ format(data.contest.start_time) }} 至 {{ format(data.contest.end_time) }}</p>
         </div>
-        <dl class="contest-numbers">
-          <div><dt>题数</dt><dd>{{ data.contest.problem_count }}</dd></div>
-          <div><dt>参赛人数</dt><dd>{{ data.contest.participant_count }}</dd></div>
-        </dl>
-      </section>
-
-      <section class="scoreboard-panel">
-        <header class="scoreboard-toolbar">
+        <dl class="flex gap-8">
           <div>
-            <h2>排行榜</h2>
-            <span v-if="data.contest.rating_mode === 'loading'" class="loading-state">loading……</span>
+            <dt class="text-xs text-muted-foreground">题数</dt>
+            <dd class="mt-0.5 text-xl font-bold tabular-nums">{{ data.contest.problem_count }}</dd>
+          </div>
+          <div>
+            <dt class="text-xs text-muted-foreground">参赛人数</dt>
+            <dd class="mt-0.5 text-xl font-bold tabular-nums">{{ data.contest.participant_count }}</dd>
+          </div>
+        </dl>
+      </header>
+
+      <!-- 排行榜 -->
+      <Card class="mt-5 gap-0 overflow-hidden py-0">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <div class="flex items-baseline gap-2.5">
+            <h2 class="text-base font-semibold tracking-tight">排行榜</h2>
+            <span v-if="data.contest.rating_mode === 'loading'" class="text-xs text-muted-foreground">loading……</span>
             <span
               v-else
-              class="result-state"
-              :class="{ unrated: data.contest.rating_mode === 'unrated' }"
+              class="text-xs font-medium"
+              :class="data.contest.rating_mode === 'unrated' ? 'text-muted-foreground' : 'text-[var(--lg-green)]'"
             >{{ data.contest.status }}</span>
           </div>
-          <form class="search" @submit.prevent="search">
-            <input v-model="keyword" placeholder="用户名或 UID" aria-label="搜索参赛者">
-            <button type="submit" class="archive-action-button">搜索</button>
+          <form class="flex gap-2" @submit.prevent="search">
+            <div class="relative">
+              <Search class="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                v-model="keyword"
+                placeholder="用户名或 UID"
+                aria-label="搜索参赛者"
+                class="h-9 w-52 pl-8"
+              />
+            </div>
+            <Button type="submit" variant="outline" size="sm" class="h-9">搜索</Button>
           </form>
-        </header>
+        </div>
 
-        <div class="table-scroll">
-          <table class="scoreboard-table">
+        <div class="scoreboard-scroll overflow-x-auto">
+          <table class="scoreboard-table w-full border-collapse">
             <thead>
               <tr>
-                <th class="rank-col sticky-rank">名次</th>
-                <th class="user-col sticky-user">参赛者</th>
-                <th v-if="data.contest.rated" class="rating-col sticky-rating">{{ ratingTitle }}</th>
-                <th class="total-col">总分</th>
-                <th v-for="problem in data.problems" :key="problem.pid" class="problem-col">
-                  <span
-                    class="problem-tip"
-                    tabindex="0"
-                    :title="`${problem.pid} ${problem.title}`"
-                  >
+                <th class="sticky-col sticky-rank text-muted-foreground">名次</th>
+                <th class="sticky-col sticky-user text-left text-muted-foreground">参赛者</th>
+                <th v-if="data.contest.rated" class="sticky-col sticky-rating text-muted-foreground">{{ ratingTitle }}</th>
+                <th class="text-muted-foreground">总分</th>
+                <th v-for="problem in data.problems" :key="problem.pid" class="text-muted-foreground">
+                  <span class="problem-tip" tabindex="0" :title="`${problem.pid} ${problem.title}`">
                     {{ problem.label }}
-                    <span class="problem-popover">{{ problem.pid }} {{ problem.title }}</span>
+                    <span class="pop">{{ problem.pid }} {{ problem.title }}</span>
                   </span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in data.items" :key="row.uid" :class="{ penalized: row.penalized }">
-                <td class="rank-col sticky-rank">{{ row.penalized ? '-' : `#${row.rank}` }}</td>
-                <td class="user-col sticky-user">
-                  <div v-if="row.squad" class="squad-entry">
-                    <strong class="squad-name">{{ row.squad.name }}</strong>
-                    <div class="squad-members">
+              <tr v-for="row in data.items" :key="row.uid" :class="{ 'opacity-70': row.penalized }">
+                <td class="sticky-col sticky-rank tabular-nums text-muted-foreground">
+                  {{ row.penalized ? '-' : `#${row.rank}` }}
+                </td>
+                <td class="sticky-col sticky-user text-left">
+                  <div v-if="row.squad" class="flex flex-col items-start gap-0.5">
+                    <span class="max-w-full truncate text-xs text-muted-foreground">{{ row.squad.name }}</span>
+                    <div class="flex max-w-full flex-wrap items-center gap-x-1.5 gap-y-0.5">
                       <LuoguUserName
                         v-for="member in row.squad.members"
                         :key="member.uid"
@@ -204,30 +258,17 @@ function toggleWarning(uid: number) {
                       />
                     </div>
                   </div>
-                  <LuoguUserName
-                    v-else
-                    :user="{
-                      uid: row.uid,
-                      name: row.name,
-                      color: row.color,
-                      avatar: row.avatar,
-                      badge: row.badge,
-                      ccf_level: row.ccf_level,
-                      xcpc_level: row.xcpc_level,
-                      is_admin: row.is_admin,
-                    }"
-                    show-badge
-                  />
+                  <LuoguUserName v-else :user="userBrief(row)" show-badge />
                 </td>
-                <td v-if="data.contest.rated" class="rating-col sticky-rating">
-                  <span v-if="row.rating_pending" class="rating-pending">loading……</span>
-                  <span v-else-if="row.rating !== null" class="rating-value">
-                    <span class="rating-number">{{ row.rating }}</span>
-                    <span v-if="(row.delta || 0) > 0" class="delta up">↑{{ row.delta }}</span>
-                    <span v-else-if="(row.delta || 0) < 0" class="delta down">↓{{ Math.abs(row.delta || 0) }}</span>
-                    <span v-else class="delta same">0</span>
+                <td v-if="data.contest.rated" class="sticky-col sticky-rating">
+                  <span v-if="row.rating_pending" class="text-muted-foreground">loading……</span>
+                  <span v-else-if="row.rating !== null" class="inline-flex items-center gap-1.5 font-semibold tabular-nums">
+                    {{ row.rating }}
+                    <span v-if="(row.delta || 0) > 0" class="text-[13px] font-medium text-[var(--lg-green)]">↑{{ row.delta }}</span>
+                    <span v-else-if="(row.delta || 0) < 0" class="text-[13px] font-medium text-[var(--lg-red)]">↓{{ Math.abs(row.delta || 0) }}</span>
+                    <span v-else class="text-[13px] text-muted-foreground">0</span>
                   </span>
-                  <span v-else class="rating-empty">-</span>
+                  <span v-else class="text-muted-foreground">-</span>
                   <span
                     v-if="row.warnings.length"
                     class="warning-wrap"
@@ -238,169 +279,133 @@ function toggleWarning(uid: number) {
                       type="button"
                       class="warning-button"
                       aria-label="查看等级分说明"
-                      :title="row.warnings.join('\n')"
                       @click="toggleWarning(row.uid)"
                     >!</button>
-                    <span class="warning-popover">
+                    <span class="pop warning-pop">
                       <span v-for="reason in row.warnings" :key="reason">{{ reason }}</span>
                     </span>
                   </span>
                 </td>
-                <td class="total-col score-cell">
+                <td class="score-cell tabular-nums">
                   <strong>{{ row.penalized ? '-' : formatScore(row.score) }}</strong>
                   <small v-if="!row.penalized">{{ formatDuration(row.running_time) }}</small>
                 </td>
-                <td v-for="problem in data.problems" :key="problem.pid" class="problem-col score-cell">
+                <td v-for="problem in data.problems" :key="problem.pid" class="score-cell tabular-nums">
                   <template v-if="row.problem_details[problem.pid]">
                     <strong :class="problemScoreClass(row.problem_details[problem.pid].score)">
                       {{ formatScore(row.problem_details[problem.pid].score) }}
                     </strong>
                     <small>{{ formatDuration(row.problem_details[problem.pid].runningTime) }}</small>
                   </template>
-                  <span v-else>-</span>
+                  <span v-else class="text-muted-foreground">-</span>
                 </td>
               </tr>
               <tr v-if="!data.items.length">
-                <td :colspan="3 + data.problems.length + (data.contest.rated ? 1 : 0)" class="empty">没有找到参赛者</td>
+                <td
+                  :colspan="3 + data.problems.length + (data.contest.rated ? 1 : 0)"
+                  class="py-12 text-center text-sm text-muted-foreground"
+                >没有找到参赛者</td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <nav v-if="totalPages > 1" class="pagination" aria-label="排行榜分页">
-          <button class="archive-action-button" :disabled="page <= 1" @click="page--">上一页</button>
-          <span>第 {{ page }} / {{ totalPages }} 页</span>
-          <button class="archive-action-button" :disabled="page >= totalPages" @click="page++">下一页</button>
-        </nav>
-      </section>
+        <Pagination
+          v-if="totalPages > 1"
+          v-slot="{ page: current }"
+          class="border-t border-border py-3.5"
+          :page="page"
+          :total="data?.total || 0"
+          :items-per-page="50"
+          :sibling-count="1"
+          show-edges
+          @update:page="(p: number) => (page = p)"
+        >
+          <PaginationContent v-slot="{ items }">
+            <PaginationPrevious aria-label="上一页" />
+
+            <template v-for="(item, index) in items">
+              <PaginationItem
+                v-if="item.type === 'page'"
+                :key="`p-${item.value}`"
+                :value="item.value"
+                :is-active="item.value === current"
+                :aria-label="`第 ${item.value} 页`"
+              >
+                {{ item.value }}
+              </PaginationItem>
+              <PaginationEllipsis v-else :key="`e-${index}`" :index="index" />
+            </template>
+
+            <PaginationNext aria-label="下一页" />
+          </PaginationContent>
+        </Pagination>
+      </Card>
     </template>
 
-    <section v-else-if="error" class="load-error">比赛不存在或尚未完成归档</section>
+    <NotArchivedNotice
+      v-else-if="error"
+      title="比赛不存在或尚未完成归档"
+      @retry="refresh()"
+    />
   </div>
 </template>
 
 <style scoped>
-.scoreboard-page { min-width: 0; }
-.contest-summary {
-  display: flex; justify-content: space-between; align-items: center; gap: 30px;
-  min-height: 138px; box-sizing: border-box; padding: 26px 34px; margin-bottom: 26px;
-  background: var(--hero-bg); border: 1px solid var(--hero-border); border-radius: 8px;
+/* 粘性列与悬浮提示：交互机制特殊，保留少量 scoped CSS */
+.scoreboard-table { min-width: max-content; }
+.scoreboard-table th,
+.scoreboard-table td {
+  height: 64px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  white-space: nowrap;
+  font-size: 14px;
 }
-.contest-copy { min-width: 0; }
-.back-link { display: inline-block; margin-bottom: 9px; color: var(--text-muted); font-size: 13px; }
-.contest-copy h1 { margin: 0; font-size: 25px; line-height: 1.35; overflow-wrap: anywhere; }
-.contest-copy p { margin: 9px 0 0; color: var(--text-muted); font-size: 13px; }
-.contest-numbers { display: flex; gap: 30px; flex-shrink: 0; margin: 0; text-align: center; }
-.contest-numbers div { min-width: 68px; }
-.contest-numbers dt { color: var(--text-muted); font-size: 13px; }
-.contest-numbers dd { margin: 2px 0 0; font-size: 20px; font-weight: 700; }
-.scoreboard-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-.scoreboard-toolbar {
-  display: flex; justify-content: space-between; align-items: center; gap: 20px;
-  min-height: 72px; padding: 0 24px; border-bottom: 1px solid var(--border);
-}
-.scoreboard-toolbar h2 { display: inline; margin: 0 10px 0 0; font-size: 18px; }
-.loading-state, .result-state { color: var(--text-muted); font-size: 12px; }
-.result-state { color: var(--lg-green); }
-.result-state.unrated { color: var(--text-muted); }
-.search { display: flex; gap: 8px; }
-.search input {
-  width: 220px; min-width: 0; padding: 7px 9px; border: 1px solid var(--border);
-  border-radius: 4px; background: var(--bg); color: var(--text); font: inherit;
-}
-.table-scroll { overflow-x: auto; max-width: 100%; }
-.scoreboard-table { width: 100%; min-width: max-content; border-collapse: separate; border-spacing: 0; }
-thead { position: relative; z-index: 10; }
-th, td { height: 72px; box-sizing: border-box; padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: center; white-space: nowrap; }
-th { height: 54px; color: var(--text-muted); font-size: 13px; font-weight: 500; background: var(--surface); }
-tbody tr:last-child td { border-bottom: 0; }
-tbody tr:hover td { background: var(--hover); }
-.rank-col { width: 76px; min-width: 76px; color: var(--text-muted); }
-.user-col { width: 300px; min-width: 300px; text-align: left; }
-.squad-entry { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
-.squad-name {
-  max-width: 100%; overflow: hidden; color: var(--text-muted); text-overflow: ellipsis;
-}
-.squad-members {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 3px 6px; max-width: 100%;
-}
-.rating-col { width: 150px; min-width: 150px; }
-.total-col { width: 105px; min-width: 105px; }
-.problem-col { width: 116px; min-width: 116px; }
-.sticky-rank, .sticky-user, .sticky-rating { position: sticky; z-index: 2; background: var(--surface); }
-.sticky-rank { left: 0; }
-.sticky-user { left: 76px; }
-.sticky-rating { left: 376px; box-shadow: 7px 0 10px -10px rgba(0, 0, 0, .7); }
-thead .sticky-rank, thead .sticky-user, thead .sticky-rating { z-index: 4; }
-.rating-value { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
-.rating-number { color: var(--text); }
-.delta { font-size: 13px; }
-.delta.up { color: var(--lg-green); }
-.delta.down { color: var(--lg-red); }
-.delta.same, .rating-pending, .rating-empty { color: var(--text-muted); }
+.scoreboard-table thead th { height: 50px; font-size: 13px; font-weight: 500; background: var(--card); }
+.scoreboard-table tbody tr:last-child td { border-bottom: 0; }
+.scoreboard-table tbody tr:hover td { background: var(--accent); }
+.sticky-col { position: sticky; z-index: 2; background: var(--card); }
+.sticky-rank { left: 0; width: 76px; min-width: 76px; }
+.sticky-user { left: 76px; width: 300px; min-width: 300px; }
+.sticky-rating { left: 376px; width: 150px; min-width: 150px; box-shadow: 7px 0 10px -10px rgba(0, 0, 0, .7); }
+thead .sticky-col { z-index: 4; }
+
 .score-cell strong, .score-cell small { display: block; }
-.score-cell small { margin-top: 1px; color: var(--text-muted); font-size: 11px; font-weight: 400; }
-.score-cell .accepted { color: var(--lg-green); }
-.score-cell .rejected { color: var(--lg-red); }
-.penalized { opacity: .7; }
+.score-cell small { margin-top: 1px; color: var(--muted-foreground); font-size: 11px; font-weight: 400; }
+
+/* 提示浮层 */
 .problem-tip { position: relative; display: inline-flex; justify-content: center; min-width: 30px; cursor: help; }
-.problem-popover, .warning-popover {
-  position: absolute; z-index: 30; top: calc(100% + 9px); bottom: auto; left: 50%; transform: translateX(-50%);
+.pop {
+  position: absolute; z-index: 30; top: calc(100% + 9px); left: 50%; transform: translateX(-50%);
   display: none; min-width: 160px; max-width: 280px; padding: 8px 10px; border: 1px solid var(--border);
-  border-radius: 5px; background: var(--surface); color: var(--text); box-shadow: 0 8px 22px rgba(0,0,0,.16);
-  white-space: normal; text-align: left; font-size: 12px; line-height: 1.55;
+  border-radius: 6px; background: var(--popover, var(--card)); color: var(--foreground);
+  box-shadow: 0 8px 22px rgba(0,0,0,.16); white-space: normal; text-align: left;
+  font-size: 12px; line-height: 1.55;
 }
-.problem-tip:hover .problem-popover, .problem-tip:focus .problem-popover { display: block; }
+.problem-tip:hover .pop, .problem-tip:focus .pop { display: block; }
 .warning-wrap { position: relative; display: inline-flex; margin-left: 5px; vertical-align: middle; }
 .warning-button {
   width: 18px; height: 18px; padding: 0; border: 1px solid var(--lg-orange); border-radius: 50%;
   background: transparent; color: var(--lg-orange); font-size: 12px; font-weight: 700; cursor: help;
 }
-.warning-popover { left: auto; right: -8px; transform: none; min-width: 220px; }
-.warning-popover span { display: block; }
-.warning-popover span + span { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border); }
-.warning-wrap:hover .warning-popover, .warning-wrap.active .warning-popover { display: block; }
-/* 表格后面的行会晚于前面的行绘制，因此只提高单元格层级仍会被下一行遮住。
-   提示出现时把整行提升为独立层级，再提高该行的粘性单元格。 */
+.warning-pop { left: auto; right: -8px; transform: none; min-width: 220px; }
+.warning-pop span { display: block; }
+.warning-pop span + span { margin-top: 5px; padding-top: 5px; border-top: 1px solid var(--border); }
+.warning-wrap:hover .warning-pop, .warning-wrap.active .warning-pop { display: block; }
+/* 表格后面的行会晚于前面的行绘制，提示出现时把整行提升为独立层级。 */
 tbody tr:has(.warning-wrap:hover),
-tbody tr:has(.warning-wrap.active) {
-  position: relative;
-  z-index: 20;
-}
+tbody tr:has(.warning-wrap.active) { position: relative; z-index: 20; }
 tbody tr:has(.warning-wrap:hover) .sticky-rating,
 tbody tr:has(.warning-wrap.active) .sticky-rating { z-index: 30; }
-/* 表格末尾两行向上展开，避免提示框被面板底边裁切。 */
-tbody tr:nth-last-child(-n + 2) .warning-popover {
-  top: auto;
-  bottom: calc(100% + 9px);
-}
-.pagination { display: flex; justify-content: flex-end; align-items: center; gap: 12px; padding: 16px 22px; border-top: 1px solid var(--border); }
-.empty, .load-error { padding: 38px; text-align: center; color: var(--text-muted); }
+/* 末尾两行向上展开，避免提示框被面板底边裁切。 */
+tbody tr:nth-last-child(-n + 2) .warning-pop { top: auto; bottom: calc(100% + 9px); }
+
 @media (max-width: 768px) {
-  .contest-summary {
-    min-height: 0; align-items: stretch; flex-direction: column; gap: 16px;
-    padding: 20px 18px;
-  }
-  .contest-copy h1 { font-size: 21px; }
-  .contest-copy p { display: none; }
-  .contest-numbers {
-    justify-content: flex-start; gap: 24px; padding-top: 13px;
-    border-top: 1px solid var(--hero-border); text-align: left;
-  }
-  .contest-numbers div { min-width: 54px; }
-  .contest-numbers dd { font-size: 17px; }
-  .scoreboard-toolbar { align-items: stretch; flex-direction: column; padding: 15px; }
-  .search { width: 100%; }
-  .search input { width: 100%; }
-  .search button { flex-shrink: 0; white-space: nowrap; }
-  .rank-col { width: 42px; min-width: 42px; padding-left: 3px; padding-right: 3px; }
-  .user-col { width: 180px; min-width: 180px; padding-left: 6px; padding-right: 6px; overflow: hidden; text-overflow: ellipsis; }
-  .rating-col { width: 100px; min-width: 100px; padding-left: 4px; padding-right: 4px; }
-  .sticky-user { left: 42px; }
-  .sticky-rating { left: 222px; }
-  .rating-value { gap: 4px; }
-  .warning-wrap { margin-left: 2px; }
-  .warning-popover { position: fixed; top: auto; left: 50%; right: auto; bottom: 24px; transform: translateX(-50%); width: min(280px, calc(100vw - 40px)); }
-  .pagination { justify-content: center; }
+  .sticky-rank { left: 0; width: 42px; min-width: 42px; }
+  .sticky-user { left: 42px; width: 180px; min-width: 180px; }
+  .sticky-rating { left: 222px; width: 110px; min-width: 110px; }
+  .warning-pop { position: fixed; top: auto; left: 50%; right: auto; bottom: 24px; transform: translateX(-50%); width: min(280px, calc(100vw - 40px)); }
 }
 </style>

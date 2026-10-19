@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Copy, Download, ExternalLink, History } from '@lucide/vue'
+import { toast } from 'vue-sonner'
 import type { PluginDetail, PluginSnapshot, PluginVersion } from '~/types/plugin'
 import { PLUGIN_CODE_COPY_MAX_BYTES } from '~/utils/pluginCode'
 
@@ -16,11 +18,10 @@ const detail = ref<PluginDetail | null>(null)
 const article = ref<any>(null)
 const selectedVersion = ref<PluginVersion | null>(null)
 const showPending = ref(false)
-const activeTab = ref<'article' | 'code' | 'analysis'>('article')
+const activeTab = ref<string>('article')
 const articleRef = ref<HTMLElement | null>(null)
 const action = ref<'copy' | 'download'>('copy')
 const confirmOpen = ref(false)
-const toast = ref('')
 const reportOpen = ref(false)
 const reportType = ref('dangerous_request')
 const reportDescription = ref('')
@@ -111,8 +112,7 @@ function openInstall(nextAction: 'copy' | 'download') {
 }
 
 function showToast(message: string) {
-  toast.value = message
-  setTimeout(() => { toast.value = '' }, 1800)
+  toast.success(message)
 }
 
 async function submitReport() {
@@ -129,7 +129,7 @@ async function submitReport() {
     reportDescription.value = ''
     showToast('举报已提交')
   } catch (error: any) {
-    alert(error?.data?.message || '举报提交失败')
+    toast.error(error?.data?.message || '举报提交失败')
   }
 }
 
@@ -155,174 +155,306 @@ onMounted(async () => {
 
 useHead(() => ({ title: `${displayName.value} - 插件广场` }))
 </script>
-
 <template>
-  <LoadingPanel v-if="loading" title="loading……" text="" />
-  <div v-else-if="errorText" class="error-box">{{ errorText }}</div>
-  <div v-else-if="detail && article" class="plugin-detail">
-    <header class="plugin-header">
-      <div class="header-main">
-        <div class="title-line">
-          <h1>{{ displayName }}</h1>
-          <span v-if="detail.is_official" class="trust official">官方插件</span>
-          <span v-if="detail.is_recommended" class="trust recommended">推荐插件</span>
-        </div>
-        <div v-if="article.author" class="meta-line">
-          <div class="meta-author">
-            <NuxtLink :to="`/user/${article.author.uid}`" class="author-avatar" tabindex="-1" aria-hidden="true">
-              <img v-if="article.author.avatar" :src="article.author.avatar" alt="" loading="lazy">
-              <span v-else :data-color="article.author.color">{{ (article.author.name || '?').charAt(0).toUpperCase() }}</span>
-            </NuxtLink>
-            <LuoguUserName :user="article.author" show-badge />
+  <div v-if="loading" class="space-y-4">
+    <div class="space-y-3 border-b border-border pb-5">
+      <Skeleton class="h-8 w-3/5" />
+      <Skeleton class="h-4 w-2/5" />
+      <Skeleton class="h-3 w-1/3" />
+    </div>
+    <Skeleton class="h-10 w-full" />
+    <Skeleton class="h-72 w-full rounded-xl" />
+  </div>
+
+  <Card v-else-if="errorText" class="mx-auto max-w-md gap-0 py-12 text-center">
+    <p class="text-sm text-destructive">{{ errorText }}</p>
+  </Card>
+
+  <div v-else-if="detail && article" class="space-y-4">
+    <header class="border-b border-border pb-5">
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div class="min-w-0">
+          <h1 class="text-2xl font-bold leading-snug tracking-tight text-foreground">
+            {{ displayName }}
+          </h1>
+
+          <div
+            v-if="article.author"
+            class="mt-2.5 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-sm text-muted-foreground"
+          >
+            <span class="flex min-w-0 items-center gap-1.5">
+              <UserAvatar :user="article.author" size="md" />
+              <LuoguUserName :user="article.author" show-badge truncate class="max-w-[12rem]" />
+            </span>
+            <span aria-hidden="true" class="text-border">·</span>
+            <span>{{ displayVersion ? runtimeMode(displayVersion.runtime_mode) : '未知运行方式' }}</span>
+            <span aria-hidden="true" class="text-border">·</span>
+            <span>{{ detail.updated_at ? `更新于 ${format(detail.updated_at)}` : '更新时间未知' }}</span>
+            <template v-if="detail.total_usage !== undefined">
+              <span aria-hidden="true" class="text-border">·</span>
+              <span class="tabular-nums">使用 {{ detail.total_usage }} 次</span>
+            </template>
           </div>
-          <span class="meta-separator">·</span>
-          <span class="meta-item">{{ displayVersion ? runtimeMode(displayVersion.runtime_mode) : '未知运行方式' }}</span>
-          <span class="meta-separator">·</span>
-          <span class="meta-item">{{ detail.updated_at ? `更新于 ${format(detail.updated_at)}` : '更新时间未知' }}</span>
-          <span class="meta-separator">·</span>
-          <span class="meta-item" v-if="detail.total_usage !== undefined">使用次数 {{ detail.total_usage }}</span>
+
+          <div class="mt-3 flex flex-wrap gap-1.5">
+            <Badge
+              v-if="detail.is_official"
+              class="h-5 border-transparent bg-[var(--lg-blue)]/12 px-1.5 font-normal text-[var(--lg-blue)]"
+            >
+              官方插件
+            </Badge>
+            <Badge
+              v-if="detail.is_recommended"
+              class="h-5 border-transparent bg-[var(--lg-yellow)]/20 px-1.5 font-normal text-[#8a6d00] dark:text-[var(--lg-yellow)]"
+            >
+              推荐插件
+            </Badge>
+            <Badge
+              v-for="tag in displayTags"
+              :key="tag.id"
+              variant="outline"
+              class="h-5 px-1.5 font-normal"
+            >
+              {{ tag.name }}
+            </Badge>
+          </div>
         </div>
-        <div class="tag-row">
-          <span v-for="tag in displayTags" :key="tag.id" class="tag">{{ tag.name }}</span>
-        </div>
+
+        <PluginRequestLevelBadge v-if="displayVersion" :level="displayVersion.final_request_level" />
       </div>
-      <PluginRequestLevelBadge v-if="displayVersion" :level="displayVersion.final_request_level" />
     </header>
 
-    <div v-if="detail.can_claim" class="claim-banner" role="status">
-      <div>
-        <strong>此插件可能为你所有</strong>
-        <p>原文章作者与你绑定的洛谷账号一致，认领后可管理和更新此插件。</p>
-        <p v-if="claimError" class="claim-error">{{ claimError }}</p>
+    <Alert v-if="detail.can_claim" class="flex flex-wrap items-center justify-between gap-4">
+      <div class="min-w-0">
+        <AlertTitle>此插件可能为你所有</AlertTitle>
+        <AlertDescription>原文章作者与你绑定的洛谷账号一致，认领后可管理和更新此插件。</AlertDescription>
+        <p v-if="claimError" class="mt-1 text-xs text-destructive">{{ claimError }}</p>
       </div>
-      <button type="button" class="archive-action-button" :disabled="claiming" @click="claimPlugin">
+      <Button size="sm" :disabled="claiming" @click="claimPlugin">
         {{ claiming ? '认领中…' : '认领' }}
-      </button>
-    </div>
+      </Button>
+    </Alert>
 
-    <div v-if="detail.pending_application" class="pending-banner">
-      <div>
-        <strong>当前显示的是待审核版本 v{{ detail.pending_application.snapshot.version }}</strong>
-        <p>此版本仅你和管理员可见，公开页面仍展示上一个已审核版本。</p>
+    <Alert v-if="detail.pending_application" class="flex flex-wrap items-center justify-between gap-4">
+      <div class="min-w-0">
+        <AlertTitle>当前显示的是待审核版本 v{{ detail.pending_application.snapshot.version }}</AlertTitle>
+        <AlertDescription>此版本仅你和管理员可见，公开页面仍展示上一个已审核版本。</AlertDescription>
       </div>
-      <button
+      <Button
         v-if="detail.current"
-        type="button"
-        class="archive-action-button"
+        variant="outline"
+        size="sm"
+        class="shrink-0"
         @click="showPending = !showPending; selectedVersion = detail.current"
-      >{{ showPending ? '切到已审核代码' : '查看待审核代码' }}</button>
-    </div>
+      >
+        {{ showPending ? '切到已审核代码' : '查看待审核代码' }}
+      </Button>
+    </Alert>
 
-    <div v-if="!detail.is_listed" class="down-banner">
-      <strong>插件已下架</strong>
-      <span>{{ detail.down_reason || '该插件暂不在广场公开展示。' }}</span>
-    </div>
+    <Alert v-if="!detail.is_listed" variant="destructive">
+      <AlertTitle>插件已下架</AlertTitle>
+      <AlertDescription>{{ detail.down_reason || '该插件暂不在广场公开展示。' }}</AlertDescription>
+    </Alert>
 
-    <nav class="tabs" aria-label="插件内容">
-      <div class="tab-options">
-        <button type="button" :class="{ active: activeTab === 'article' }" @click="activeTab = 'article'">原文</button>
-        <button type="button" :class="{ active: activeTab === 'code' }" @click="activeTab = 'code'">代码</button>
-        <button type="button" :class="{ active: activeTab === 'analysis' }" @click="activeTab = 'analysis'">请求分析</button>
-      </div>
-      <div class="article-links">
-        <NuxtLink v-if="article.version_count > 1" :to="`/article/${articleId}/history`">历史版本</NuxtLink>
-        <a :href="`https://www.luogu.com.cn/article/${articleId}`" target="_blank" rel="noopener noreferrer">洛谷原文</a>
-      </div>
-    </nav>
+    <Tabs v-model="activeTab" class="gap-4">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <TabsList>
+          <TabsTrigger value="article">原文</TabsTrigger>
+          <TabsTrigger value="code">代码</TabsTrigger>
+          <TabsTrigger value="analysis">请求分析</TabsTrigger>
+        </TabsList>
 
-    <section v-if="activeTab === 'article'" class="tab-content article-tab">
-      <ArticleAdminNote :note="article.admin_note" />
-      <article ref="articleRef" class="lg-content" v-html="articleHtml" />
-    </section>
-
-    <section v-else-if="activeTab === 'code' && displayVersion" class="tab-content code-tab">
-      <div class="code-toolbar">
-        <div class="version-picker">
-          <label for="plugin-version">代码版本</label>
-          <select
-            id="plugin-version"
-            :value="showPending ? 'pending' : String(displayVersion.id)"
-            @change="selectVersion(($event.target as HTMLSelectElement).value)"
+        <div class="flex items-center gap-3 text-sm">
+          <NuxtLink
+            v-if="article.version_count > 1"
+            :to="`/article/${articleId}/history`"
+            class="inline-flex items-center gap-1 text-primary hover:underline"
           >
-            <option v-if="showPending" value="pending">v{{ displayVersion.version }} · 待审核</option>
-            <option v-for="version in detail.versions" :key="version.id" :value="String(version.id)">
-              v{{ version.version }}{{ version.is_current ? ' · 当前正式版' : '' }}
-            </option>
-          </select>
-          <span v-if="displayVersion.published_at">发布于 {{ format(displayVersion.published_at) }}</span>
-        </div>
-        <div class="code-actions">
-          <button
-            type="button"
-            class="archive-action-button"
-            :disabled="copyDisabled"
-            :title="copyDisabled ? '完整代码超过 100 KiB，仅支持下载' : '复制代码'"
-            @click="openInstall('copy')"
-          >复制代码</button>
-          <button type="button" class="archive-action-button" title="下载代码" @click="openInstall('download')">下载文件</button>
+            <History class="size-3.5" />
+            历史版本
+          </NuxtLink>
+          <a
+            :href="`https://www.luogu.com.cn/article/${articleId}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-primary hover:underline"
+          >
+            <ExternalLink class="size-3.5" />
+            洛谷原文
+          </a>
         </div>
       </div>
-      <div v-if="codePreview.truncated" class="code-truncation" role="status">
-        <strong>代码较长，已截断显示</strong>
-        <span>页面最多展示前 1000 行且不超过 50 KiB，完整代码未被修改。</span>
-      </div>
-      <div v-if="copyDisabled" class="copy-restriction" role="status">
-        <strong>复制已禁用</strong>
-        <span>完整代码超过 100 KiB，请下载文件。</span>
-      </div>
-      <pre class="code-view"><code>{{ codePreview.code }}</code></pre>
-      <dl class="compat-grid">
-        <div><dt>运行方式</dt><dd>{{ runtimeMode(displayVersion.runtime_mode) }}</dd></div>
-        <div><dt>兼容设备</dt><dd>{{ [displayVersion.supports_desktop ? '桌面端' : '', displayVersion.supports_mobile ? '移动端' : ''].filter(Boolean).join('、') }}</dd></div>
-        
-        <div><dt>下载次数</dt><dd>{{ displayVersion.download_count ?? 0 }}</dd></div>
-        
-        <div><dt>最后验证</dt><dd>{{ displayVersion.last_verified_on }}</dd></div>
-        <div><dt>SHA-256</dt><dd><code>{{ displayVersion.code_sha256 }}</code></dd></div>
-      </dl>
-    </section>
 
-    <section v-else-if="activeTab === 'analysis' && displayVersion" class="tab-content analysis-tab">
-      <div class="level-comparison" :class="{ single: displayVersion.admin_request_level === null }">
-        <div><span>用户提交等级</span><PluginRequestLevelBadge :level="displayVersion.user_request_level" /></div>
-        <div v-if="displayVersion.admin_request_level !== null">
-          <span>管理员更改等级</span>
-          <PluginRequestLevelBadge :level="displayVersion.admin_request_level" />
-        </div>
-      </div>
-      <section>
-        <h2>上传者请求分析</h2>
-        <div class="lg-content analysis-content" v-html="userAnalysisHtml" />
-      </section>
-      <section v-if="displayVersion.admin_request_analysis">
-        <h2>管理组请求分析</h2>
-        <div class="lg-content analysis-content" v-html="adminAnalysisHtml" />
-      </section>
-    </section>
+      <TabsContent value="article" class="mt-0">
+        <ArticleAdminNote :note="article.admin_note" />
+        <article ref="articleRef" class="lg-content mt-4" v-html="articleHtml" />
+      </TabsContent>
 
-    <footer class="detail-footer">
-      <span>文章编号 {{ articleId }}</span>
-      <div>
-        <NuxtLink v-if="detail.is_owner" :to="`/plugin/submit?article_id=${articleId}`" class="archive-action-button">提交更新</NuxtLink>
-        <button type="button" class="archive-action-button" @click="reportOpen = !reportOpen">举报插件</button>
+      <TabsContent value="code" class="mt-0">
+        <div v-if="displayVersion" class="space-y-4">
+          <div class="flex flex-wrap items-end justify-between gap-4">
+            <div class="space-y-1.5">
+              <Label class="text-xs font-normal text-muted-foreground">代码版本</Label>
+              <Select
+                :model-value="showPending ? 'pending' : String(displayVersion.id)"
+                @update:model-value="selectVersion"
+              >
+                <SelectTrigger size="sm" class="w-[16rem] max-w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-if="showPending" value="pending">
+                    v{{ displayVersion.version }} · 待审核
+                  </SelectItem>
+                  <SelectItem
+                    v-for="version in detail.versions"
+                    :key="version.id"
+                    :value="String(version.id)"
+                  >
+                    v{{ version.version }}{{ version.is_current ? ' · 当前正式版' : '' }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p v-if="displayVersion.published_at" class="text-xs text-muted-foreground">
+                发布于 {{ format(displayVersion.published_at) }}
+              </p>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                :disabled="copyDisabled"
+                :title="copyDisabled ? '完整代码超过 100 KiB，仅支持下载' : '复制代码'"
+                @click="openInstall('copy')"
+              >
+                <Copy class="size-3.5" />
+                复制代码
+              </Button>
+              <Button size="sm" title="下载代码" @click="openInstall('download')">
+                <Download class="size-3.5" />
+                下载文件
+              </Button>
+            </div>
+          </div>
+
+          <Alert v-if="codePreview.truncated">
+            <AlertTitle>代码较长，已截断显示</AlertTitle>
+            <AlertDescription>页面最多展示前 1000 行且不超过 50 KiB，完整代码未被修改。</AlertDescription>
+          </Alert>
+
+          <Alert v-if="copyDisabled" variant="destructive">
+            <AlertTitle>复制已禁用</AlertTitle>
+            <AlertDescription>完整代码超过 100 KiB，请下载文件。</AlertDescription>
+          </Alert>
+
+          <pre class="max-h-[620px] overflow-auto rounded-lg border border-border bg-muted/50 p-4 text-[13px] leading-relaxed"><code>{{ codePreview.code }}</code></pre>
+
+          <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
+            <div class="bg-card px-3 py-2.5">
+              <dt class="text-xs text-muted-foreground">运行方式</dt>
+              <dd class="mt-0.5 text-sm text-foreground">{{ runtimeMode(displayVersion.runtime_mode) }}</dd>
+            </div>
+            <div class="bg-card px-3 py-2.5">
+              <dt class="text-xs text-muted-foreground">兼容设备</dt>
+              <dd class="mt-0.5 text-sm text-foreground">
+                {{ [displayVersion.supports_desktop ? '桌面端' : '', displayVersion.supports_mobile ? '移动端' : ''].filter(Boolean).join('、') || '—' }}
+              </dd>
+            </div>
+            <div class="bg-card px-3 py-2.5">
+              <dt class="text-xs text-muted-foreground">下载次数</dt>
+              <dd class="mt-0.5 text-sm tabular-nums text-foreground">{{ displayVersion.download_count ?? 0 }}</dd>
+            </div>
+            <div class="bg-card px-3 py-2.5">
+              <dt class="text-xs text-muted-foreground">最后验证</dt>
+              <dd class="mt-0.5 text-sm text-foreground">{{ displayVersion.last_verified_on || '—' }}</dd>
+            </div>
+            <div class="col-span-2 bg-card px-3 py-2.5 sm:col-span-4">
+              <dt class="text-xs text-muted-foreground">SHA-256</dt>
+              <dd class="mt-0.5 break-all font-mono text-xs text-foreground">{{ displayVersion.code_sha256 }}</dd>
+            </div>
+          </dl>
+        </div>
+      </TabsContent>
+
+      <TabsContent value="analysis" class="mt-0">
+        <div v-if="displayVersion" class="space-y-6">
+          <div
+            class="grid gap-px overflow-hidden rounded-lg border border-border bg-border"
+            :class="displayVersion.admin_request_level !== null ? 'sm:grid-cols-2' : ''"
+          >
+            <div class="flex flex-col items-start gap-2 bg-card px-4 py-3">
+              <span class="text-xs text-muted-foreground">用户提交等级</span>
+              <PluginRequestLevelBadge :level="displayVersion.user_request_level" />
+            </div>
+            <div v-if="displayVersion.admin_request_level !== null" class="flex flex-col items-start gap-2 bg-card px-4 py-3">
+              <span class="text-xs text-muted-foreground">管理员更改等级</span>
+              <PluginRequestLevelBadge :level="displayVersion.admin_request_level" />
+            </div>
+          </div>
+
+          <section>
+            <h2 class="text-base font-semibold text-foreground">上传者请求分析</h2>
+            <div class="lg-content mt-3" v-html="userAnalysisHtml" />
+          </section>
+
+          <section v-if="displayVersion.admin_request_analysis" class="border-t border-border pt-5">
+            <h2 class="text-base font-semibold text-foreground">管理组请求分析</h2>
+            <div class="lg-content mt-3" v-html="adminAnalysisHtml" />
+          </section>
+        </div>
+      </TabsContent>
+    </Tabs>
+
+    <footer class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4 text-xs text-muted-foreground">
+      <span class="tabular-nums">文章编号 {{ articleId }}</span>
+      <div class="flex items-center gap-2">
+        <Button v-if="detail.is_owner" variant="outline" size="sm" as-child>
+          <NuxtLink :to="`/plugin/submit?article_id=${articleId}`">提交更新</NuxtLink>
+        </Button>
+        <Button variant="ghost" size="sm" @click="reportOpen = true">举报插件</Button>
       </div>
     </footer>
 
-    <form v-if="reportOpen" class="report-form" @submit.prevent="submitReport">
-      <h2>举报插件</h2>
-      <select v-model="reportType">
-        <option value="dangerous_request">危险请求</option>
-        <option value="malicious_code">恶意代码</option>
-        <option value="broken">失效</option>
-        <option value="copyright">侵权</option>
-        <option value="misleading">信息不实</option>
-        <option value="other">其他</option>
-      </select>
-      <textarea v-model.trim="reportDescription" minlength="10" maxlength="5000" rows="5" placeholder="请至少填写 10 个字的具体说明" required />
-      <button type="submit" class="archive-action-button">提交举报</button>
-    </form>
+    <Dialog v-model:open="reportOpen">
+      <DialogContent class="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>举报插件</DialogTitle>
+          <DialogDescription>请选择问题类型并补充说明，管理组会尽快处理。</DialogDescription>
+        </DialogHeader>
 
-    <p v-if="toast" class="toast">{{ toast }}</p>
+        <form class="space-y-3" @submit.prevent="submitReport">
+          <Select v-model="reportType">
+            <SelectTrigger class="w-full">
+              <SelectValue placeholder="选择问题类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dangerous_request">危险请求</SelectItem>
+              <SelectItem value="malicious_code">恶意代码</SelectItem>
+              <SelectItem value="broken">失效</SelectItem>
+              <SelectItem value="copyright">侵权</SelectItem>
+              <SelectItem value="misleading">信息不实</SelectItem>
+              <SelectItem value="other">其他</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Textarea
+            v-model.trim="reportDescription"
+            rows="5"
+            minlength="10"
+            maxlength="5000"
+            required
+            placeholder="请至少填写 10 个字的具体说明"
+          />
+
+          <DialogFooter>
+            <Button type="button" variant="outline" @click="reportOpen = false">取消</Button>
+            <Button type="submit">提交举报</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+
     <PluginInstallConfirm
       v-if="displayVersion"
       :open="confirmOpen"
@@ -337,92 +469,3 @@ useHead(() => ({ title: `${displayName.value} - 插件广场` }))
     />
   </div>
 </template>
-
-<style scoped>
-.plugin-detail { display: grid; gap: 18px; }
-.plugin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; min-height: 130px; box-sizing: border-box; padding: 24px 28px; border: 1px solid var(--hero-border); border-radius: 8px; background: var(--hero-bg); }
-.header-main { min-width: 0; }
-.title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
-.title-line h1 { margin: 0; font-size: 29px; overflow-wrap: anywhere; }
-.meta-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; color: var(--text-muted); font-size: 14px; }
-.meta-author { display: inline-flex; align-items: center; gap: 8px; }
-.author-avatar { display: inline-flex; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; text-decoration: none; }
-.author-avatar img, .author-avatar > span { width: 100%; height: 100%; }
-.author-avatar img { display: block; object-fit: cover; background: var(--bg); }
-.author-avatar > span { display: grid; place-items: center; background: var(--lg-gray); color: #fff; font-weight: 600; }
-.author-avatar > span[data-color="Blue"] { background: var(--lg-blue); }
-.author-avatar > span[data-color="Green"] { background: var(--lg-green); }
-.author-avatar > span[data-color="Orange"] { background: var(--lg-orange); }
-.author-avatar > span[data-color="Red"] { background: var(--lg-red); }
-.author-avatar > span[data-color="Purple"] { background: var(--lg-purple); }
-.author-avatar > span[data-color="Cyan"] { background: var(--lg-cyan); }
-.author-avatar > span[data-color="Black"] { background: var(--lg-black); }
-.author-avatar > span[data-color="Cheater"] { background: var(--lg-cheater-tag); }
-.meta-separator { color: var(--text-muted); }
-.meta-item { white-space: nowrap; }
-.trust, .tag { border-radius: 4px; padding: 2px 8px; font-size: 12px; }
-.official { background: var(--lg-blue); color: #fff; }
-.recommended { background: var(--lg-yellow); color: #332800; }
-.tag-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
-.tag { border: 1px solid var(--border); color: var(--text-muted); }
-.pending-banner, .down-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-left: 4px solid var(--lg-orange); background: var(--surface); }
-.pending-banner p { margin: 3px 0 0; color: var(--text-muted); font-size: 13px; }
-.pending-banner button { flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 7px 11px; cursor: pointer; }
-.claim-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-left: 4px solid var(--link); background: var(--surface); }
-.claim-banner p { margin: 3px 0 0; color: var(--text-muted); font-size: 13px; }
-.claim-banner .claim-error { color: var(--lg-red); }
-.claim-banner button { flex-shrink: 0; }
-.down-banner { justify-content: flex-start; border-left-color: var(--lg-red); }
-.tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; border-bottom: 1px solid var(--border); }
-.tab-options { display: flex; gap: 22px; }
-.tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-muted); padding: 10px 3px; font: inherit; font-size: 16px; cursor: pointer; }
-.tabs button.active { border-bottom-color: var(--link); color: var(--link); font-weight: 600; }
-.article-links { display: flex; align-items: center; gap: 14px; padding: 10px 3px 12px; white-space: nowrap; font-size: 14px; }
-.tab-content { min-width: 0; padding: 22px 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.code-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
-.version-picker { display: grid; grid-template-columns: auto minmax(150px, 250px); align-items: center; gap: 6px 10px; }
-.version-picker > span { grid-column: 2; color: var(--text-muted); font-size: 12px; }
-select, textarea { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 8px 10px; font: inherit; }
-.code-actions { display: flex; gap: 9px; }
-.code-actions button, .detail-footer button, .report-form button { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 7px 11px; cursor: pointer; font: inherit; }
-.report-form button { border-color: var(--link); background: var(--link); color: #fff; }
-.code-actions button:disabled { border-color: var(--border); background: var(--hover); color: var(--text-muted); cursor: not-allowed; opacity: .7; }
-.code-truncation { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; padding: 10px 12px; border-left: 4px solid var(--lg-yellow); background: color-mix(in srgb, var(--lg-yellow) 10%, var(--surface)); }
-.code-truncation strong { font-size: 14px; }
-.code-truncation span { color: var(--text-muted); font-size: 13px; }
-.copy-restriction { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; padding: 10px 12px; border-left: 4px solid var(--lg-red); background: color-mix(in srgb, var(--lg-red) 8%, var(--surface)); }
-.copy-restriction strong { font-size: 14px; }
-.copy-restriction span { color: var(--text-muted); font-size: 13px; }
-.compat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 18px 0 0; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
-.compat-grid > div { min-width: 0; padding: 11px 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-.compat-grid .wide { grid-column: 1 / -1; }
-.compat-grid dt { color: var(--text-muted); font-size: 12px; }
-.compat-grid dd { margin: 3px 0 0; overflow-wrap: anywhere; }
-.compat-grid code { font-size: 11px; }
-.code-view { max-height: 620px; overflow: auto; margin: 0; padding: 16px; border-radius: 6px; background: var(--hover); font-size: 13px; line-height: 1.55; white-space: pre; }
-.level-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-bottom: 28px; background: var(--border); border: 1px solid var(--border); }
-.level-comparison.single { grid-template-columns: minmax(0, 1fr); }
-.level-comparison > div { display: grid; align-content: center; justify-items: start; gap: 8px; min-height: 82px; padding: 13px; background: var(--surface); }
-.level-comparison span { color: var(--text-muted); font-size: 13px; }
-.analysis-tab > section + section { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); }
-.analysis-tab h2 { margin: 0 0 13px; font-size: 19px; }
-.analysis-content { min-height: 40px; }
-.detail-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--text-muted); font-size: 13px; }
-.detail-footer > div { display: flex; align-items: center; gap: 12px; }
-.report-form { display: grid; grid-template-columns: 180px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 16px; border: 1px solid var(--border); background: var(--surface); }
-.report-form h2 { grid-column: 1 / -1; margin: 0 0 4px; font-size: 18px; }
-.report-form textarea { resize: vertical; }
-.toast { position: fixed; z-index: 900; left: 50%; bottom: 28px; transform: translateX(-50%); margin: 0; padding: 9px 15px; border-radius: 6px; background: #222; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.24); }
-.error-box { padding: 36px; border: 1px solid var(--border); color: var(--lg-red); text-align: center; }
-@media (max-width: 760px) {
-  .plugin-header, .pending-banner, .claim-banner, .code-toolbar, .detail-footer { align-items: flex-start; flex-direction: column; }
-  .tabs { align-items: stretch; flex-direction: column; gap: 0; }
-  .tab-options { overflow-x: auto; }
-  .article-links { align-self: flex-end; padding-top: 7px; }
-  .compat-grid, .level-comparison { grid-template-columns: 1fr; }
-  .compat-grid .wide { grid-column: auto; }
-  .report-form { grid-template-columns: 1fr; }
-  .report-form h2 { grid-column: auto; }
-  .tab-content { padding: 17px 15px; }
-}
-</style>

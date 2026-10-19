@@ -1,5 +1,7 @@
 <script setup lang="ts">
-const { format } = useTime()
+import { Check, ChevronDown, Clock3, Copy, ExternalLink, History } from '@lucide/vue'
+
+const { format, smart } = useTime()
 
 const route = useRoute()
 const api = useApi()
@@ -13,247 +15,264 @@ interface PasteDetail {
   version_count: number
 }
 
+interface VersionEntry {
+  id: number
+  title: string | null
+  content_md: string
+  crawled_at: string
+  is_current: boolean
+}
+
 // 不阻塞页面首屏：剪贴板正文由浏览器端异步请求。
-const { data, error, pending } = useLazyAsyncData(`paste-${id}`, () =>
+const { data, error, pending, refresh } = useLazyAsyncData(`paste-${id}`, () =>
   api<PasteDetail>(`/paste/${id}`),
   { server: false },
 )
 
+const {
+  data: history,
+  error: historyError,
+  pending: historyPending,
+  refresh: refreshHistory,
+} = useLazyAsyncData(`paste-history-${id}`, () =>
+  api<{ versions: VersionEntry[] }>(`/paste/${id}/history`),
+  { server: false },
+)
+
+const versions = computed(() => history.value?.versions || [])
+const selected = ref<VersionEntry | null>(null)
+watchEffect(() => {
+  if (!selected.value && versions.value.length) {
+    selected.value = versions.value.find(v => v.is_current) || versions.value[0]
+  }
+})
+function selectVersion(version: VersionEntry) {
+  selected.value = version
+}
+
+// 正文接口与版本接口不保证同时成功（首次 404 时两者都失败，重查后正文可能先回来），
+// 优先用选中的版本，版本列表还没回来时退回详情接口自带的正文。
+const activeContent = computed(() => selected.value?.content_md ?? data.value?.content_md ?? '')
+
 const { render } = useMarkdown()
-const html = computed(() => (data.value ? render(data.value.content_md) : ''))
+const html = computed(() => render(activeContent.value))
+
+// 重新加载要把两个接口一起重查，否则正文回来了、版本列表还停在失败态。
+async function reload() {
+  await Promise.all([refresh(), refreshHistory()])
+}
 
 const contentRef = ref<HTMLElement | null>(null)
 useCopyCode(contentRef)
 
-const copiedOriginal = ref(false)
-const crawledAtText = computed(() =>
-  data.value ? format(data.value.crawled_at) : '',
-)
-
-async function copyOriginalMarkdown() {
-  if (!data.value?.content_md) return
-  await navigator.clipboard.writeText(data.value.content_md)
-  copiedOriginal.value = true
-  setTimeout(() => { copiedOriginal.value = false }, 1400)
+// 版本列表在桌面端默认展开，移动端收起（与文章页一致）。
+const historyOpen = ref(true)
+let media: MediaQueryList | undefined
+onMounted(() => {
+  media = window.matchMedia('(max-width: 1023px)')
+  historyOpen.value = !media.matches
+  media.addEventListener('change', onMediaChange)
+})
+function onMediaChange() {
+  historyOpen.value = !media?.matches
 }
+onBeforeUnmount(() => media?.removeEventListener('change', onMediaChange))
+
+const copied = ref(false)
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+async function copyOriginal() {
+  if (!activeContent.value) return
+  clearTimeout(copyTimer)
+  try {
+    await navigator.clipboard.writeText(activeContent.value)
+    copied.value = true
+    copyTimer = setTimeout(() => { copied.value = false }, 1600)
+  } catch {}
+}
+onBeforeUnmount(() => clearTimeout(copyTimer))
+useHead(() => ({ title: data.value ? `${data.value.author?.name ?? '未知用户'} 的剪贴板 - 洛谷档案馆` : '剪贴板 - 洛谷档案馆' }))
+
 </script>
 
 <template>
-  <LoadingPanel v-if="pending" title="正在加载剪贴板" text="页面已经打开，正在读取剪贴板归档内容…" />
+  <div class="mx-auto w-full">
+    <div v-if="pending" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_220px] lg:gap-8">
+      <!-- 左：历史版本 -->
+      <aside class="min-w-0 lg:col-start-1 lg:row-span-2">
+        <div class="sticky top-4">
+          <div class="flex items-center gap-2 border-b border-border pb-3">
+            <Skeleton class="size-4 rounded-sm" />
+            <Skeleton class="h-4 w-16" />
+          </div>
+          <div class="space-y-4 pt-4">
+            <div v-for="i in 5" :key="i" class="relative pl-[22px]">
+              <Skeleton class="absolute left-0 top-1 size-3 rounded-full" />
+              <Skeleton class="h-3.5 w-16" />
+              <Skeleton class="mt-1.5 h-3 w-28" />
+            </div>
+          </div>
+        </div>
+      </aside>
 
-  <div v-else-if="error" class="error-box">
-    <h2>{{ error.data?.message || '加载失败' }}</h2>
-    <p v-if="error.statusCode === 404">
-      刚才已触发一次爬取，稍等片刻刷新即可。
-    </p>
-  </div>
+      <!-- 中：标签 + 标题 + meta + 操作 + 正文 -->
+      <div class="min-w-0 lg:col-start-2 lg:row-span-2">
+        <Skeleton class="h-3 w-20" />
+        <div class="mt-3 flex items-center gap-2">
+          <Skeleton class="h-8 w-20" />
+          <Skeleton class="h-7 w-24" />
+        </div>
+        <div class="mt-4 flex items-center gap-3">
+          <Skeleton class="size-8 rounded-full" />
+          <Skeleton class="h-4 w-28" />
+          <Skeleton class="h-3 w-24" />
+        </div>
+        <div class="mt-4 flex items-center gap-2 border-b border-border pb-6">
+          <Skeleton class="h-8 w-24 rounded-md" />
+          <Skeleton class="h-8 w-24 rounded-md" />
+          <Skeleton class="h-8 w-20 rounded-md" />
+        </div>
+        <div class="mt-6 space-y-2.5">
+          <Skeleton v-for="i in 10" :key="i" class="h-4" :class="i % 4 === 0 ? 'w-2/3' : 'w-full'" />
+        </div>
+      </div>
 
-  <div v-else-if="data" class="paste-wrap">
-    <!-- 顶部 Banner：背景色块 + 标题 + 作者行 -->
-    <header class="paste-banner">
-      <h1 class="paste-title">剪贴板 {{ id }}</h1>
-      <div class="paste-meta">
-        <div class="author-block">
+      <!-- 右：目录 -->
+      <div class="hidden min-w-0 lg:col-start-3 lg:row-span-2 xl:block">
+        <div class="sticky top-4">
+          <Skeleton class="h-4 w-10" />
+          <div class="mt-4 space-y-2.5">
+            <Skeleton v-for="i in 6" :key="i" class="h-3" :class="i % 3 === 0 ? 'w-3/4' : 'w-full'" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <NotArchivedNotice
+      v-else-if="error"
+      :title="error.data?.message || '加载失败'"
+      :description="error.statusCode === 404 ? '本站从未爬取过这条剪贴板，刚才已触发一次爬取，点击重新加载即可。' : null"
+      @retry="reload()"
+    />
+
+    <div v-else-if="data" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_220px] lg:gap-8">
+      <!-- 历史版本（左侧 sticky，点版本直接切换正文） -->
+      <aside class="min-w-0 lg:col-start-1 lg:row-span-2">
+        <div class="sticky top-4">
+          <button
+            type="button"
+            class="flex w-full items-center gap-2 border-b border-border pb-3 text-left"
+            :aria-expanded="historyOpen"
+            @click="historyOpen = !historyOpen"
+          >
+            <Clock3 class="size-4 text-muted-foreground" />
+            <h2 class="flex-1 text-sm font-semibold tracking-tight">历史版本</h2>
+            <ChevronDown class="size-4 text-muted-foreground transition-transform" :class="historyOpen ? '' : '-rotate-90'" />
+          </button>
+
+          <div v-show="historyOpen" class="pt-3">
+            <div v-if="historyPending" class="space-y-4">
+              <div v-for="i in 4" :key="i" class="relative pl-[22px]">
+                <Skeleton class="absolute left-0 top-1 size-3 rounded-full" />
+                <Skeleton class="h-3.5 w-16" />
+                <Skeleton class="mt-1.5 h-3 w-28" />
+              </div>
+            </div>
+            <ol v-else-if="versions.length">
+              <li
+                v-for="(version, index) in versions"
+                :key="version.id"
+                class="relative pl-[22px]"
+              >
+                <span
+                  v-if="index < versions.length - 1"
+                  class="absolute bottom-[-6px] left-[6px] top-3 w-0.5 bg-border"
+                  aria-hidden="true"
+                />
+                <button
+                  type="button"
+                  class="relative grid w-full gap-0.5 pb-4 text-left text-[13px] leading-snug"
+                  :aria-current="selected === version ? 'true' : undefined"
+                  @click="selectVersion(version)"
+                >
+                  <span
+                    class="absolute left-[-22px] top-1 size-3 rounded-full border-2 bg-background"
+                    :class="selected === version ? 'border-primary' : 'border-muted-foreground/60'"
+                    aria-hidden="true"
+                  />
+                  <span class="flex items-center gap-1.5 font-medium" :class="selected === version ? 'text-primary' : 'text-foreground'">
+                    版本 {{ versions.length - index }}
+                    <span
+                      v-if="version.is_current"
+                      class="rounded-full border border-[var(--lg-green)] px-1.5 py-px text-[10px] text-[var(--lg-green)]"
+                    >最新</span>
+                  </span>
+                  <time class="tabular-nums text-muted-foreground" :datetime="version.crawled_at">
+                    {{ format(version.crawled_at, 'YYYY/M/D HH:mm:ss') }}
+                  </time>
+                </button>
+              </li>
+            </ol>
+            <p v-else-if="historyError" class="text-[13px] text-muted-foreground">历史版本加载失败</p>
+            <p v-else class="text-[13px] text-muted-foreground">暂无历史版本</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- 中栏：标题 + 操作行 + 正文，裸排 + border-b，正文直接沉底 -->
+      <div class="min-w-0 lg:col-start-2 lg:row-span-2">
+        <p class="text-xs font-medium tracking-wide text-muted-foreground">剪贴板归档</p>
+
+        <h1 class="mt-2 text-2xl font-bold leading-snug tracking-tight text-foreground sm:text-3xl">
+          <span>剪贴板</span>
+          <span class="ml-2 font-mono text-xl font-semibold text-muted-foreground sm:text-2xl">{{ id }}</span>
+        </h1>
+
+        <div class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
           <NuxtLink
             v-if="data.author"
             :to="`/user/${data.author.uid}`"
-            class="author-link"
+            class="flex min-w-0 items-center gap-2 text-foreground transition-colors hover:text-primary"
           >
-            <img
-              v-if="data.author.avatar"
-              :src="data.author.avatar"
-              alt=""
-              class="author-avatar"
-              loading="lazy"
-            >
-            <div
-              v-else
-              class="author-avatar avatar-fallback"
-              :data-color="data.author.color"
-            >{{ (data.author.name || '?').charAt(0).toUpperCase() }}</div>
-            <LuoguUserName :user="data.author" show-badge no-link />
+            <UserAvatar :user="data.author" size="lg" />
+            <LuoguUserName :user="data.author" show-badge truncate />
           </NuxtLink>
-          <span v-else class="author-link">作者未收录</span>
+          <span v-else>作者未收录</span>
+
+          <span class="text-xs">上次更新 · {{ smart(data.crawled_at) }}</span>
+
+          <NuxtLink
+            v-if="versions.length > 1"
+            :to="`/paste/${id}/history`"
+            class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            <History class="size-3.5" />
+            {{ versions.length }} 个历史版本
+          </NuxtLink>
         </div>
 
-        <div class="meta-right">
-          <a
-            :href="`https://www.luogu.com.cn/paste/${id}`"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="meta-action-btn"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M14 4h6v6M10 14L20 4M20 14v6H4V4h6"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span>查看原文</span>
-          </a>
-          <button type="button" class="meta-copy-btn" @click="copyOriginalMarkdown">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M8 8h10v12H8zM6 16H4V4h12v2"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span>{{ copiedOriginal ? '已复制' : '复制原文' }}</span>
-          </button>
-          <span class="meta-item">上次更新 · {{ crawledAtText }}</span>
-          <NuxtLink
-            v-if="data.version_count > 1"
-            :to="`/paste/${id}/history`"
-            class="meta-item link"
-          >{{ data.version_count }} 个历史版本</NuxtLink>
+        <div class="mt-4 flex flex-wrap items-center gap-2 border-b border-border pb-6">
+          <Button variant="outline" size="sm" as-child>
+            <a :href="`https://www.luogu.com.cn/paste/${id}`" target="_blank" rel="noopener noreferrer">
+              <ExternalLink class="size-3.5" />
+              查看原文
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" @click="copyOriginal">
+            <Check v-if="copied" class="size-3.5" />
+            <Copy v-else class="size-3.5" />
+            {{ copied ? '已复制' : '复制原文' }}
+          </Button>
           <SaveButton content-type="paste" :content-id="id" />
         </div>
-      </div>
-    </header>
 
-    <article ref="contentRef" class="lg-content" v-html="html" />
+        <article ref="contentRef" class="lg-content mt-6 [&_h1,&_h2,&_h3,&_h4,&_h5,&_h6]:scroll-mt-6" v-html="html" />
+        <p v-if="!activeContent" class="mt-4 text-[13px] text-muted-foreground">此版本正文为空</p>
+      </div>
+
+      <!-- 目录（右侧 sticky） -->
+      <div class="min-w-0 lg:col-start-3 lg:row-span-2">
+        <DocumentToc :content="contentRef" />
+      </div>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.paste-wrap {
-  width: 100%;
-  max-width: none;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-.paste-banner {
-  position: relative;
-  overflow: hidden;
-  background: var(--hero-bg);
-  border: 1px solid var(--hero-border);
-  border-radius: 12px;
-  padding: 22px 26px 18px;
-  margin-bottom: 16px;
-}
-.dark .paste-banner {
-  background: var(--hero-bg);
-  border-color: var(--hero-border);
-}
-
-.paste-title {
-  position: relative;
-  z-index: 1;
-  margin: 0 0 14px;
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.35;
-  color: var(--text);
-}
-
-.paste-meta {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 20px;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.author-block { display: flex; align-items: center; }
-.author-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
-  color: inherit;
-}
-.author-link:hover { text-decoration: none; }
-.author-avatar {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--bg);
-  flex-shrink: 0;
-}
-.avatar-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-weight: 600;
-  font-size: 14px;
-  background: var(--lg-gray);
-}
-.avatar-fallback[data-color="Blue"]    { background: var(--lg-blue); }
-.avatar-fallback[data-color="Green"]   { background: var(--lg-green); }
-.avatar-fallback[data-color="Orange"]  { background: var(--lg-orange); }
-.avatar-fallback[data-color="Red"]     { background: var(--lg-red); }
-.avatar-fallback[data-color="Purple"]  { background: var(--lg-purple); }
-.avatar-fallback[data-color="Cyan"]    { background: var(--lg-cyan); }
-.avatar-fallback[data-color="Black"]   { background: var(--lg-black); }
-.avatar-fallback[data-color="Cheater"] { background: var(--lg-cheater-tag); }
-
-.meta-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.meta-item { font-size: 13px; }
-.meta-item.link { color: var(--link); text-decoration: none; }
-.meta-item.link:hover { text-decoration: underline; }
-.meta-action-btn,
-.meta-copy-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--hero-border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  transition: border-color 0.15s, color 0.15s, transform 0.1s;
-}
-.meta-action-btn {
-  text-decoration: none;
-}
-.meta-action-btn:hover,
-.meta-copy-btn:hover {
-  border-color: var(--link);
-  color: var(--link);
-  transform: translateY(-1px);
-  text-decoration: none;
-}
-.meta-action-btn svg,
-.meta-copy-btn svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-.error-box {
-  padding: 30px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-}
-
-@media (max-width: 640px) {
-  .paste-banner { padding: 20px 18px 16px; }
-  .paste-title { font-size: 22px; }
-  .meta-right { margin-left: 0; }
-}
-</style>

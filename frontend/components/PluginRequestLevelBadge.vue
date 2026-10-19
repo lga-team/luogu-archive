@@ -1,45 +1,27 @@
 <script setup lang="ts">
 const props = defineProps<{ level: number; compact?: boolean }>()
-const { requestLevel } = usePluginLabels()
+const { requestLevel, levelColor } = usePluginLabels()
 const meta = computed(() => requestLevel(props.level))
+const color = computed(() => levelColor(props.level))
 </script>
 
 <template>
   <span
-    class="request-level"
-    :class="[meta.className, { compact }]"
+    class="inline-flex items-center whitespace-nowrap rounded-full border font-semibold"    :class="compact ? 'min-h-6 gap-1.5 py-0.5 pl-2 pr-0.5 text-xs' : 'min-h-[30px] gap-2 py-[3px] pl-2.5 pr-[3px] text-[13px]'"
+    :style="{
+      borderColor: `color-mix(in srgb, ${color} 45%, var(--border))`,
+      background: `color-mix(in srgb, ${color} 8%, var(--background))`,
+      color,
+    }"
     :title="`请求等级 ${level}：${meta.label}`"
     :aria-label="`请求等级 ${level}：${meta.label}`"
   >
-    <span class="label">请求等级</span>
-    <span class="number" aria-hidden="true">{{ level }}</span>
+    <span>请求等级</span>
+    <span
+      class="inline-grid place-items-center rounded-full leading-none text-white"
+      :class="compact ? 'h-5 w-5 text-[11px]' : 'h-6 w-6'"
+      :style="{ background: color }"
+      aria-hidden="true"
+    >{{ level }}</span>
   </span>
 </template>
-
-<style scoped>
-.request-level {
-  --level-color: #2da44e;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 30px;
-  padding: 2px 4px 2px 11px;
-  border: 1px solid var(--level-color);
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--level-color) 8%, var(--surface));
-  color: var(--level-color);
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-.number { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--level-color); color: #fff; line-height: 1; }
-.level-1 { --level-color: #7aa61f; }
-.level-2 { --level-color: #c69200; }
-.level-3 { --level-color: #d1242f; }
-.compact { min-height: 25px; gap: 6px; padding-left: 9px; font-size: 12px; }
-.compact .number { width: 20px; height: 20px; }
-.dark .level-0 { --level-color: #56d364; }
-.dark .level-1 { --level-color: #a8c94a; }
-.dark .level-2 { --level-color: #e3b341; }
-.dark .level-3 { --level-color: #ff7b72; }
-</style>

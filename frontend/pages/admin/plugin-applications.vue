@@ -118,6 +118,9 @@ onMounted(async () => {
 })
 
 watch([status, applicationType], () => { void loadList() })
+
+useHead({ title: '插件申请管理 - 洛谷档案馆' })
+
 </script>
 
 <template>

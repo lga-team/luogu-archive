@@ -1,4 +1,12 @@
 ﻿<script setup lang="ts">
+import {
+  ArrowLeft,
+  ChevronRight,
+  Copy,
+  ExternalLink,
+  RefreshCw,
+} from '@lucide/vue'
+
 type CardKind = 'activity' | 'random'
 
 const route = useRoute()
@@ -31,6 +39,8 @@ const pageTitle = computed(() => {
   return name ? `${name} 的图卡` : '图卡预览'
 })
 
+useHead(() => ({ title: `${pageTitle.value.replace(' 的图卡', ' 图卡')} - 洛谷档案馆` }))
+
 const cardPath = computed(() => `/api/v1/image/feed/${selected.value}/${uid}.svg`)
 const imageUrl = computed(() => {
   if (!import.meta.client) return cardPath.value
@@ -47,6 +57,9 @@ const cardKinds: Array<{ key: CardKind; label: string }> = [
   { key: 'random', label: '随机语录' },
 ]
 
+const imageLoaded = ref(false)
+watch([selected, previewSrc], () => { imageLoaded.value = false })
+
 async function copyText(kind: 'link' | 'markdown') {
   const text = kind === 'link' ? imageUrl.value : markdown.value
   await navigator.clipboard.writeText(text)
@@ -60,288 +73,159 @@ function refreshPreview() {
 </script>
 
 <template>
-  <LoadingPanel v-if="pending" title="正在加载图卡" text="正在读取用户资料..." />
-
-  <div v-else-if="error" class="error-box">
-    <h2>{{ error.data?.message || '用户未收录' }}</h2>
-    <p>稍后刷新页面即可重试。</p>
-  </div>
-
-  <div v-else class="card-page">
-    <div class="page-head">
-      <div>
-        <NuxtLink :to="`/user/${uid}`" class="back-link">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          返回用户主页
+  <div>
+    <!-- 页面头：裸排 + border-b -->
+    <header class="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+      <div class="min-w-0">
+        <NuxtLink
+          :to="`/user/${uid}`"
+          class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft class="size-3.5" />
+          用户主页
         </NuxtLink>
-        <h1>{{ pageTitle }}</h1>
-        <p>预览 SVG 图卡，并复制可嵌入链接。</p>
+        <h1 class="mt-1.5 text-2xl font-bold tracking-tight sm:text-3xl">{{ pageTitle }}</h1>
+        <p class="mt-1 text-sm text-muted-foreground">预览 SVG 图卡，并复制可嵌入链接。</p>
       </div>
-      <button type="button" class="ghost-btn" @click="refreshPreview">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 11-2.6-6.4M21 4v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      <Button variant="outline" size="sm" @click="refreshPreview">
+        <RefreshCw class="size-3.5" />
         刷新预览
-      </button>
+      </Button>
+    </header>
+
+    <!-- 首屏骨架 -->
+    <div v-if="pending" class="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <Card class="py-6">
+        <CardContent class="flex min-h-[420px] items-center justify-center">
+          <Skeleton class="h-64 w-full max-w-[540px] rounded-xl" />
+        </CardContent>
+      </Card>
+      <div class="space-y-5">
+        <Card class="gap-3 py-5">
+          <CardHeader class="px-5"><Skeleton class="h-4 w-16" /></CardHeader>
+          <CardContent class="px-5"><Skeleton class="h-9 w-full rounded-md" /></CardContent>
+        </Card>
+        <Card class="gap-3 py-5">
+          <CardHeader class="px-5"><Skeleton class="h-4 w-16" /></CardHeader>
+          <CardContent class="space-y-2 px-5">
+            <Skeleton class="h-9 w-full rounded-md" />
+            <Skeleton class="h-9 w-full rounded-md" />
+            <Skeleton class="h-20 w-full rounded-md" />
+          </CardContent>
+        </Card>
+      </div>
     </div>
 
-    <div class="preview-grid">
-      <section class="preview-panel">
-        <div class="preview-shell" :class="selected">
-          <img :src="previewSrc" :alt="selected === 'activity' ? '活跃统计图卡预览' : '随机语录图卡预览'">
-        </div>
-      </section>
+    <!-- 错误态 -->
+    <div v-else-if="error" class="mt-5 rounded-xl border border-dashed border-border p-10 text-center">
+      <p class="text-sm font-medium text-foreground">{{ error.data?.message || '用户未收录' }}</p>
+      <p class="mt-1 text-sm text-muted-foreground">稍后刷新页面即可重试。</p>
+    </div>
 
-      <aside class="side-panel">
-        <section class="panel-section">
-          <h2>图卡类型</h2>
-          <div class="segmented" role="tablist" aria-label="图卡类型">
-            <button
-              v-for="item in cardKinds"
-              :key="item.key"
-              type="button"
-              :class="{ active: selected === item.key }"
-              @click="selected = item.key; refreshPreview()"
-            >{{ item.label }}</button>
+    <div v-else class="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <!-- 预览区：棋盘格背景衬托透明 SVG -->
+      <Card class="py-6">
+        <CardContent class="relative flex min-h-[420px] items-center justify-center">
+          <Skeleton
+            v-if="!imageLoaded"
+            class="absolute inset-6 rounded-xl"
+          />
+          <div
+            class="w-full rounded-lg p-6"
+            :class="selected === 'random' ? 'max-w-[900px]' : ''"
+            :style="{
+              backgroundImage: 'linear-gradient(45deg, hsl(from var(--muted-foreground) h s l / 0.08) 25%, transparent 25%), linear-gradient(-45deg, hsl(from var(--muted-foreground) h s l / 0.08) 25%, transparent 25%), linear-gradient(45deg, transparent 75%, hsl(from var(--muted-foreground) h s l / 0.08) 75%), linear-gradient(-45deg, transparent 75%, hsl(from var(--muted-foreground) h s l / 0.08) 75%)',
+              backgroundSize: '22px 22px',
+              backgroundPosition: '0 0, 0 11px, 11px -11px, -11px 0',
+            }"
+          >
+            <img
+              :src="previewSrc"
+              :alt="selected === 'activity' ? '活跃统计图卡预览' : '随机语录图卡预览'"
+              class="block h-auto w-full object-contain transition-opacity duration-200"
+              :class="imageLoaded ? 'opacity-100' : 'opacity-0'"
+              @load="imageLoaded = true"
+            >
           </div>
-        </section>
+        </CardContent>
+      </Card>
 
-        <section class="panel-section">
-          <h2>图片链接</h2>
-          <div class="copy-row">
-            <input :value="imageUrl" readonly>
-            <button type="button" @click="copyText('link')">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h10v12H8zM6 16H4V4h12v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
-              {{ copied === 'link' ? '已复制' : '复制' }}
-            </button>
-          </div>
-        </section>
+      <!-- 侧栏 -->
+      <div class="space-y-5">
+        <Card class="gap-4 py-5">
+          <CardHeader class="px-5">
+            <CardTitle class="text-sm">图卡类型</CardTitle>
+          </CardHeader>
+          <CardContent class="px-5">
+            <Tabs
+              :model-value="selected"
+              class="w-full"
+              @update:model-value="selected = $event as CardKind; refreshPreview()"
+            >
+              <TabsList class="grid w-full grid-cols-2">
+                <TabsTrigger
+                  v-for="item in cardKinds"
+                  :key="item.key"
+                  :value="item.key"
+                >{{ item.label }}</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </CardContent>
+        </Card>
 
-        <section class="panel-section">
-          <h2>Markdown</h2>
-          <textarea :value="markdown" readonly rows="5" />
-          <button type="button" class="full-btn" @click="copyText('markdown')">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h10v12H8zM6 16H4V4h12v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
-            {{ copied === 'markdown' ? '已复制 Markdown' : '复制 Markdown' }}
-          </button>
-        </section>
-
-        <a :href="cardPath" target="_blank" rel="noopener noreferrer" class="open-link">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-9 9M19 14v5H5V5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          打开图片
-        </a>
-      </aside>
+        <Card class="gap-4 py-5">
+          <CardHeader class="px-5">
+            <CardTitle class="text-sm">嵌入链接</CardTitle>
+            <CardDescription class="text-xs">Markdown 保持最短格式。</CardDescription>
+          </CardHeader>
+          <CardContent class="space-y-3 px-5">
+            <div class="flex gap-2">
+              <Input
+                :model-value="imageUrl"
+                readonly
+                class="h-9 font-mono text-xs"
+                spellcheck="false"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                class="h-9 shrink-0 gap-1.5 px-2.5"
+                @click="copyText('link')"
+              >
+                <Copy class="size-3.5" />
+                {{ copied === 'link' ? '已复制' : '复制' }}
+              </Button>
+            </div>
+            <div class="relative">
+              <Textarea
+                :model-value="markdown"
+                readonly
+                rows="3"
+                class="resize-none font-mono text-xs"
+                spellcheck="false"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              class="w-full gap-1.5"
+              @click="copyText('markdown')"
+            >
+              <Copy class="size-3.5" />
+              {{ copied === 'markdown' ? '已复制 Markdown' : '复制 Markdown' }}
+            </Button>
+          </CardContent>
+          <CardFooter class="px-5">
+            <Button variant="ghost" size="sm" as-child class="-mx-1 w-full gap-1.5">
+              <a :href="cardPath" target="_blank" rel="noopener noreferrer">
+                <ExternalLink class="size-3.5" />
+                打开图片
+                <ChevronRight class="size-3.5" />
+              </a>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.card-page {
-  display: grid;
-  gap: 20px;
-}
-.page-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-}
-.page-head h1 {
-  margin: 12px 0 6px;
-  font-size: 28px;
-  line-height: 1.25;
-}
-.page-head p {
-  margin: 0;
-  color: var(--text-muted);
-}
-.back-link,
-.open-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 14px;
-}
-.back-link:hover,
-.open-link:hover {
-  color: var(--link);
-  text-decoration: none;
-}
-.back-link svg,
-.open-link svg,
-.ghost-btn svg,
-.copy-row button svg,
-.full-btn svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
-.ghost-btn,
-.full-btn,
-.copy-row button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  min-height: 38px;
-  padding: 0 13px;
-}
-.ghost-btn:hover,
-.full-btn:hover,
-.copy-row button:hover {
-  border-color: var(--link);
-  color: var(--link);
-}
-.preview-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 20px;
-  align-items: start;
-}
-.preview-panel,
-.side-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.preview-panel {
-  padding: 22px;
-}
-.preview-shell {
-  display: grid;
-  place-items: center;
-  min-height: 460px;
-  padding: 24px;
-  border-radius: 8px;
-  background:
-    linear-gradient(45deg, rgba(148, 163, 184, 0.10) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(148, 163, 184, 0.10) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, 0.10) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, 0.10) 75%);
-  background-size: 22px 22px;
-  background-position: 0 0, 0 11px, 11px -11px, -11px 0;
-}
-.preview-shell img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 100%;
-  object-fit: contain;
-}
-.preview-shell.random img {
-  max-width: 900px;
-}
-.side-panel {
-  padding: 18px;
-  display: grid;
-  gap: 20px;
-}
-.panel-section {
-  display: grid;
-  gap: 10px;
-}
-.panel-section h2 {
-  margin: 0;
-  font-size: 15px;
-  color: var(--text-muted);
-}
-.segmented {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-}
-.segmented button {
-  border: 0;
-  border-radius: 6px;
-  padding: 8px 10px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font: inherit;
-}
-.segmented button.active {
-  background: var(--surface);
-  color: var(--link);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-.copy-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-input,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font: 13px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
-}
-input {
-  min-height: 38px;
-  padding: 0 10px;
-}
-textarea {
-  resize: vertical;
-  min-height: 108px;
-  padding: 10px;
-}
-.full-btn {
-  width: 100%;
-}
-.open-link {
-  justify-content: center;
-  min-height: 40px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.error-box {
-  padding: 30px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-}
-@media (max-width: 980px) {
-  .page-head,
-  .preview-grid {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-  .preview-grid {
-    gap: 14px;
-  }
-  .side-panel {
-    order: -1;
-  }
-}
-@media (max-width: 640px) {
-  .preview-panel,
-  .side-panel {
-    border-radius: 0;
-    margin-inline: calc(var(--page-gutter) * -1);
-  }
-  .preview-panel {
-    padding: 12px;
-  }
-  .preview-shell {
-    min-height: 260px;
-    padding: 10px;
-  }
-  .copy-row {
-    grid-template-columns: 1fr;
-  }
-}
-</style>

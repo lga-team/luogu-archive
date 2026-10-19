@@ -75,6 +75,9 @@ onMounted(async () => {
   if (!admin.isLoggedIn) return navigateTo('/admin/login')
   await load()
 })
+
+useHead({ title: '插件管理 - 洛谷档案馆' })
+
 </script>
 
 <template>

@@ -12,14 +12,25 @@ const RUNTIME_LABELS: Record<string, string> = {
   other: '其他',
 }
 
+const REQUEST_LEVEL_COLORS: Record<number, string> = {
+  0: 'var(--lg-green)',
+  1: 'var(--lg-cyan)',
+  2: 'var(--lg-yellow)',
+  3: 'var(--lg-red)',
+}
+
 export function usePluginLabels() {
   function requestLevel(level: number) {
     return REQUEST_LEVELS[level] || REQUEST_LEVELS[3]
+  }
+
+  function levelColor(level: number) {
+    return REQUEST_LEVEL_COLORS[level] ?? REQUEST_LEVEL_COLORS[3]
   }
 
   function runtimeMode(value: string) {
     return RUNTIME_LABELS[value] || value
   }
 
-  return { requestLevel, runtimeMode, requestLevels: REQUEST_LEVELS, runtimeLabels: RUNTIME_LABELS }
+  return { requestLevel, levelColor, runtimeMode, requestLevels: REQUEST_LEVELS, runtimeLabels: RUNTIME_LABELS }
 }

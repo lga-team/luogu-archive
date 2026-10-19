@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { CircleAlert, CircleCheck, Loader2 } from '@lucide/vue'
+
 // 一键保存 / 更新按钮。封装 POST /save，并在需要时弹出人机验证。
 const props = defineProps<{
   contentType: string
@@ -12,6 +14,13 @@ const showCaptcha = ref(false)
 const captchaRef = ref<any>(null)
 
 const api = useApi()
+
+const stateClass = computed(() => {
+  if (state.value === 'success') return 'border-emerald-500/40 text-emerald-600 dark:text-emerald-400'
+  if (state.value === 'failed') return 'border-destructive/40 text-destructive'
+  if (state.value === 'cooldown' || state.value === 'captcha') return 'border-amber-500/40 text-amber-600 dark:text-amber-400'
+  return ''
+})
 
 async function save() {
   if (state.value === 'pending') return
@@ -69,20 +78,22 @@ async function onCaptchaVerified(token: string) {
 </script>
 
 <template>
-  <div class="save-action">
-    <button
-      class="archive-action-button"
-      :class="{
-        success: state === 'success',
-        error: state === 'failed',
-        cooldown: state === 'cooldown' || state === 'captcha',
-      }"
+  <div class="grid gap-2">
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      :class="stateClass"
       :disabled="state === 'pending'"
       @click="save"
     >
+      <Loader2 v-if="state === 'pending'" class="size-3.5 animate-spin" />
+      <CircleCheck v-else-if="state === 'success'" class="size-3.5" />
+      <CircleAlert v-else-if="state === 'failed'" class="size-3.5" />
       <span v-if="state === 'idle'">立即更新</span>
       <span v-else>{{ message }}</span>
-    </button>
+    </Button>
+
     <CaptchaChallenge
       v-if="showCaptcha"
       ref="captchaRef"
@@ -91,14 +102,3 @@ async function onCaptchaVerified(token: string) {
     />
   </div>
 </template>
-
-<style scoped>
-.save-action {
-  display: grid;
-  gap: 8px;
-}
-
-.archive-action-button.success { color: var(--lg-green); border-color: var(--lg-green); }
-.archive-action-button.error { color: var(--lg-red); border-color: var(--lg-red); }
-.archive-action-button.cooldown { color: var(--lg-orange); border-color: var(--lg-orange); }
-</style>

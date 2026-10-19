@@ -57,6 +57,9 @@ function archiveById() {
 onMounted(() => {
   if (!admin.isLoggedIn) navigateTo('/admin/login')
 })
+
+useHead({ title: '比赛管理 - 洛谷档案馆' })
+
 </script>
 
 <template>

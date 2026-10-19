@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { toast } from 'vue-sonner'
 import type { PluginDetail, PluginSnapshot, PluginTag } from '~/types/plugin'
 import { emptyPluginSnapshot } from '~/types/plugin'
 
@@ -126,8 +127,10 @@ async function submit() {
     }
     hasPending.value = true
     submitSucceeded.value = true
+    toast.success('提交成功，申请已进入审核')
     message.value = '提交成功。申请已进入审核，结果会发送到你的注册邮箱。'
   } catch (error: any) {
+    toast.error(error?.data?.message || '提交失败')
     errorText.value = error?.data?.message || '提交失败'
   } finally {
     submitting.value = false
@@ -147,65 +150,85 @@ onMounted(async () => {
 
 useHead({ title: '提交插件 - 洛谷档案馆' })
 </script>
-
 <template>
-  <LoadingPanel v-if="loading" title="loading……" text="" />
-  <div v-else class="submit-page">
-    <header class="page-head">
+  <div v-if="loading" class="space-y-4">
+    <div class="space-y-3 border-b border-border pb-6">
+      <Skeleton class="h-8 w-2/5" />
+      <Skeleton class="h-4 w-3/5" />
+    </div>
+    <Skeleton class="h-24 w-full rounded-xl" />
+    <Skeleton class="h-72 w-full rounded-xl" />
+  </div>
+
+  <div v-else class="space-y-6">
+    <header class="flex flex-wrap items-end justify-between gap-4 border-b border-border pb-6">
       <div>
-        <h1>{{ editing ? '提交版本更新' : '发布插件' }}</h1>
-        <p>插件原文始终使用文章的最新归档版本，代码作为独立内容提交审核。</p>
+        <h1 class="text-2xl font-semibold tracking-tight text-foreground">
+          {{ editing ? '提交版本更新' : '发布插件' }}
+        </h1>
+        <p class="mt-1 text-sm text-muted-foreground">
+          插件原文始终使用文章的最新归档版本，代码作为独立内容提交审核。
+        </p>
       </div>
-      <NuxtLink to="/plugin/manage" class="archive-action-button">返回我的插件</NuxtLink>
+      <Button variant="outline" size="sm" as-child>
+        <NuxtLink to="/plugin/manage">返回我的插件</NuxtLink>
+      </Button>
     </header>
 
-    <section class="article-picker">
-      <label>
-        <span>洛谷文章编号</span>
-        <div class="input-action">
-          <input v-model.trim="articleId" maxlength="16" placeholder="例如 jbekb3o8" :disabled="editing || hasPending">
-          <button type="button" class="archive-action-button" @click="inspectArticle">确认文章</button>
+    <Card>
+      <CardHeader>
+        <CardTitle>洛谷文章编号</CardTitle>
+        <CardDescription>插件正文取自该文章的最新归档版本。</CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <div class="flex flex-wrap gap-2">
+          <Input
+            v-model.trim="articleId"
+            maxlength="16"
+            placeholder="例如 jbekb3o8"
+            :disabled="editing || hasPending"
+            class="max-w-[16rem] font-mono"
+          />
+          <Button type="button" variant="outline" @click="inspectArticle">确认文章</Button>
         </div>
-      </label>
-      <div v-if="article" class="article-result">
-        <strong>{{ article.title }}</strong>
-        <span>文章 {{ article.article_id }} 已收录</span>
-      </div>
-    </section>
 
-    <p v-if="message" class="message ok" :class="{ submitted: submitSucceeded }" role="status">{{ message }}</p>
-    <p v-if="errorText" class="message error">{{ errorText }}</p>
+        <div
+          v-if="article"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2"
+        >
+          <span class="min-w-0 text-sm font-medium text-foreground">{{ article.title }}</span>
+          <span class="text-xs text-muted-foreground">
+            文章 <span class="font-mono">{{ article.article_id }}</span> 已收录
+          </span>
+        </div>
+      </CardContent>
+    </Card>
 
-    <form v-if="article && !blocked" class="plugin-form" @submit.prevent="submit">
+    <Alert
+      v-if="errorText"
+      variant="destructive"
+    >
+      <AlertTitle>无法继续</AlertTitle>
+      <AlertDescription>{{ errorText }}</AlertDescription>
+    </Alert>
+
+    <Alert
+      v-if="message"
+      :class="submitSucceeded ? 'border-emerald-500/45' : 'border-[var(--lg-yellow)]/55'"
+    >
+      <AlertTitle>{{ submitSucceeded ? '提交成功' : '提示' }}</AlertTitle>
+      <AlertDescription>{{ message }}</AlertDescription>
+    </Alert>
+
+    <form v-if="article && !blocked" class="space-y-6" @submit.prevent="submit">
       <PluginSnapshotForm v-model="snapshot" :tags="tags" />
-      <div class="submit-actions">
-        <span>提交即表示你确认代码和请求说明真实、完整。</span>
-        <button type="submit" class="archive-action-button" :disabled="submitting || hasPending">{{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}</button>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+        <p class="text-xs text-muted-foreground">提交即表示你确认代码和请求说明真实、完整。</p>
+        <Button type="submit" :disabled="submitting || hasPending">
+          {{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}
+        </Button>
       </div>
     </form>
   </div>
 </template>
-
-<style scoped>
-.submit-page { display: grid; gap: 22px; }
-.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 22px 26px; border: 1px solid var(--hero-border); border-radius: 8px; background: var(--hero-bg); }
-.page-head h1 { margin: 0; font-size: 27px; }
-.page-head p { margin: 7px 0 0; color: var(--text-muted); }
-.article-picker, .plugin-form { padding: 22px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.article-picker { display: grid; gap: 14px; }
-.article-picker label { display: grid; gap: 7px; font-weight: 600; }
-.input-action { display: flex; gap: 9px; }
-.input-action input { flex: 1; min-width: 0; }
-input { box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px; background: var(--surface); color: var(--text); font: inherit; }
-.article-result { display: flex; justify-content: space-between; gap: 12px; color: var(--text-muted); }
-.article-result strong { color: var(--text); }
-.message { margin: 0; padding: 10px 13px; border-left: 3px solid; background: var(--surface); }
-.message.ok { border-color: var(--lg-green); }
-.message.submitted { position: fixed; z-index: 850; left: 50%; bottom: 28px; width: min(560px, calc(100vw - 32px)); box-sizing: border-box; transform: translateX(-50%); border: 1px solid var(--lg-green); border-left-width: 5px; border-radius: 7px; background: var(--surface); color: var(--text); font-size: 15px; font-weight: 600; box-shadow: 0 12px 36px rgba(0, 0, 0, .22); }
-.message.error { border-color: var(--lg-red); color: var(--lg-red); }
-.submit-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
-@media (max-width: 650px) {
-  .page-head, .article-result, .submit-actions { align-items: flex-start; flex-direction: column; }
-  .input-action { flex-direction: column; }
-}
-</style>

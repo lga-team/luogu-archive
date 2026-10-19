@@ -35,6 +35,9 @@ async function restore(id: number) {
   await api(`/admin/takedowns/${id}/restore`, { method: 'POST' })
   await load()
 }
+
+useHead({ title: '删除申请管理 - 洛谷档案馆' })
+
 </script>
 
 <template>

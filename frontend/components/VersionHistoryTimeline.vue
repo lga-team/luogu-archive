@@ -197,213 +197,70 @@ function changedRows(rows: DiffRow[]): DiffRow[] {
 </script>
 
 <template>
-  <div class="history-timeline">
-    <p v-if="!sortedVersions.length" class="empty">{{ emptyText }}</p>
+  <div class="space-y-5">
+    <p
+      v-if="!sortedVersions.length"
+      class="rounded-xl border border-dashed border-border p-9 text-center text-sm text-muted-foreground"
+    >
+      {{ emptyText }}
+    </p>
 
-    <section v-for="group in groups" :key="group.date" class="day-group">
-      <h2 class="day-title">{{ group.date }}</h2>
+    <section v-for="group in groups" :key="group.date" class="space-y-3">
+      <h2 class="text-sm font-semibold text-muted-foreground">{{ group.date }}</h2>
 
-      <article v-for="version in group.versions" :key="version.id" class="version-card">
-        <header class="version-head">
-          <div class="version-meta">
-            <strong>{{ version.title || `版本 ${version.id}` }}</strong>
-            <span>{{ format(version.crawled_at, 'HH:mm:ss') }}</span>
-            <span v-if="version.is_current" class="current-tag">当前版本</span>
+      <article
+        v-for="version in group.versions"
+        :key="version.id"
+        class="overflow-hidden rounded-xl border border-border bg-card"
+      >
+        <header class="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 max-sm:flex-col max-sm:items-stretch">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <strong class="max-w-[min(560px,100%)] truncate text-sm font-semibold">{{ version.title || `版本 ${version.id}` }}</strong>
+            <span class="text-xs tabular-nums text-muted-foreground">{{ format(version.crawled_at, 'HH:mm:ss') }}</span>
+            <span
+              v-if="version.is_current"
+              class="rounded-full border border-[var(--lg-green)] px-2 py-px text-xs text-[var(--lg-green)]"
+            >当前版本</span>
           </div>
-          <div class="version-actions">
-            <span class="stat add">+{{ diffStats(version).add }}</span>
-            <span class="stat remove">-{{ diffStats(version).remove }}</span>
-            <button type="button" @click="toggleFull(version.id)">
+          <div class="flex flex-wrap items-center gap-2 max-sm:[&>*]:flex-1">
+            <span class="font-mono text-xs text-[var(--lg-green)]">+{{ diffStats(version).add }}</span>
+            <span class="font-mono text-xs text-[var(--lg-red)]">-{{ diffStats(version).remove }}</span>
+            <Button variant="outline" size="sm" @click="toggleFull(version.id)">
               {{ openFull.has(version.id) ? '收起全文' : '查看全文' }}
-            </button>
-            <button type="button" @click="copyVersion(version)">
+            </Button>
+            <Button variant="outline" size="sm" @click="copyVersion(version)">
               {{ copiedId === version.id ? '已复制' : '复制原文' }}
-            </button>
+            </Button>
           </div>
         </header>
 
-        <div class="diff-box">
+        <div class="max-h-[460px] overflow-auto font-mono text-xs leading-normal">
           <div
             v-for="(row, idx) in changedRows(diffOf(version))"
             :key="idx"
-            class="diff-row"
-            :class="row.kind"
+            class="grid min-h-6 grid-cols-[54px_minmax(0,1fr)] border-b border-border/35"
+            :class="row.kind === 'add'
+              ? 'bg-[color-mix(in_srgb,var(--lg-green)_12%,transparent)]'
+              : row.kind === 'remove'
+                ? 'bg-[color-mix(in_srgb,var(--lg-red)_10%,transparent)]'
+                : 'bg-[color-mix(in_srgb,var(--lg-orange)_10%,transparent)]'"
           >
-            <span class="line-no">{{ row.leftNo || row.rightNo || '' }}</span>
-            <code v-if="row.kind === 'remove'">- {{ row.left }}</code>
-            <code v-else-if="row.kind === 'add'">+ {{ row.right }}</code>
-            <code v-else>- {{ row.left }}<br>+ {{ row.right }}</code>
+            <span class="select-none bg-muted/80 px-2 py-[3px] text-right text-muted-foreground">{{ row.leftNo || row.rightNo || '' }}</span>
+            <code class="whitespace-pre-wrap px-2.5 py-[3px] [overflow-wrap:anywhere]">
+              <template v-if="row.kind === 'remove'">- {{ row.left }}</template>
+              <template v-else-if="row.kind === 'add'">+ {{ row.right }}</template>
+              <template v-else>- {{ row.left }}<br>+ {{ row.right }}</template>
+            </code>
           </div>
-          <div v-if="!changedRows(diffOf(version)).length" class="diff-empty">
+          <p v-if="!changedRows(diffOf(version)).length" class="bg-muted/60 px-3 py-2 text-muted-foreground">
             与上一版本相比没有正文变化
-          </div>
+          </p>
         </div>
 
-        <div v-if="openFull.has(version.id)" class="full-text">
+        <div v-if="openFull.has(version.id)" class="border-t border-border px-4.5 py-4">
           <article class="lg-content" v-html="htmlOf(version)" />
         </div>
       </article>
     </section>
   </div>
 </template>
-
-<style scoped>
-.history-timeline {
-  display: grid;
-  gap: 22px;
-}
-
-.empty {
-  padding: 34px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.day-group {
-  display: grid;
-  gap: 12px;
-}
-
-.day-title {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.version-card {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  overflow: hidden;
-}
-
-.version-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
-}
-
-.version-meta,
-.version-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.version-meta {
-  min-width: 0;
-}
-
-.version-meta strong {
-  max-width: min(560px, 100%);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.version-meta span {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.current-tag {
-  color: var(--lg-green) !important;
-  border: 1px solid var(--lg-green);
-  border-radius: 999px;
-  padding: 1px 7px;
-}
-
-.stat {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-}
-.stat.add { color: var(--lg-green); }
-.stat.remove { color: var(--lg-red); }
-
-.version-actions button {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  padding: 4px 10px;
-}
-.version-actions button:hover {
-  border-color: var(--link);
-  color: var(--link);
-}
-
-.diff-box {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.5;
-  max-height: 460px;
-  overflow: auto;
-}
-
-.diff-row {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
-  min-height: 24px;
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 35%, transparent);
-}
-
-.line-no {
-  padding: 3px 8px;
-  background: color-mix(in srgb, var(--hover) 80%, transparent);
-  color: var(--text-muted);
-  text-align: right;
-  user-select: none;
-}
-
-.diff-row code {
-  padding: 3px 10px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font: inherit;
-  color: var(--text);
-}
-
-.diff-row.add {
-  background: color-mix(in srgb, var(--lg-green) 12%, transparent);
-}
-.diff-row.remove {
-  background: color-mix(in srgb, var(--lg-red) 10%, transparent);
-}
-.diff-row.change {
-  background: color-mix(in srgb, var(--lg-orange) 10%, transparent);
-}
-
-.diff-empty {
-  padding: 8px 12px;
-  color: var(--text-muted);
-  background: var(--hover);
-  font-family: inherit;
-}
-
-.full-text {
-  border-top: 1px solid var(--border);
-  padding: 16px 18px;
-}
-
-@media (max-width: 720px) {
-  .version-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .version-actions button {
-    flex: 1 1 auto;
-  }
-}
-</style>
