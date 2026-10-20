@@ -206,6 +206,13 @@ onBeforeUnmount(() => activityObserver?.disconnect())
 watch(activeKind, () => { void fetchActivity(true) })
 onMounted(() => { if (!activity.value.length) void fetchActivity(true) })
 
+// 首屏用户未收录时活动接口同样返回空，并把 noMore 置真；只重查资料会让活动区
+// 一直停在「暂无活动记录」，所以重新加载要把两者一起重查。
+async function reload() {
+  await refresh()
+  if (profile.value) void fetchActivity(true)
+}
+
 const { render } = useMarkdown()
 const introHtml = computed(() =>
   profile.value?.introduction_md ? render(profile.value.introduction_md) : '',
@@ -368,7 +375,7 @@ useHead(() => ({ title: profile.value ? `${profile.value.name_hidden ? `UID ${pr
     v-else-if="error"
     :title="error.data?.message || '用户未收录'"
     description="已触发一次爬取，点击重新加载即可。"
-    @retry="refresh()"
+    @retry="reload()"
   />
 
   <div v-else-if="profile" class="space-y-4">
