@@ -1,0 +1,20 @@
+/* Portal 弹层不依赖组件作用域属性；样式仅匹配 Select 的专用类。 */
+.archive-select-trigger, .archive-select-content, .archive-select-content * { box-sizing: border-box; }
+.archive-select-trigger { display: inline-flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-width: 0; height: 36px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font: inherit; font-size: 13px; line-height: 1.5; text-align: left; cursor: pointer; transition: border-color .15s, background .15s; }
+.archive-select-trigger:hover { background: var(--hover); }
+.archive-select-trigger:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.archive-select-trigger[data-state=open] { border-color: var(--link); }
+.archive-select-trigger[data-disabled] { opacity: .5; cursor: not-allowed; }
+.archive-select-value { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archive-select-chevron { flex-shrink: 0; color: var(--text-muted); transition: transform .15s; }
+.archive-select-trigger[data-state=open] .archive-select-chevron { transform: rotate(180deg); }
+.archive-select-content { z-index: 1100; display: flex; flex-direction: column; min-width: var(--reka-select-trigger-width, 160px); max-width: min(360px, var(--reka-select-content-available-width, calc(100vw - 16px))); max-height: min(320px, var(--reka-select-content-available-height, calc(100dvh - 16px))); overflow: hidden; padding: 4px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; line-height: 1.5; box-shadow: 0 6px 20px #0000001a; }
+.archive-select-viewport { flex: 1; min-height: 0; padding: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+.archive-select-item { box-sizing: border-box; font-family: inherit; font-size: inherit; line-height: inherit; position: relative; display: flex; align-items: center; min-height: 32px; padding: 7px 30px 7px 9px; border-radius: 4px; color: var(--text); outline: none; cursor: default; user-select: none; }
+.archive-select-item[data-highlighted] { background: var(--hover); }
+.archive-select-item[data-state=checked] { color: var(--link); }
+.archive-select-item[data-disabled] { opacity: .4; pointer-events: none; }
+.archive-select-item-text { min-width: 0; overflow-wrap: anywhere; }
+.archive-select-indicator { position: absolute; right: 8px; display: inline-flex; align-items: center; justify-content: center; width: 16px; color: var(--link); }
+.archive-select-scroll { display: flex; align-items: center; justify-content: center; height: 24px; flex-shrink: 0; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) { .archive-select-trigger, .archive-select-chevron { transition: none; } }

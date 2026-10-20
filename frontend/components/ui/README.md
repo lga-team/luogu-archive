@@ -7,9 +7,13 @@
 
 ## 组件与样式
 
-优先复用本目录的 Button、Input、Dialog、Tabs、RadioGroup、Switch、Slider 等组件。
+优先复用本目录的 Button、Input、Dialog、Tabs、RadioGroup、Switch、Slider、Select 等组件。
 页面从 ~/components/ui 显式导入。只添加实际需要的组件，不自动覆盖目录或全量安装组件库。
 保留 MIT 来源声明。
+
+Select 使用 `v-model` 和 `options: { value: string; label: string; disabled?: boolean }[]`。
+空字符串是有效业务值，组件内部映射以兼容 Reka UI；传入 `id` 并用 label 关联，或提供 aria-label。
+`change` 仅在用户选择了不同值时触发，弹层通过 Portal 挂载并处理键盘、焦点和滚动。
 
 新版页面根节点使用 .archive-ui，公共样式位于 assets/css/archive.css。
 旧页面不替换控件、不添加全局样式重置。新版页面默认纯色背景；洛谷主题仅影响亮色新版页面，
