@@ -8,17 +8,14 @@ import {
   LogOut,
   Menu,
   MessagesSquare,
-  Moon,
   PanelLeft,
   Puzzle,
-  Sun,
   Trophy,
   User,
   Wrench,
 } from '@lucide/vue'
 import { Toaster } from '~/components/ui/sonner'
 
-const colorMode = useColorMode()
 const auth = useAuthStore()
 const api = useApi()
 const runtimeConfig = useRuntimeConfig()
@@ -103,10 +100,6 @@ onMounted(() => {
 watch(() => route.fullPath, () => {
   void trackSanitizedPageView()
 })
-
-function toggleTheme() {
-  colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'
-}
 
 async function logout() {
   try { await api('/auth/logout', { method: 'POST' }) } catch {}
@@ -218,16 +211,9 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
         <span class="text-sm font-semibold">洛谷档案馆</span>
       </NuxtLink>
 
-      <Button
-        variant="ghost"
-        size="icon"
-        class="ml-auto"
-        :aria-label="colorMode.value === 'dark' ? '切换浅色' : '切换深色'"
-        @click="toggleTheme"
-      >
-        <Sun v-if="colorMode.value === 'dark'" class="size-[18px]" />
-        <Moon v-else class="size-[18px]" />
-      </Button>
+      <div class="ml-auto">
+        <ThemeToggle />
+      </div>
     </header>
 
     <!-- 桌面侧栏 -->
@@ -298,17 +284,7 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
           <span v-if="!collapsed">登录状态</span>
         </div>
 
-        <button
-          type="button"
-          class="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          :class="collapsed ? 'justify-center px-0' : ''"
-          :aria-label="colorMode.value === 'dark' ? '切换浅色' : '切换深色'"
-          @click="toggleTheme"
-        >
-          <Sun v-if="colorMode.value === 'dark'" class="size-[18px] shrink-0" />
-          <Moon v-else class="size-[18px] shrink-0" />
-          <span v-if="!collapsed">{{ colorMode.value === 'dark' ? '浅色模式' : '深色模式' }}</span>
-        </button>
+        <ThemeToggle variant="nav" :collapsed="collapsed" />
 
         <button
           type="button"
