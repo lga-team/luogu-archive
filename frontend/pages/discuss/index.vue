@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { LayoutGrid, Loader2, RefreshCw } from '@lucide/vue'
+import { Loader2, RefreshCw } from '@lucide/vue'
 
 const api = useApi()
 const { format } = useTime()
@@ -131,32 +131,34 @@ useHead({ title: '讨论区 - 洛谷档案馆' })
 
     <div class="grid grid-cols-1 items-start gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
       <Card class="min-w-0 gap-0 py-0 lg:sticky lg:top-5">
-        <nav class="flex gap-1 overflow-x-auto p-3 lg:flex-col lg:overflow-visible" aria-label="讨论版块">
-          <p class="hidden px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground lg:block">版块</p>
-          <Button
-            variant="ghost"
-            class="h-auto shrink-0 justify-start gap-2.5 px-2 py-2 text-sm font-normal"
-            :class="!selectedForum ? 'bg-accent text-foreground' : 'text-muted-foreground'"
-            @click="chooseForum('')"
-          >
-            <LayoutGrid class="size-3.5" />
-            <span class="whitespace-nowrap">全部版块</span>
-          </Button>
-          <Button
-            v-for="forum in data?.forums || []"
-            :key="forum.slug"
-            variant="ghost"
-            class="h-auto shrink-0 justify-start gap-2.5 px-2 py-2 text-sm font-normal"
-            :class="selectedForum === forum.slug ? 'bg-accent text-foreground' : 'text-muted-foreground'"
-            @click="chooseForum(forum.slug)"
-          >
-            <span class="size-2 shrink-0 rounded-sm" :class="forumDotClass(forum.slug)" />
-            <span class="whitespace-nowrap">{{ forum.name }}</span>
-            <span class="ml-auto hidden text-xs tabular-nums text-muted-foreground lg:inline">
-              {{ forum.count }}
-            </span>
-          </Button>
-        </nav>
+        <div class="p-4">
+          <p class="text-xs font-medium text-muted-foreground">版块</p>
+          <nav class="mt-2 flex flex-wrap gap-1 lg:flex-col" aria-label="讨论版块">
+            <Button
+              variant="ghost"
+              class="h-8 w-auto justify-start px-2 text-sm font-normal lg:w-full"
+              :class="!selectedForum ? 'bg-accent text-foreground' : 'text-muted-foreground'"
+              @click="chooseForum('')"
+            >
+              <span class="size-2 shrink-0 rounded-sm bg-foreground" />
+              <span class="whitespace-nowrap">全部版块</span>
+            </Button>
+            <Button
+              v-for="forum in data?.forums || []"
+              :key="forum.slug"
+              variant="ghost"
+              class="h-8 w-auto justify-start px-2 text-sm font-normal lg:w-full"
+              :class="selectedForum === forum.slug ? 'bg-accent text-foreground' : 'text-muted-foreground'"
+              @click="chooseForum(forum.slug)"
+            >
+              <span class="size-2 shrink-0 rounded-sm" :class="forumDotClass(forum.slug)" />
+              <span class="whitespace-nowrap">{{ forum.name }}</span>
+              <span class="ml-auto hidden text-xs tabular-nums text-muted-foreground lg:inline">
+                {{ forum.count }}
+              </span>
+            </Button>
+          </nav>
+        </div>
       </Card>
 
       <div class="min-w-0 space-y-4">
