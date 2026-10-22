@@ -146,13 +146,34 @@ function isActive(to: string) {
   return to === '/' ? route.path === '/' : route.path.startsWith(to)
 }
 
+const rowBase = 'flex items-center rounded-md px-[11px] py-2 text-sm transition-[gap,color,background-color] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)]'
+
 function navClass(to: string, collapsedMode = false) {
   return [
-    'flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition-colors',
-    collapsedMode ? 'justify-center px-0' : '',
+    rowBase,
+    collapsedMode ? 'gap-0' : 'gap-3',
     isActive(to)
       ? 'bg-accent font-medium text-foreground'
       : 'text-muted-foreground hover:bg-accent hover:text-foreground',
+  ]
+}
+
+function rowClass(collapsedMode = false, interactive = true) {
+  return [
+    rowBase,
+    collapsedMode ? 'gap-0' : 'gap-3',
+    interactive
+      ? 'text-muted-foreground hover:bg-accent hover:text-foreground'
+      : 'text-muted-foreground',
+  ]
+}
+
+// 折叠时文字用 max-width + opacity 收起，而不是 v-if：宽度动画进行到一半时
+// 文字仍占着容器宽度，会换行、把行高撑开。
+function labelClass(collapsedMode = false) {
+  return [
+    'overflow-hidden text-ellipsis whitespace-nowrap transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)]',
+    collapsedMode ? 'max-w-0 opacity-0' : 'max-w-[176px] opacity-100',
   ]
 }
 
@@ -218,17 +239,17 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
 
     <!-- 桌面侧栏 -->
     <aside
-      class="fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-border bg-card transition-[width] duration-200 ease-out lg:flex"
-      :class="collapsed ? 'w-16' : 'w-60'"
+      class="fixed inset-y-0 left-0 z-20 hidden flex-col border-r border-border bg-card transition-[width] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)] lg:flex"
+      :class="collapsed ? 'w-14' : 'w-60'"
     >
-      <div class="flex h-14 items-center gap-3 px-4">
-        <NuxtLink to="/" class="flex min-w-0 items-center gap-3">
-          <img src="/favicon.png" alt="" class="size-8 shrink-0 rounded-md">
-          <span v-if="!collapsed" class="truncate text-sm font-semibold">洛谷档案馆</span>
+      <div class="flex h-14 items-center overflow-hidden px-3">
+        <NuxtLink to="/" class="flex min-w-0 items-center transition-[gap] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)]" :class="collapsed ? 'gap-0' : 'gap-3'">
+          <img src="/favicon.png" alt="" class="size-8 max-w-none shrink-0 rounded-md">
+          <span class="text-sm font-semibold" :class="labelClass(collapsed)">洛谷档案馆</span>
         </NuxtLink>
       </div>
 
-      <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto px-2 py-2">
+      <nav class="flex flex-1 flex-col gap-0.5 overflow-y-auto overflow-x-hidden px-2 py-2">
         <TooltipProvider :delay-duration="200">
           <Tooltip v-for="item in navItems" :key="item.to" :disabled="!collapsed">
             <TooltipTrigger as-child>
@@ -237,7 +258,7 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
                 :class="navClass(item.to, collapsed)"
               >
                 <component :is="item.icon" class="size-[18px] shrink-0" />
-                <span v-if="!collapsed" class="truncate">{{ item.label }}</span>
+                <span :class="labelClass(collapsed)">{{ item.label }}</span>
               </NuxtLink>
             </TooltipTrigger>
             <TooltipContent side="right">{{ item.label }}</TooltipContent>
@@ -245,61 +266,56 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
         </TooltipProvider>
       </nav>
 
-      <div class="flex flex-col gap-0.5 border-t border-border p-2">
+      <div class="flex flex-col gap-0.5 overflow-x-hidden border-t border-border p-2">
         <template v-if="auth.isLoggedIn">
           <NuxtLink
             to="/me"
-            class="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            :class="collapsed ? 'justify-center px-0' : ''"
+            :class="rowClass(collapsed)"
           >
             <User class="size-[18px] shrink-0" />
-            <span v-if="!collapsed" class="truncate">{{ auth.displayName || '我的关注' }}</span>
+            <span :class="labelClass(collapsed)">{{ auth.displayName || '我的关注' }}</span>
           </NuxtLink>
           <button
             type="button"
-            class="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            :class="collapsed ? 'justify-center px-0' : ''"
+            :class="rowClass(collapsed)"
             @click="logout"
           >
             <LogOut class="size-[18px] shrink-0" />
-            <span v-if="!collapsed">登出</span>
+            <span :class="labelClass(collapsed)">登出</span>
           </button>
         </template>
         <template v-else-if="auth.initialized">
           <NuxtLink
             to="/login"
-            class="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            :class="collapsed ? 'justify-center px-0' : ''"
+            :class="rowClass(collapsed)"
           >
             <LogIn class="size-[18px] shrink-0" />
-            <span v-if="!collapsed">登录</span>
+            <span :class="labelClass(collapsed)">登录</span>
           </NuxtLink>
         </template>
         <div
           v-else
-          class="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground"
-          :class="collapsed ? 'justify-center px-0' : ''"
+          :class="rowClass(collapsed, false)"
         >
           <span class="size-[18px] shrink-0 animate-pulse rounded-full bg-muted" />
-          <span v-if="!collapsed">登录状态</span>
+          <span :class="labelClass(collapsed)">登录状态</span>
         </div>
 
         <ThemeToggle variant="nav" :collapsed="collapsed" />
 
         <button
           type="button"
-          class="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          :class="collapsed ? 'justify-center px-0' : ''"
+          :class="rowClass(collapsed)"
           :aria-label="collapsed ? '展开侧栏' : '折叠侧栏'"
           @click="collapsed = !collapsed"
         >
           <PanelLeft class="size-[18px] shrink-0" />
-          <span v-if="!collapsed">折叠侧栏</span>
+          <span :class="labelClass(collapsed)">折叠侧栏</span>
         </button>
       </div>
     </aside>
 
-    <div class="flex min-h-dvh flex-col pt-14 transition-[padding] duration-200 ease-out lg:pt-0" :class="collapsed ? 'lg:pl-16' : 'lg:pl-60'">
+    <div class="flex min-h-dvh flex-col pt-14 transition-[padding] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)] lg:pt-0" :class="collapsed ? 'lg:pl-14' : 'lg:pl-60'">
       <main class="mx-auto w-full max-w-[1180px] flex-1 px-[var(--page-gutter)] py-8">
         <slot />
       </main>

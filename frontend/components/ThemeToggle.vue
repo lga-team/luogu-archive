@@ -49,14 +49,17 @@ function cycle() {
   <button
     v-else
     type="button"
-    class="flex items-center gap-3 rounded-md px-2.5 py-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-    :class="collapsed ? 'justify-center px-0' : ''"
+    class="flex items-center rounded-md px-[11px] py-2 text-sm text-muted-foreground transition-[gap,color,background-color] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)] hover:bg-accent hover:text-foreground"
+    :class="collapsed ? 'gap-0' : 'gap-3'"
     :aria-label="`主题：${currentLabel}，点击切换为${nextLabel}`"
     @click="cycle"
   >
     <Sun v-if="preference === 'light'" class="size-[18px] shrink-0" />
     <Moon v-else-if="preference === 'dark'" class="size-[18px] shrink-0" />
     <Monitor v-else class="size-[18px] shrink-0" />
-    <span v-if="!collapsed">{{ currentLabel }}</span>
+    <span
+      class="overflow-hidden text-ellipsis whitespace-nowrap transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)]"
+      :class="collapsed ? 'max-w-0 opacity-0' : 'max-w-[112px] opacity-100'"
+    >{{ currentLabel }}</span>
   </button>
 </template>
