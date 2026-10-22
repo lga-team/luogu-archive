@@ -22,7 +22,7 @@ body:
   id: browser
   attributes:
     label: 浏览器
-    description: "您在使用以下哪一个浏览器？"
+    description: "您在使用的浏览器。"
     options:
       - Google Chrome
       - Mozilla Firefox
@@ -36,16 +36,16 @@ body:
   id: browser_version
   attributes:
     label: 浏览器版本
-    description: "请注明您的浏览器版本 (e.g., 150.0.7871.187)."
-    placeholder: "150.0.7871.187 / Brave 1.92.144"
+    description: "注明您的浏览器版本。"
+    placeholder: "155.0.4283.62 / Brave 1.92.144"
   validations:
     required: true
 - type: input
   id: os
   attributes:
     label: 操作系统
-    description: "包括系统名称和版本 (e.g., Windows 11, macOS 14.5, Ubuntu 22.04)."
-    placeholder: "Windows 11 26H2"
+    description: "包括系统名称和版本。"
+    placeholder: "Windows 11 26H2 / macOS 14.5 / Ubuntu 22.04"
   validations:
     required: true
 - type: textarea
@@ -60,13 +60,12 @@ body:
   attributes:
     label: 复现步骤
     description: "详细描述再次触发这个 Bug 的步骤。"
-    placeholder: "描述如何复现这个 Bug"
   validations:
     required: false
 - type: textarea
   id: console
   attributes:
     label: 控制台错误信息
-    description: "把控制台错误信息粘贴到这里"
+    description: "把控制台错误信息粘贴到这里。"
   validations:
     required: false
