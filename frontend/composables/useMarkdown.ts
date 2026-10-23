@@ -6,10 +6,76 @@
  */
 import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
+import Prism from 'prismjs'
+import 'prismjs/components/prism-clike'
+import 'prismjs/components/prism-c'
+import 'prismjs/components/prism-cpp'
+import 'prismjs/components/prism-csharp'
+import 'prismjs/components/prism-java'
+import 'prismjs/components/prism-javascript'
+import 'prismjs/components/prism-typescript'
+import 'prismjs/components/prism-python'
+import 'prismjs/components/prism-pascal'
+import 'prismjs/components/prism-markup'
+import 'prismjs/components/prism-rust'
+import 'prismjs/components/prism-go'
+import 'prismjs/components/prism-sql'
+import 'prismjs/components/prism-json'
+import 'prismjs/components/prism-bash'
+
 // @ts-ignore - @vscode/markdown-it-katex 没有类型
 import mdKatex from '@vscode/markdown-it-katex'
 
 let _md: MarkdownIt | null = null
+
+const LANG_ALIAS: Record<string, string> = {
+  'html': 'markup',
+  'xml': 'markup',
+  'svg': 'markup',
+  'c++': 'cpp',
+  'cxx': 'cpp',
+  'cs': 'csharp',
+  'js': 'javascript',
+  'ts': 'typescript',
+  'pas': 'pascal',
+  'sh': 'bash',
+  'shell': 'bash',
+}
+
+/** 返回高亮后的 HTML；语言未注册时返回空串，由调用方转义。 */
+function highlightCode(code: string, lang?: string): string {
+  if (!lang) return ''
+  const name = LANG_ALIAS[lang.toLowerCase()] || lang.toLowerCase()
+  const grammar = Prism.languages[name]
+  if (!grammar) return ''
+  try {
+    return Prism.highlight(code, grammar, name)
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * 把高亮后的 HTML 切成行。hljs 的 span 会跨行（多行字符串、块注释），
+ * 直接按 \n 切会让标签失衡，所以每行结尾补闭合、下一行开头重新打开。
+ */
+function splitHighlightedLines(html: string): string[] {
+  const out: string[] = []
+  let carry: string[] = []
+  for (const raw of html.split('\n')) {
+    const merged = carry.join('') + raw
+    const stack: string[] = []
+    const re = /<span[^>]*>|<\/span>/g
+    let match: RegExpExecArray | null
+    while ((match = re.exec(merged))) {
+      if (match[0] === '</span>') stack.pop()
+      else stack.push(match[0])
+    }
+    out.push(merged + '</span>'.repeat(stack.length))
+    carry = stack
+  }
+  return out
+}
 
 function normalizeDisplayMath(src: string): string {
   const lines = (src || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
@@ -382,11 +448,14 @@ function extendedMarkdownRules(md: MarkdownIt) {
     const language = parameters[0] && !parameters[0].includes('=') && parameters[0] !== 'line-numbers'
       ? parameters[0] : 'cpp'
     const [from, to] = range ? range.slice(6).split('-').map(Number) : [0, 0]
-    const lines = token.content.replace(/\n$/, '').split('\n')
+    const source = token.content.replace(/\n$/, '')
+    const lines = source.split('\n')
+    const highlighted = highlightCode(source, language)
+    const rendered = highlighted ? splitHighlightedLines(highlighted) : lines.map(line => md.utils.escapeHtml(line))
     // 行号放在 data 属性和伪元素里，复制代码时不会混进源码。
-    const html = lines.map((line, i) => {
-      const highlighted = i + 1 >= from && i + 1 <= to
-      return `<span class="lg-code-line${highlighted ? ' is-highlighted' : ''}" data-line="${i + 1}">${md.utils.escapeHtml(line)}</span>`
+    const html = rendered.map((line, i) => {
+      const inRange = i + 1 >= from && i + 1 <= to
+      return `<span class="lg-code-line${inRange ? ' is-highlighted' : ''}" data-line="${i + 1}">${line}</span>`
     }).join('\n') + '\n'
     return `<pre class="lg-code-block${numbered ? ' has-line-numbers' : ''}"><code class="language-${escapeAttr(language)}">${html}</code></pre>\n`
   }
@@ -464,6 +533,7 @@ function build(): MarkdownIt {
     breaks: true,
     linkify: true,
     typographer: false,
+    highlight: (code, lang) => highlightCode(code, lang),
   })
   // CommonJS 下直接导出函数，Node ESM 下可能包装成 { default: 函数 }。
   // 先统一插件入口，避免服务器把模块对象传给 MarkdownIt.use 导致页面 500。

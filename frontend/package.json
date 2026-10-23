@@ -28,6 +28,7 @@
     "markdown-it": "^14.1.0",
     "nuxt": "^3.14.0",
     "pinia": "^2.2.0",
+    "prismjs": "^1.30.0",
     "reka-ui": "^2.11.0",
     "tailwind-merge": "^3.7.0",
     "vee-validate": "^4.15.1",

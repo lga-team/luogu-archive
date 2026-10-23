@@ -68,10 +68,6 @@
 }
 
 .lg-content pre {
-  background: var(--hover);
-  padding: 12px;
-  border-radius: 6px;
-  overflow-x: auto;
   position: relative;
 }
 
@@ -100,20 +96,52 @@
 
 .code-copy-btn.err { color: var(--lg-red); border-color: var(--lg-red); opacity: 1; }
 
-.lg-content blockquote {
-  border-left: 4px solid var(--border);
-  margin: 0;
-  padding: 4px 12px;
-  color: var(--text-muted);
-}
-
 .lg-content .lg-quote-reply {
-  border-left-color: var(--link);
+  border-left: 4px solid var(--link);
   background: var(--hover);
   border-radius: 4px;
 }
 
+/* Tailwind preflight 把 img 设成 block，会让 :::align 的 text-align 对图片失效 */
+/* 任务列表、脚注、行间公式、隐藏内容 */
+.lg-content li.task-list-item {
+  list-style-type: none;
+}
+
+.lg-content li.task-list-item > p:first-child > input:first-child {
+  margin: 0 0.35em 0 -1.5em;
+  padding: 0;
+  vertical-align: -0.125em;
+}
+
+.lg-content .footnotes {
+  position: relative;
+  color: var(--muted-foreground);
+}
+
+.lg-content .footnotes::before {
+  content: "";
+  position: absolute;
+  top: -2px;
+  width: 25%;
+  border-top: 1px solid var(--border);
+}
+
+.lg-content .katex-display {
+  overflow: auto hidden;
+  padding: 2px 0;
+}
+
+.lg-content .invisible {
+  position: absolute;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
+  user-select: text;
+}
+
 .lg-content img {
+  display: inline-block;
   max-width: 100%;
   height: auto;
 }
@@ -151,11 +179,6 @@
   line-height: 1.5;
 }
 
-.lg-content table {
-  border-collapse: collapse;
-  margin: 12px 0;
-}
-
 .lg-content table td,
 .lg-content table th {
   border: 1px solid var(--border);
@@ -189,7 +212,7 @@
 
 .lg-code-line { display: inline-block; box-sizing: border-box; min-width: 100%; padding: 0 12px; }
 
-.lg-code-line.is-highlighted { background: color-mix(in srgb, var(--link) 14%, transparent); }
+.lg-code-line.is-highlighted { background: color-mix(in srgb, var(--hl-fg) 5%, transparent); }
 
 .has-line-numbers .lg-code-line::before {
   content: attr(data-line);
@@ -202,100 +225,140 @@
   user-select: none;
 }
 
-/* 洛谷折叠框 / 告示框 —— :::info / :::warning / :::success / :::spoiler */
+/*
+ * 洛谷折叠框 / 告示框。几何与间距对齐洛谷前端 loader.css 的 .lfe-marked details。
+ * 图标 SVG 取自 Font Awesome Free 6（icons CC BY 4.0 / code MIT），
+ * 许可见 https://fontawesome.com/license/free
+ */
 .lg-callout {
-  margin: 14px 0;
-  border: 1px solid var(--border);
-  border-left: 4px solid var(--text-muted);
-  border-radius: 6px;
-  padding: 0;
-  background: var(--surface);
+  margin: 1em 0 1em 0.2em;
+  padding: 0.5em 1em;
+  border-left: 5px solid var(--border);
   overflow: hidden;
 }
 
 .lg-callout > summary {
-  cursor: pointer;
-  font-weight: 600;
-  padding: 10px 14px;
-  user-select: none;
+  position: relative;
+  margin: 0;
+  min-height: 1em;
+  padding-left: 24px;
+  font-weight: 700;
   list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  outline: 0;
+  user-select: none;
 }
 
 .lg-callout > summary::-webkit-details-marker { display: none; }
 
+/* 左侧图标，颜色跟随标题的语义色 */
 .lg-callout > summary::before {
-  content: "▶";
-  font-size: 10px;
-  color: var(--text-muted);
-  transition: transform 0.15s;
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  background-color: currentColor;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
 }
 
-.lg-callout[open] > summary::before { transform: rotate(90deg); }
-
-.lg-callout > :not(summary) {
-  padding: 0 16px;
+/* 右侧折叠三角 */
+.lg-callout > summary::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  transform: translateY(-50%);
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 256 512\"><path d=\"M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z\"/></svg>") center / contain no-repeat;
+  mask: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 256 512\"><path d=\"M246.6 278.6c12.5-12.5 12.5-32.8 0-45.3l-128-128c-9.2-9.2-22.9-11.9-34.9-6.9s-19.8 16.6-19.8 29.6l0 256c0 12.9 7.8 24.6 19.8 29.6s25.7 2.2 34.9-6.9l128-128z\"/></svg>") center / contain no-repeat;
+  transition: transform 0.2s ease;
 }
 
-.lg-callout > :last-child { padding-bottom: 12px; }
+.lg-callout[open] > summary { margin-bottom: 0.5em; }
 
-.lg-callout > summary + * { padding-top: 8px; }
+.lg-callout[open] > summary::after { transform: translateY(-50%) rotate(90deg); }
 
-/* 四种语义色 */
+.lg-callout > :last-child { margin-bottom: 0; }
+
 .lg-callout-info {
   border-left-color: var(--link);
 }
 
-.lg-callout-info > summary { background: color-mix(in srgb, var(--link) 10%, transparent); }
-
-.lg-callout-warning {
-  border-left-color: var(--lg-orange);
+.lg-callout-info > summary {
+  color: var(--link);
 }
 
-.lg-callout-warning > summary { background: color-mix(in srgb, var(--lg-orange) 12%, transparent); }
+.lg-callout-info > summary::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z\"/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM216 336h24V272H216c-13.3 0-24-10.7-24-24s10.7-24 24-24h48c13.3 0 24 10.7 24 24v88h8c13.3 0 24 10.7 24 24s-10.7 24-24 24H216c-13.3 0-24-10.7-24-24s10.7-24 24-24zm40-208a32 32 0 1 1 0 64 32 32 0 1 1 0-64z\"/></svg>");
+}
 
 .lg-callout-success {
   border-left-color: var(--lg-green);
 }
 
-.lg-callout-success > summary { background: color-mix(in srgb, var(--lg-green) 12%, transparent); }
-
-.lg-callout-spoiler {
-  border-left-color: var(--lg-purple);
+.lg-callout-success > summary {
+  color: var(--lg-green);
 }
 
-.lg-callout-spoiler > summary { background: color-mix(in srgb, var(--lg-purple) 10%, transparent); }
+.lg-callout-success > summary::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z\"/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z\"/></svg>");
+}
+
+.lg-callout-warning {
+  border-left-color: var(--lg-orange);
+}
+
+.lg-callout-warning > summary {
+  color: var(--lg-orange);
+}
+
+.lg-callout-warning > summary::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z\"/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z\"/></svg>");
+}
 
 .lg-callout-error {
   border-left-color: var(--lg-red);
 }
 
-.lg-callout-error > summary { background: color-mix(in srgb, var(--lg-red) 12%, transparent); }
+.lg-callout-error > summary {
+  color: var(--lg-red);
+}
 
-.lg-align { margin: 10px 0; }
+.lg-callout-error > summary::before {
+  -webkit-mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM175 175c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z\"/></svg>");
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\"%20viewBox=\"0 0 512 512\"><path d=\"M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM175 175c9.4-9.4 24.6-9.4 33.9 0l47 47 47-47c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-47 47 47 47c9.4 9.4 9.4 24.6 0 33.9s-24.6 9.4-33.9 0l-47-47-47 47c-9.4 9.4-24.6 9.4-33.9 0s-9.4-24.6 0-33.9l47-47-47-47c-9.4-9.4-9.4-24.6 0-33.9z\"/></svg>");
+}
+
+.lg-align { margin: 0; }
 
 .lg-align[style*="text-align:center"] table { margin-left: auto; margin-right: auto; }
 
 .lg-align[style*="text-align:right"] table { margin-left: auto; }
 
-/* 题记 / 引文：右对齐 + 斜体 + 署名破折号 */
+/* 题记 / 引文。洛谷原版只靠宽度右移，没有右边框 */
 .lg-epigraph {
-  margin: 14px 0;
-  padding: 4px 0;
-  text-align: right;
-  font-style: italic;
-  color: var(--text-muted);
-  border-right: 3px solid var(--border);
-  padding-right: 14px;
+  width: 40%;
+  margin-left: 60%;
 }
 
 .lg-epigraph-source {
   display: block;
-  margin-top: 4px;
-  font-style: normal;
-  color: var(--text);
+  margin-top: 0;
+  padding-top: 0.25em;
+  border-top: 1px solid var(--border);
+  text-align: right;
 }
 
 .lg-epigraph p { margin: 0; }
@@ -323,54 +386,62 @@
 .lg-content h5,
 .lg-content h6 {
   color: var(--foreground);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.35;
-  letter-spacing: -0.01em;
   scroll-margin-top: 1.5rem;
 }
 
 .lg-content h1 {
-  margin: 2.25rem 0 1rem;
-  font-size: 1.75rem;
-  font-weight: 700;
+  margin: 1.5rem 0 1rem;
+  padding-bottom: 0.1em;
+  border-bottom: 1px solid var(--border);
+  font-size: 2em;
 }
 
 .lg-content h2 {
-  margin: 2rem 0 0.875rem;
-  font-size: 1.4rem;
+  margin: 1.2rem 0 1rem;
+  padding-bottom: 0.1em;
+  border-bottom: 1px solid var(--border);
+  font-size: 1.5em;
 }
 
 .lg-content h3 {
-  margin: 1.75rem 0 0.75rem;
-  font-size: 1.2rem;
+  margin: 1.2rem 0 1rem;
+  font-size: 1.2em;
 }
 
 .lg-content h4 {
-  margin: 1.5rem 0 0.625rem;
-  font-size: 1.0625rem;
+  margin: 1rem 0;
+  font-size: 1.1em;
 }
 
-.lg-content h5,
+.lg-content h5 {
+  margin: 1rem 0;
+  font-size: 1em;
+}
+
 .lg-content h6 {
-  margin: 1.25rem 0 0.5rem;
-  font-size: 1rem;
+  margin: 1rem 0;
+  font-size: 1em;
+  color: var(--muted-foreground);
 }
 
 .lg-content p {
-  margin: 0.9rem 0;
+  margin: 1rem 0;
 }
 
 .lg-content ul,
 .lg-content ol {
-  margin: 0.9rem 0;
-  padding-left: 1.5rem;
+  margin: 1rem 0;
 }
 
 .lg-content ul {
+  padding-left: 2.5em;
   list-style: disc;
 }
 
 .lg-content ol {
+  padding-left: 2em;
   list-style: decimal;
 }
 
@@ -378,33 +449,27 @@
   list-style: circle;
 }
 
-.lg-content li {
-  margin: 0.35rem 0;
-  padding-left: 0.125rem;
-}
-
-.lg-content li > ul,
-.lg-content li > ol {
-  margin: 0.35rem 0;
+.lg-content li + li {
+  margin-top: 0.2em;
 }
 
 .lg-content li::marker {
-  color: var(--muted-foreground);
+  color: inherit;
 }
 
+/* 洛谷的正文链接是固定蓝 #3498db，悬停靠亮度变化而不是下划线 */
 .lg-content a {
-  color: var(--primary);
+  color: #3498db;
   text-decoration: none;
-  text-underline-offset: 3px;
-  transition: color var(--duration-fast) var(--ease-out-soft);
+  transition: filter 0.1s ease;
 }
 
 .lg-content a:hover {
-  text-decoration: underline;
+  filter: brightness(0.75);
 }
 
 .lg-content strong {
-  font-weight: 600;
+  font-weight: 700;
   color: var(--foreground);
 }
 
@@ -418,18 +483,21 @@
 
 .lg-content hr {
   height: 0;
-  margin: 2rem 0;
+  margin: 1em 0;
   border: 0;
-  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .lg-content code {
-  padding: 0.15em 0.4em;
-  border-radius: var(--radius-sm);
-  background: var(--muted);
+  margin: 0 0.2em;
+  padding: 0.1em 0.2em;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--muted-foreground) 12%, transparent);
   color: var(--foreground);
   font-family: var(--font-mono);
   font-size: 0.875em;
+  overflow-wrap: break-word;
+  word-break: break-all;
 }
 
 .lg-content pre {
@@ -438,24 +506,112 @@
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  background: var(--muted);
+  background: var(--hl-bg);
+  color: var(--hl-fg);
   font-size: 0.875rem;
   line-height: 1.65;
 }
 
 .lg-content pre code {
+  margin: 0;
   padding: 0;
   background: transparent;
   font-size: inherit;
 }
 
+/* 代码高亮配色，对齐洛谷新版的 Atom One Light / One Dark（Prism token） */
+.lg-content {
+  --hl-bg: #fafafa;
+  --hl-fg: #383a42;
+  --hl-keyword: #a626a4;
+  --hl-string: #50a14f;
+  --hl-number: #986801;
+  --hl-comment: #a0a1a7;
+  --hl-function: #4078f2;
+  --hl-variable: #e45649;
+  --hl-attribute: #c18401;
+  --hl-operator: #4078f2;
+}
+
+.dark .lg-content {
+  --hl-bg: #282c34;
+  --hl-fg: #abb2bf;
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-comment: #5c6370;
+  --hl-function: #61afef;
+  --hl-variable: #e06c75;
+  --hl-attribute: #e5c07b;
+  --hl-operator: #56b6c2;
+}
+
+.lg-content .token.comment,
+.lg-content .token.prolog,
+.lg-content .token.doctype,
+.lg-content .token.cdata {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.lg-content .token.punctuation {
+  color: var(--hl-fg);
+}
+
+.lg-content .token.property,
+.lg-content .token.tag,
+.lg-content .token.boolean,
+.lg-content .token.number,
+.lg-content .token.constant,
+.lg-content .token.symbol,
+.lg-content .token.deleted {
+  color: var(--hl-number);
+}
+
+.lg-content .token.selector,
+.lg-content .token.attr-name,
+.lg-content .token.string,
+.lg-content .token.char,
+.lg-content .token.attr-value,
+.lg-content .token.builtin,
+.lg-content .token.inserted {
+  color: var(--hl-string);
+}
+
+.lg-content .token.operator,
+.lg-content .token.entity,
+.lg-content .token.url {
+  color: var(--hl-operator);
+}
+
+.lg-content .token.atrule,
+.lg-content .token.keyword {
+  color: var(--hl-keyword);
+}
+
+.lg-content .token.function,
+.lg-content .token.class-name {
+  color: var(--hl-function);
+}
+
+.lg-content .token.regex,
+.lg-content .token.important,
+.lg-content .token.variable {
+  color: var(--hl-variable);
+}
+
+.lg-content .token.bold {
+  font-weight: 700;
+}
+
+.lg-content .token.italic {
+  font-style: italic;
+}
+
 .lg-content blockquote {
-  margin: 1.125rem 0;
-  padding: 0.5rem 1rem;
-  border-left: 3px solid var(--border);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: var(--muted);
-  color: var(--muted-foreground);
+  margin: 0 0 1em;
+  padding: 0.5em 1em;
+  border-left: 5px solid var(--border);
 }
 
 .lg-content blockquote > :first-child {
@@ -464,12 +620,6 @@
 
 .lg-content blockquote > :last-child {
   margin-bottom: 0;
-}
-
-.lg-content img {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius-md);
 }
 
 .lg-content figure {
@@ -484,7 +634,7 @@
 }
 
 .lg-content table {
-  width: 100%;
+  width: auto;
   margin: 1rem 0;
   border-collapse: collapse;
   font-size: 0.9375rem;
@@ -492,7 +642,7 @@
 
 .lg-content th,
 .lg-content td {
-  padding: 0.5rem 0.75rem;
+  padding: 6px 13px;
   border: 1px solid var(--border);
   text-align: left;
 }
