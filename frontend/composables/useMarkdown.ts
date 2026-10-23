@@ -443,18 +443,28 @@ function extendedMarkdownRules(md: MarkdownIt) {
     const token = tokens[index]
     const parameters = token.info.trim().split(/\s+/)
     const numbered = parameters.includes('line-numbers')
-    const range = parameters.find(parameter => /^lines=\d+-\d+$/.test(parameter))
-    if (!numbered && !range) return originalFence(tokens, index, options, env, renderer)
+    const rangeParam = parameters.find(parameter => parameter.startsWith('lines='))
+    // lines= 支持逗号分隔的多段：`lines=2,5-8`
+    const highlightLines = new Set<number>()
+    if (rangeParam) {
+      for (const part of rangeParam.slice('lines='.length).split(',')) {
+        const matched = part.trim().match(/^(\d+)(?:-(\d+))?$/)
+        if (!matched) continue
+        const from = Number(matched[1])
+        const to = matched[2] ? Number(matched[2]) : from
+        for (let line = from; line <= to; line++) highlightLines.add(line)
+      }
+    }
+    if (!numbered && highlightLines.size === 0) return originalFence(tokens, index, options, env, renderer)
     const language = parameters[0] && !parameters[0].includes('=') && parameters[0] !== 'line-numbers'
       ? parameters[0] : 'cpp'
-    const [from, to] = range ? range.slice(6).split('-').map(Number) : [0, 0]
     const source = token.content.replace(/\n$/, '')
     const lines = source.split('\n')
     const highlighted = highlightCode(source, language)
     const rendered = highlighted ? splitHighlightedLines(highlighted) : lines.map(line => md.utils.escapeHtml(line))
     // 行号放在 data 属性和伪元素里，复制代码时不会混进源码。
     const html = rendered.map((line, i) => {
-      const inRange = i + 1 >= from && i + 1 <= to
+      const inRange = highlightLines.has(i + 1)
       return `<span class="lg-code-line${inRange ? ' is-highlighted' : ''}" data-line="${i + 1}">${line}</span>`
     }).join('\n') + '\n'
     return `<pre class="lg-code-block${numbered ? ' has-line-numbers' : ''}"><code class="language-${escapeAttr(language)}">${html}</code></pre>\n`
