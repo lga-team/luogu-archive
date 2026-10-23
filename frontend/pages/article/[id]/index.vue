@@ -99,7 +99,7 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
 
 <template>
   <div class="mx-auto w-full">
-    <div v-if="pending" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_220px] lg:gap-8">
+    <div v-if="pending" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_220px] lg:gap-8">
       <!-- 左：历史版本 -->
       <aside class="min-w-0 lg:col-start-1 lg:row-span-2">
         <div class="sticky top-4">
@@ -138,7 +138,7 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
       </div>
 
       <!-- 右：目录 -->
-      <div class="hidden min-w-0 lg:col-start-3 lg:row-span-2 xl:block">
+      <div class="hidden min-w-0 xl:col-start-3 xl:row-span-2 xl:block">
         <div class="sticky top-4">
           <Skeleton class="h-4 w-10" />
           <div class="mt-4 space-y-2.5">
@@ -155,7 +155,7 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
       @retry="reload()"
     />
 
-    <div v-else-if="data" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)_220px] lg:gap-8">
+    <div v-else-if="data" class="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[220px_minmax(0,1fr)_220px] lg:gap-8">
       <!-- 历史版本（左侧 sticky，点版本直接切换正文） -->
       <aside class="min-w-0 lg:col-start-1 lg:row-span-2">
         <div class="sticky top-4">
@@ -275,7 +275,7 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
       </div>
 
       <!-- 目录（右侧 sticky） -->
-      <div class="min-w-0 lg:col-start-3 lg:row-span-2">
+      <div class="hidden min-w-0 xl:col-start-3 xl:row-span-2 xl:block">
         <DocumentToc :content="contentRef" />
       </div>
     </div>
