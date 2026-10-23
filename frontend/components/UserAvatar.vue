@@ -31,12 +31,12 @@ const SIZES = {
 const COLORS: Record<string, string> = {
   Gray: 'var(--lg-gray)',
   Blue: 'var(--lg-blue)',
-  Green: 'var(--lg-green)',
-  Orange: 'var(--lg-orange)',
-  Yellow: 'var(--lg-yellow)',
-  Red: 'var(--lg-red)',
+  Green: 'var(--success)',
+  Orange: 'var(--warning)',
+  Yellow: 'var(--warning)',
+  Red: 'var(--destructive)',
   Purple: 'var(--lg-purple)',
-  Cyan: 'var(--lg-cyan)',
+  Cyan: 'var(--info)',
   Black: 'var(--lg-black)',
   Cheater: 'var(--lg-cheater-tag)',
 }

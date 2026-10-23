@@ -16,9 +16,9 @@ const html = computed(() => props.note ? render(props.note) : '')
 .admin-public-comment {
   margin: 0 0 20px;
   padding: 10px 20px;
-  background: color-mix(in srgb, var(--lg-red) 12%, var(--surface));
+  background: color-mix(in srgb, var(--destructive) 12%, var(--surface));
   border: 0;
-  border-left: 5px solid var(--lg-red);
+  border-left: 5px solid var(--destructive);
   color: var(--text);
   overflow-wrap: anywhere;
 }

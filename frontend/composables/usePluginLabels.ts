@@ -13,10 +13,10 @@ const RUNTIME_LABELS: Record<string, string> = {
 }
 
 const REQUEST_LEVEL_COLORS: Record<number, string> = {
-  0: 'var(--lg-green)',
-  1: 'var(--lg-cyan)',
-  2: 'var(--lg-yellow)',
-  3: 'var(--lg-red)',
+  0: 'var(--success)',
+  1: 'var(--info)',
+  2: 'var(--warning)',
+  3: 'var(--destructive)',
 }
 
 export function usePluginLabels() {

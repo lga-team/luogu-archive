@@ -187,7 +187,7 @@ dd { margin: 3px 0 0; overflow-wrap: anywhere; }
 .level-editor > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .level-editor input { width: 100%; accent-color: var(--link); }
 .save { justify-self: end; border-color: var(--link); background: var(--link); color: #fff; padding: 8px 15px; }
-.message { padding: 8px 12px; border-left: 3px solid var(--lg-green); }
+.message { padding: 8px 12px; border-left: 3px solid var(--success); }
 @media (max-width: 900px) {
   .workspace { grid-template-columns: 1fr; }
   dl { grid-template-columns: 1fr; }

@@ -58,12 +58,12 @@ onBeforeUnmount(() => { if (timer) clearTimeout(timer) })
   border-color: var(--link);
 }
 .reply-btn.ok {
-  color: var(--lg-green);
-  border-color: var(--lg-green);
+  color: var(--success);
+  border-color: var(--success);
 }
 .reply-btn.err {
-  color: var(--lg-red);
-  border-color: var(--lg-red);
+  color: var(--destructive);
+  border-color: var(--destructive);
 }
 .ic {
   width: 13px;

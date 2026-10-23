@@ -130,10 +130,10 @@ const diffColor: Record<string, string> = {
 }
 
 const saveButtonCls = computed(() => ({
-  success: 'text-[var(--lg-green)] border-[var(--lg-green)]',
-  failed: 'text-[var(--lg-red)] border-[var(--lg-red)]',
-  cooldown: 'text-[var(--lg-orange)] border-[var(--lg-orange)]',
-  captcha: 'text-[var(--lg-orange)] border-[var(--lg-orange)]',
+  success: 'text-[var(--success)] border-[var(--success)]',
+  failed: 'text-[var(--destructive)] border-[var(--destructive)]',
+  cooldown: 'text-[var(--warning)] border-[var(--warning)]',
+  captcha: 'text-[var(--warning)] border-[var(--warning)]',
 }[saveState.value] ?? ''))
 
 // 通过 ?difficulty=xxx 切到单档全列表视图

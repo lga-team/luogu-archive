@@ -112,6 +112,6 @@ table { width: 100%; min-width: 820px; border-collapse: collapse; }
 th, td { padding: 11px 13px; border-bottom: 1px solid var(--border); text-align: left; }
 th { color: var(--text-muted); font-size: 13px; }
 td small { display: block; color: var(--text-muted); }
-.error { color: var(--lg-red); white-space: normal; max-width: 360px; }
+.error { color: var(--destructive); white-space: normal; max-width: 360px; }
 .row-actions { display: flex; gap: 7px; }
 </style>

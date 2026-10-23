@@ -106,8 +106,8 @@ th { background: var(--surface); }
 .badge.pending { background: #fff3cd; color: #8a6d00; }
 .badge.approved { background: #d4edda; color: #155724; }
 .badge.rejected { background: #f8d7da; color: #721c24; }
-button.ok { background: var(--lg-green); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
-button.no { background: var(--lg-red); color: white; border: none; padding: 4px 10px; border-radius: 4px; margin-left: 6px; cursor: pointer; }
+button.ok { background: var(--success); color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+button.no { background: var(--destructive); color: white; border: none; padding: 4px 10px; border-radius: 4px; margin-left: 6px; cursor: pointer; }
 .muted { color: var(--text-muted); }
 .small { font-size: 13px; }
 .filter { margin: 12px 0; }

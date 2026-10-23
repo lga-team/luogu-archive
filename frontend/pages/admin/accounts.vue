@@ -114,8 +114,8 @@ th, td {
   border-bottom: 1px solid var(--border);
   vertical-align: top;
 }
-.ok { color: var(--lg-green); }
-.no { color: var(--lg-red); }
+.ok { color: var(--success); }
+.no { color: var(--destructive); }
 .muted { color: var(--text-muted); }
 .small { font-size: 13px; }
 .add-form {

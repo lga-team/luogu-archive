@@ -107,9 +107,9 @@
 .code-copy-btn:focus { opacity: 1; }
 
 
-.code-copy-btn.ok { color: var(--lg-green); border-color: var(--lg-green); opacity: 1; }
+.code-copy-btn.ok { color: var(--success); border-color: var(--success); opacity: 1; }
 
-.code-copy-btn.err { color: var(--lg-red); border-color: var(--lg-red); opacity: 1; }
+.code-copy-btn.err { color: var(--destructive); border-color: var(--destructive); opacity: 1; }
 
 .lg-content .lg-quote-reply {
   border-left: 4px solid var(--link);
@@ -318,11 +318,11 @@
 }
 
 .lg-callout-success {
-  border-left-color: var(--lg-green);
+  border-left-color: var(--success);
 }
 
 .lg-callout-success > summary {
-  color: var(--lg-green);
+  color: var(--success);
 }
 
 .lg-callout-success > summary::before {
@@ -331,11 +331,11 @@
 }
 
 .lg-callout-warning {
-  border-left-color: var(--lg-orange);
+  border-left-color: var(--warning);
 }
 
 .lg-callout-warning > summary {
-  color: var(--lg-orange);
+  color: var(--warning);
 }
 
 .lg-callout-warning > summary::before {
@@ -344,11 +344,11 @@
 }
 
 .lg-callout-error {
-  border-left-color: var(--lg-red);
+  border-left-color: var(--destructive);
 }
 
 .lg-callout-error > summary {
-  color: var(--lg-red);
+  color: var(--destructive);
 }
 
 .lg-callout-error > summary::before {

@@ -17,6 +17,6 @@ useHead({ title: '插件举报管理 - 洛谷档案馆' })
 </div></template>
 
 <style scoped>
-h1{margin-top:0}select,button{border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:7px 9px}.reports{margin-top:15px;border-top:1px solid var(--border)}article{padding:14px 2px;border-bottom:1px solid var(--border)}article header,article footer{display:flex;justify-content:space-between;gap:10px}article p{white-space:pre-wrap}small,header span{color:var(--text-muted)}.report-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}.report-meta a{flex-shrink:0}footer{justify-content:flex-end!important;margin-top:10px}button{cursor:pointer}.ok{background:var(--lg-green);border-color:var(--lg-green);color:#fff}
+h1{margin-top:0}select,button{border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:7px 9px}.reports{margin-top:15px;border-top:1px solid var(--border)}article{padding:14px 2px;border-bottom:1px solid var(--border)}article header,article footer{display:flex;justify-content:space-between;gap:10px}article p{white-space:pre-wrap}small,header span{color:var(--text-muted)}.report-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}.report-meta a{flex-shrink:0}footer{justify-content:flex-end!important;margin-top:10px}button{cursor:pointer}.ok{background:var(--success);border-color:var(--success);color:#fff}
 @media(max-width:600px){.report-meta{align-items:flex-start;flex-direction:column;gap:6px}}
 </style>

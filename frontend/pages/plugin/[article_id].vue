@@ -205,7 +205,7 @@ useHead(() => ({ title: `${displayName.value} - 插件广场` }))
             </Badge>
             <Badge
               v-if="detail.is_recommended"
-              class="h-5 border-transparent bg-[var(--lg-yellow)]/20 px-1.5 font-normal text-[#8a6d00] dark:text-[var(--lg-yellow)]"
+              class="h-5 border-transparent bg-[var(--warning)]/20 px-1.5 font-normal text-[#8a6d00] dark:text-[var(--warning)]"
             >
               推荐插件
             </Badge>

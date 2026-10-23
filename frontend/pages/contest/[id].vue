@@ -123,10 +123,10 @@ function problemScoreClass(value: number | undefined) {
   if (value === undefined || value === null) return ''
 
   if (data.value?.contest.method === ICPC_CONTEST_METHOD) {
-    return value >= 0 ? 'text-[var(--lg-green)]' : 'text-[var(--lg-red)]'
+    return value >= 0 ? 'text-[var(--success)]' : 'text-[var(--destructive)]'
   }
 
-  return value > 0 ? 'text-[var(--lg-green)]' : ''
+  return value > 0 ? 'text-[var(--success)]' : ''
 }
 
 function toggleWarning(uid: number) {
@@ -208,7 +208,7 @@ function userBrief(row: ScoreboardRow) {
             <span
               v-else
               class="text-xs font-medium"
-              :class="data.contest.rating_mode === 'unrated' ? 'text-muted-foreground' : 'text-[var(--lg-green)]'"
+              :class="data.contest.rating_mode === 'unrated' ? 'text-muted-foreground' : 'text-[var(--success)]'"
             >{{ data.contest.status }}</span>
           </div>
           <form class="flex gap-2" @submit.prevent="search">
@@ -264,8 +264,8 @@ function userBrief(row: ScoreboardRow) {
                   <span v-if="row.rating_pending" class="text-muted-foreground">loading……</span>
                   <span v-else-if="row.rating !== null" class="inline-flex items-center gap-1.5 font-semibold tabular-nums">
                     {{ row.rating }}
-                    <span v-if="(row.delta || 0) > 0" class="text-[13px] font-medium text-[var(--lg-green)]">↑{{ row.delta }}</span>
-                    <span v-else-if="(row.delta || 0) < 0" class="text-[13px] font-medium text-[var(--lg-red)]">↓{{ Math.abs(row.delta || 0) }}</span>
+                    <span v-if="(row.delta || 0) > 0" class="text-[13px] font-medium text-[var(--success)]">↑{{ row.delta }}</span>
+                    <span v-else-if="(row.delta || 0) < 0" class="text-[13px] font-medium text-[var(--destructive)]">↓{{ Math.abs(row.delta || 0) }}</span>
                     <span v-else class="text-[13px] text-muted-foreground">0</span>
                   </span>
                   <span v-else class="text-muted-foreground">-</span>
@@ -387,8 +387,8 @@ thead .sticky-col { z-index: 4; }
 .problem-tip:hover .pop, .problem-tip:focus .pop { display: block; }
 .warning-wrap { position: relative; display: inline-flex; margin-left: 5px; vertical-align: middle; }
 .warning-button {
-  width: 18px; height: 18px; padding: 0; border: 1px solid var(--lg-orange); border-radius: 50%;
-  background: transparent; color: var(--lg-orange); font-size: 12px; font-weight: 700; cursor: help;
+  width: 18px; height: 18px; padding: 0; border: 1px solid var(--warning); border-radius: 50%;
+  background: transparent; color: var(--warning); font-size: 12px; font-weight: 700; cursor: help;
 }
 .warning-pop { left: auto; right: -8px; transform: none; min-width: 220px; }
 .warning-pop span { display: block; }

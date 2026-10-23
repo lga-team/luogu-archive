@@ -39,7 +39,7 @@ useHead({ title: '邮箱验证 - 洛谷档案馆' })
       <!-- 顶部色条随状态变化 -->
       <div
         class="absolute inset-x-0 top-0 h-1"
-        :class="state === 'success' ? 'bg-[var(--lg-green)]' : state === 'error' ? 'bg-[var(--lg-red)]' : 'bg-primary'"
+        :class="state === 'success' ? 'bg-[var(--success)]' : state === 'error' ? 'bg-[var(--destructive)]' : 'bg-primary'"
       />
 
       <!-- 状态图标 -->
@@ -48,14 +48,14 @@ useHead({ title: '邮箱验证 - 洛谷档案馆' })
 
         <!-- success：对勾，带描边动画 -->
         <svg v-else-if="state === 'success'" class="status-svg" viewBox="0 0 52 52">
-          <circle class="draw-circle stroke-[var(--lg-green)]" cx="26" cy="26" r="24" fill="none" />
-          <path class="draw-mark stroke-[var(--lg-green)]" fill="none" d="M14 27l8 8 16-16" />
+          <circle class="draw-circle stroke-[var(--success)]" cx="26" cy="26" r="24" fill="none" />
+          <path class="draw-mark stroke-[var(--success)]" fill="none" d="M14 27l8 8 16-16" />
         </svg>
 
         <!-- error：叉，带描边动画 -->
         <svg v-else class="status-svg" viewBox="0 0 52 52">
-          <circle class="draw-circle stroke-[var(--lg-red)]" cx="26" cy="26" r="24" fill="none" />
-          <path class="draw-mark stroke-[var(--lg-red)]" fill="none" d="M18 18l16 16M34 18L18 34" />
+          <circle class="draw-circle stroke-[var(--destructive)]" cx="26" cy="26" r="24" fill="none" />
+          <path class="draw-mark stroke-[var(--destructive)]" fill="none" d="M18 18l16 16M34 18L18 34" />
         </svg>
       </div>
 

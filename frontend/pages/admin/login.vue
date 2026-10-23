@@ -64,5 +64,5 @@ button {
   border-radius: 6px;
   cursor: pointer;
 }
-.err { color: var(--lg-red); margin-top: 10px; }
+.err { color: var(--destructive); margin-top: 10px; }
 </style>

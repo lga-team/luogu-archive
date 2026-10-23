@@ -219,12 +219,12 @@ function changedRows(rows: DiffRow[]): DiffRow[] {
             <span class="text-xs tabular-nums text-muted-foreground">{{ format(version.crawled_at, 'HH:mm:ss') }}</span>
             <span
               v-if="version.is_current"
-              class="rounded-full border border-[var(--lg-green)] px-2 py-px text-xs text-[var(--lg-green)]"
+              class="rounded-full border border-[var(--success)] px-2 py-px text-xs text-[var(--success)]"
             >当前版本</span>
           </div>
           <div class="flex flex-wrap items-center gap-2 max-sm:[&>*]:flex-1">
-            <span class="font-mono text-xs text-[var(--lg-green)]">+{{ diffStats(version).add }}</span>
-            <span class="font-mono text-xs text-[var(--lg-red)]">-{{ diffStats(version).remove }}</span>
+            <span class="font-mono text-xs text-[var(--success)]">+{{ diffStats(version).add }}</span>
+            <span class="font-mono text-xs text-[var(--destructive)]">-{{ diffStats(version).remove }}</span>
             <Button variant="outline" size="sm" @click="toggleFull(version.id)">
               {{ openFull.has(version.id) ? '收起全文' : '查看全文' }}
             </Button>
@@ -240,10 +240,10 @@ function changedRows(rows: DiffRow[]): DiffRow[] {
             :key="idx"
             class="grid min-h-6 grid-cols-[54px_minmax(0,1fr)] border-b border-border/35"
             :class="row.kind === 'add'
-              ? 'bg-[color-mix(in_srgb,var(--lg-green)_12%,transparent)]'
+              ? 'bg-[color-mix(in_srgb,var(--success)_12%,transparent)]'
               : row.kind === 'remove'
-                ? 'bg-[color-mix(in_srgb,var(--lg-red)_10%,transparent)]'
-                : 'bg-[color-mix(in_srgb,var(--lg-orange)_10%,transparent)]'"
+                ? 'bg-[color-mix(in_srgb,var(--destructive)_10%,transparent)]'
+                : 'bg-[color-mix(in_srgb,var(--warning)_10%,transparent)]'"
           >
             <span class="select-none bg-muted/80 px-2 py-[3px] text-right text-muted-foreground">{{ row.leftNo || row.rightNo || '' }}</span>
             <code class="whitespace-pre-wrap px-2.5 py-[3px] [overflow-wrap:anywhere]">

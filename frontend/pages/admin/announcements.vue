@@ -300,7 +300,7 @@ button.primary {
   color: #fff;
   font-weight: 700;
 }
-button.danger { color: var(--lg-red); }
+button.danger { color: var(--destructive); }
 .list-head {
   min-height: 54px;
   padding: 0 16px;
@@ -334,8 +334,8 @@ th {
   font-size: 12px;
 }
 .status.published {
-  background: color-mix(in srgb, var(--lg-green) 16%, transparent);
-  color: var(--lg-green);
+  background: color-mix(in srgb, var(--success) 16%, transparent);
+  color: var(--success);
 }
 .status.draft {
   background: var(--hover);

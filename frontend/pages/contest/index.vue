@@ -42,9 +42,9 @@ function search() {
 }
 
 function statusCls(s: string) {
-  if (s === '正式结果') return 'text-[var(--lg-green)]'
+  if (s === '正式结果') return 'text-[var(--success)]'
   if (s === '不计等级分') return 'text-muted-foreground'
-  return 'text-[var(--lg-orange)]'
+  return 'text-[var(--warning)]'
 }
 
 useHead({ title: '比赛 - 洛谷档案馆' })

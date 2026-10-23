@@ -205,7 +205,7 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
                       版本 {{ versions.length - index }}
                       <span
                         v-if="version.is_current"
-                        class="rounded-full border border-[var(--lg-green)] px-1.5 py-px text-[10px] text-[var(--lg-green)]"
+                        class="rounded-full border border-[var(--success)] px-1.5 py-px text-[10px] text-[var(--success)]"
                       >最新</span>
                     </span>
                     <span v-if="version.title" class="line-clamp-2 text-muted-foreground">{{ version.title }}</span>

@@ -165,7 +165,7 @@ const effectiveBadge = computed<string | null>(() => {
   align-items: center;
   line-height: 1;
 }
-.lg-mark[data-tier="green"] { color: var(--lg-green); }
+.lg-mark[data-tier="green"] { color: var(--success); }
 .lg-mark[data-tier="blue"]  { color: var(--lg-blue); }
 
 /* 封禁用户：划掉（与洛谷一致），颜色跟随名字颜色不覆盖 */

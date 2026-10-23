@@ -253,7 +253,7 @@ defineExpose({ getToken, reset })
 
 .captcha-error {
   margin: 8px 0 0;
-  color: var(--lg-red);
+  color: var(--destructive);
   font-size: 13px;
 }
 </style>

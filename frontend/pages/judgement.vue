@@ -137,8 +137,8 @@ function describePermission(bits: number): string[] {
 }
 
 function actionTag(g: JudgementGroup) {
-  if (g.revoked_permission > 0 && g.added_permission === 0) return { text: '撤销权限', cls: 'text-[var(--lg-red)]' }
-  if (g.added_permission > 0 && g.revoked_permission === 0) return { text: '授予权限', cls: 'text-[var(--lg-green)]' }
+  if (g.revoked_permission > 0 && g.added_permission === 0) return { text: '撤销权限', cls: 'text-[var(--destructive)]' }
+  if (g.added_permission > 0 && g.revoked_permission === 0) return { text: '授予权限', cls: 'text-[var(--success)]' }
   if (g.revoked_permission === 0 && g.added_permission === 0) return { text: '棕名惩罚', cls: 'text-[var(--lg-cheater-tag)]' }
   return { text: '权限变更', cls: 'text-muted-foreground' }
 }
@@ -202,7 +202,7 @@ useHead({ title: '陶片放逐 - 洛谷档案馆' })
               <span class="font-semibold" :class="actionTag(g).cls">{{ actionTag(g).text }}</span>
               <span
                 v-if="g.count > 1"
-                class="rounded-full bg-[var(--lg-orange)] px-2 py-px text-xs font-semibold text-white"
+                class="rounded-full bg-[var(--warning)] px-2 py-px text-xs font-semibold text-white"
               >{{ g.count }} 人</span>
             </CardTitle>
             <CardAction>
@@ -230,7 +230,7 @@ useHead({ title: '陶片放逐 - 洛谷档案馆' })
               class="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
             >
               <template v-if="describePermission(g.revoked_permission).length">
-                <span class="font-medium text-[var(--lg-red)]">撤销</span>
+                <span class="font-medium text-[var(--destructive)]">撤销</span>
                 <span
                   v-for="p in describePermission(g.revoked_permission)"
                   :key="`r-${p}`"
@@ -238,7 +238,7 @@ useHead({ title: '陶片放逐 - 洛谷档案馆' })
                 >{{ p }}</span>
               </template>
               <template v-if="describePermission(g.added_permission).length">
-                <span class="ml-1 font-medium text-[var(--lg-green)]">授予</span>
+                <span class="ml-1 font-medium text-[var(--success)]">授予</span>
                 <span
                   v-for="p in describePermission(g.added_permission)"
                   :key="`a-${p}`"

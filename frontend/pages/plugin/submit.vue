@@ -214,7 +214,7 @@ useHead({ title: '提交插件 - 洛谷档案馆' })
 
     <Alert
       v-if="message"
-      :class="submitSucceeded ? 'border-emerald-500/45' : 'border-[var(--lg-yellow)]/55'"
+      :class="submitSucceeded ? 'border-emerald-500/45' : 'border-[var(--warning)]/55'"
     >
       <AlertTitle>{{ submitSucceeded ? '提交成功' : '提示' }}</AlertTitle>
       <AlertDescription>{{ message }}</AlertDescription>

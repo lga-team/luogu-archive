@@ -14,7 +14,7 @@ const statusNames: Record<string, string> = {
   pending: '待审核', approved: '已通过', rejected: '已拒绝', cancelled: '已撤销',
 }
 const STATUS_BADGE: Record<string, string> = {
-  pending: 'border-transparent bg-[var(--lg-yellow)]/20 text-[#8a6d00] dark:text-[var(--lg-yellow)]',
+  pending: 'border-transparent bg-[var(--warning)]/20 text-[#8a6d00] dark:text-[var(--warning)]',
   approved: 'border-transparent bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
   rejected: 'border-transparent bg-destructive/10 text-destructive',
   cancelled: '',

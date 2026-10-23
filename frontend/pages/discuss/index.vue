@@ -77,10 +77,10 @@ const refreshClass = computed(() => ({
 const forumDot: Record<string, string> = {
   siteaffairs: 'bg-[var(--lg-blue)]',
   academics: 'bg-[var(--lg-purple)]',
-  service: 'bg-[var(--lg-green)]',
+  service: 'bg-[var(--success)]',
 }
 
-const forumDotClass = (slug: string) => forumDot[slug] || 'bg-[var(--lg-orange)]'
+const forumDotClass = (slug: string) => forumDot[slug] || 'bg-[var(--warning)]'
 
 async function updateDiscussions() {
   if (refreshState.value === 'pending') return

@@ -165,9 +165,9 @@ button:disabled {
   margin-top: 10px;
   font-size: 14px;
 }
-.msg.done { color: var(--lg-green); }
-.msg.error { color: var(--lg-red); }
-.msg.pending { color: var(--lg-orange); }
+.msg.done { color: var(--success); }
+.msg.error { color: var(--destructive); }
+.msg.pending { color: var(--warning); }
 
 .warn {
   margin-top: 24px;

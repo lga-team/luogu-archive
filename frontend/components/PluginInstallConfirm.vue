@@ -112,12 +112,12 @@ async function confirm() {
         </div>
       </dl>
 
-      <p class="mx-5 mb-4 border-l-[3px] border-[var(--lg-orange)] bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
+      <p class="mx-5 mb-4 border-l-[3px] border-[var(--warning)] bg-muted px-3 py-2.5 text-[13px] text-muted-foreground">
         代码由上传者提供，本站不会执行或自动验证代码。安装前请阅读请求分析并自行确认风险。
       </p>
       <p
         v-if="copyBlocked"
-        class="mx-5 mb-4 border-l-[3px] border-[var(--lg-yellow)] bg-[color-mix(in_srgb,var(--lg-yellow)_10%,var(--card))] px-3 py-2.5 text-[13px] text-muted-foreground"
+        class="mx-5 mb-4 border-l-[3px] border-[var(--warning)] bg-[color-mix(in_srgb,var(--warning)_10%,var(--card))] px-3 py-2.5 text-[13px] text-muted-foreground"
       >
         完整代码大小为 {{ codeSize }}，超过 100 KiB，不能复制，请下载文件。
       </p>

@@ -104,8 +104,8 @@ const probeState = computed(() => {
       ? (accessible ? (owner ? '已匹配作者身份，可以申请停止公开展示。' : '原内容仍可访问，暂不能提交申请。') : '可以提交删除申请。')
       : '用户主页申请无需检查原站访问状态。',
     cls: blocked
-      ? 'border-[var(--lg-red)] bg-[color-mix(in_srgb,var(--lg-red)_8%,var(--card))]'
-      : 'border-[var(--lg-green)] bg-[color-mix(in_srgb,var(--lg-green)_9%,var(--card))]',
+      ? 'border-[var(--destructive)] bg-[color-mix(in_srgb,var(--destructive)_8%,var(--card))]'
+      : 'border-[var(--success)] bg-[color-mix(in_srgb,var(--success)_9%,var(--card))]',
   }
 })
 
@@ -125,9 +125,9 @@ useHead({ title: '内容删除申请 - 洛谷档案馆' })
     <!-- 提交成功 -->
     <div
       v-if="state === 'success'"
-      class="mt-5 rounded-xl border border-[var(--lg-green)] bg-[color-mix(in_srgb,var(--lg-green)_9%,var(--card))] p-10 text-center"
+      class="mt-5 rounded-xl border border-[var(--success)] bg-[color-mix(in_srgb,var(--success)_9%,var(--card))] p-10 text-center"
     >
-      <h2 class="text-lg font-semibold text-[var(--lg-green)]">申请处理完成</h2>
+      <h2 class="text-lg font-semibold text-[var(--success)]">申请处理完成</h2>
       <p class="mt-1 text-sm text-muted-foreground">{{ message }}</p>
     </div>
 
@@ -163,7 +163,7 @@ useHead({ title: '内容删除申请 - 洛谷档案馆' })
           </div>
           <p
             v-else-if="message"
-            class="text-sm text-[var(--lg-red)]"
+            class="text-sm text-[var(--destructive)]"
           >{{ message }}</p>
         </CardContent>
       </Card>
@@ -210,7 +210,7 @@ useHead({ title: '内容删除申请 - 洛谷档案馆' })
           </p>
         </CardContent>
         <CardFooter class="justify-end gap-3 px-5">
-          <p v-if="message" class="mr-auto text-sm text-[var(--lg-red)]">{{ message }}</p>
+          <p v-if="message" class="mr-auto text-sm text-[var(--destructive)]">{{ message }}</p>
           <Button type="submit" :disabled="state === 'submitting'">
             {{ state === 'submitting' ? '提交中……' : '提交申请' }}
           </Button>

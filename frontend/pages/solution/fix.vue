@@ -309,7 +309,7 @@ useHead({ title: '题解修 - 洛谷档案馆' })
           </Button>
         </CardContent>
         <CardContent class="space-y-2.5 px-5 pt-0">
-          <p v-if="errorMessage" class="text-[13px] text-[var(--lg-red)]">{{ errorMessage }}</p>
+          <p v-if="errorMessage" class="text-[13px] text-[var(--destructive)]">{{ errorMessage }}</p>
           <div v-if="notes.length" class="flex flex-wrap gap-2">
             <span
               v-for="note in notes"
@@ -348,14 +348,14 @@ useHead({ title: '题解修 - 洛谷档案馆' })
           >
             <div
               class="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)] border-r border-border"
-              :class="(row.kind === 'remove' || row.kind === 'change') && 'bg-[color-mix(in_srgb,var(--lg-red)_12%,transparent)]'"
+              :class="(row.kind === 'remove' || row.kind === 'change') && 'bg-[color-mix(in_srgb,var(--destructive)_12%,transparent)]'"
             >
               <span class="select-none bg-muted/70 px-2 py-[3px] text-right text-muted-foreground">{{ row.leftNo || '' }}</span>
               <code class="whitespace-pre-wrap px-2.5 py-[3px] [overflow-wrap:anywhere]">{{ row.left }}</code>
             </div>
             <div
               class="grid min-w-0 grid-cols-[48px_minmax(0,1fr)] border-b border-[color-mix(in_srgb,var(--border)_45%,transparent)]"
-              :class="(row.kind === 'add' || row.kind === 'change') && 'bg-[color-mix(in_srgb,var(--lg-green)_14%,transparent)]'"
+              :class="(row.kind === 'add' || row.kind === 'change') && 'bg-[color-mix(in_srgb,var(--success)_14%,transparent)]'"
             >
               <span class="select-none bg-muted/70 px-2 py-[3px] text-right text-muted-foreground">{{ row.rightNo || '' }}</span>
               <code class="whitespace-pre-wrap px-2.5 py-[3px] [overflow-wrap:anywhere]">{{ row.right }}</code>

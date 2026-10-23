@@ -113,11 +113,11 @@ function triggerLabel(trigger: string): string {
 }
 
 const statusCls: Record<string, string> = {
-  success: 'text-[var(--lg-green)]',
-  failed: 'text-[var(--lg-red)]',
-  rate_limited: 'text-[var(--lg-red)]',
-  running: 'text-[var(--lg-yellow)]',
-  pending: 'text-[var(--lg-yellow)]',
+  success: 'text-[var(--success)]',
+  failed: 'text-[var(--destructive)]',
+  rate_limited: 'text-[var(--destructive)]',
+  running: 'text-[var(--warning)]',
+  pending: 'text-[var(--warning)]',
 }
 
 function statusLabel(status: string): string {
@@ -209,7 +209,7 @@ useHead({ title: '站点概览 - 洛谷档案馆' })
             <div class="text-right text-[22px] font-extrabold tabular-nums">{{ numberText(queue.size) }}</div>
             <div class="col-span-2 h-2 overflow-hidden rounded-full bg-muted sm:col-span-1" aria-hidden="true">
               <span
-                class="block h-full rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--lg-cyan)]"
+                class="block h-full rounded-full bg-gradient-to-r from-[var(--primary)] to-[var(--info)]"
                 :style="{ width: `${queuePressure(queue.size)}%` }"
               />
             </div>
