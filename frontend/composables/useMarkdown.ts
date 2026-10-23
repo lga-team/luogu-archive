@@ -614,6 +614,9 @@ function build(): MarkdownIt {
 }
 
 function rewriteLuoguHref(href: string): string {
+  // 洛谷的用户链接有 luogu://user/<uid> 写法，改写为站内路径
+  const appUserLink = /^luogu:\/\/user\/(\d+)$/i.exec(href)
+  if (appUserLink) return `/user/${appUserLink[1]}`
   try {
     const u = new URL(href)
     const hosts = [
