@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Check, ChevronDown, Clock3, Copy, ExternalLink, History } from '@lucide/vue'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible'
 
 const { format, smart } = useTime()
 
@@ -158,64 +159,66 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
       <!-- 历史版本（左侧 sticky，点版本直接切换正文） -->
       <aside class="min-w-0 lg:col-start-1 lg:row-span-2">
         <div class="sticky top-4">
-          <button
-            type="button"
-            class="flex w-full items-center gap-2 border-b border-border pb-3 text-left"
-            :aria-expanded="historyOpen"
-            @click="historyOpen = !historyOpen"
-          >
-            <Clock3 class="size-4 text-muted-foreground" />
-            <h2 class="flex-1 text-sm font-semibold tracking-tight">历史版本</h2>
-            <ChevronDown class="size-4 text-muted-foreground transition-transform" :class="historyOpen ? '' : '-rotate-90'" />
-          </button>
-
-          <div v-show="historyOpen" class="pt-3">
-            <div v-if="historyPending" class="space-y-4">
-              <div v-for="i in 4" :key="i" class="relative pl-[22px]">
-                <Skeleton class="absolute left-0 top-1 size-3 rounded-full" />
-                <Skeleton class="h-3.5 w-16" />
-                <Skeleton class="mt-1.5 h-3 w-28" />
-              </div>
-            </div>
-            <ol v-else-if="versions.length">
-              <li
-                v-for="(version, index) in versions"
-                :key="version.id"
-                class="relative pl-[22px]"
+          <Collapsible v-model:open="historyOpen" class="group">
+            <CollapsibleTrigger as-child>
+              <button
+                type="button"
+                class="flex w-full cursor-pointer items-center gap-2 border-b border-border pb-3 text-left"
               >
-                <span
-                  v-if="index < versions.length - 1"
-                  class="absolute bottom-[-6px] left-[6px] top-3 w-0.5 bg-border"
-                  aria-hidden="true"
-                />
-                <button
-                  type="button"
-                  class="relative grid w-full gap-0.5 pb-4 text-left text-[13px] leading-snug"
-                  :aria-current="selected === version ? 'true' : undefined"
-                  @click="selectVersion(version)"
+                <Clock3 class="size-4 text-muted-foreground" />
+                <h2 class="flex-1 text-sm font-semibold tracking-tight">历史版本</h2>
+                <ChevronDown class="size-4 text-muted-foreground transition-transform group-data-[state=closed]:-rotate-90" />
+              </button>
+            </CollapsibleTrigger>
+
+            <CollapsibleContent class="pt-3">
+              <div v-if="historyPending" class="space-y-4">
+                <div v-for="i in 4" :key="i" class="relative pl-[22px]">
+                  <Skeleton class="absolute left-0 top-1 size-3 rounded-full" />
+                  <Skeleton class="h-3.5 w-16" />
+                  <Skeleton class="mt-1.5 h-3 w-28" />
+                </div>
+              </div>
+              <ol v-else-if="versions.length">
+                <li
+                  v-for="(version, index) in versions"
+                  :key="version.id"
+                  class="relative pl-[22px]"
                 >
                   <span
-                    class="absolute left-[-22px] top-1 size-3 rounded-full border-2 bg-background"
-                    :class="selected === version ? 'border-primary' : 'border-muted-foreground/60'"
+                    v-if="index < versions.length - 1"
+                    class="absolute bottom-[-6px] left-[6px] top-3 w-0.5 bg-border"
                     aria-hidden="true"
                   />
-                  <span class="flex items-center gap-1.5 font-medium" :class="selected === version ? 'text-primary' : 'text-foreground'">
-                    版本 {{ versions.length - index }}
+                  <button
+                    type="button"
+                    class="relative grid w-full gap-0.5 pb-4 text-left text-[13px] leading-snug"
+                    :aria-current="selected === version ? 'true' : undefined"
+                    @click="selectVersion(version)"
+                  >
                     <span
-                      v-if="version.is_current"
-                      class="rounded-full border border-[var(--lg-green)] px-1.5 py-px text-[10px] text-[var(--lg-green)]"
-                    >最新</span>
-                  </span>
-                  <span v-if="version.title" class="line-clamp-2 text-muted-foreground">{{ version.title }}</span>
-                  <time class="tabular-nums text-muted-foreground" :datetime="version.crawled_at">
-                    {{ format(version.crawled_at, 'YYYY/M/D HH:mm:ss') }}
-                  </time>
-                </button>
-              </li>
-            </ol>
-            <p v-else-if="historyError" class="text-[13px] text-muted-foreground">历史版本加载失败</p>
-            <p v-else class="text-[13px] text-muted-foreground">暂无历史版本</p>
-          </div>
+                      class="absolute left-[-22px] top-1 size-3 rounded-full border-2 bg-background"
+                      :class="selected === version ? 'border-primary' : 'border-muted-foreground/60'"
+                      aria-hidden="true"
+                    />
+                    <span class="flex items-center gap-1.5 font-medium" :class="selected === version ? 'text-primary' : 'text-foreground'">
+                      版本 {{ versions.length - index }}
+                      <span
+                        v-if="version.is_current"
+                        class="rounded-full border border-[var(--lg-green)] px-1.5 py-px text-[10px] text-[var(--lg-green)]"
+                      >最新</span>
+                    </span>
+                    <span v-if="version.title" class="line-clamp-2 text-muted-foreground">{{ version.title }}</span>
+                    <time class="tabular-nums text-muted-foreground" :datetime="version.crawled_at">
+                      {{ format(version.crawled_at, 'YYYY/M/D HH:mm:ss') }}
+                    </time>
+                  </button>
+                </li>
+              </ol>
+              <p v-else-if="historyError" class="text-[13px] text-muted-foreground">历史版本加载失败</p>
+              <p v-else class="text-[13px] text-muted-foreground">暂无历史版本</p>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
       </aside>
 

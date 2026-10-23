@@ -1,7 +1,8 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
 
-import { ArrowRight, Copy } from '@lucide/vue'
+import { ArrowRight, ChevronDown, Copy } from '@lucide/vue'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible'
 
 type FixMode = 'local' | 'ai'
 type DiffKind = 'same' | 'add' | 'remove' | 'change'
@@ -367,16 +368,26 @@ useHead({ title: '题解修 - 洛谷档案馆' })
 
     <!-- 模型思路 / 处理记录 -->
     <Card class="mt-4 gap-0 overflow-hidden py-0">
-      <details open>
-        <summary class="cursor-pointer border-b border-border px-4 py-3 font-bold">模型思路 / 处理记录</summary>
-        <div class="grid lg:grid-cols-[minmax(0,1fr)_320px]">
-          <pre class="m-0 max-h-[260px] min-h-[120px] overflow-auto whitespace-pre-wrap border-b border-border px-4 py-3.5 font-mono text-[13px] leading-relaxed text-muted-foreground lg:border-b-0 lg:border-r">{{ thoughts || '当前模型未返回可展示的思考内容。' }}</pre>
-          <ul class="m-0 max-h-[260px] min-h-[120px] list-decimal overflow-auto px-9 py-3.5 text-[13px] text-muted-foreground">
-            <li v-for="(log, idx) in logs" :key="idx">{{ log }}</li>
-            <li v-if="!logs.length">等待开始</li>
-          </ul>
-        </div>
-      </details>
+      <Collapsible default-open class="group">
+        <CollapsibleTrigger as-child>
+          <button
+            type="button"
+            class="flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3 text-left font-bold"
+          >
+            模型思路 / 处理记录
+            <ChevronDown class="size-4 shrink-0 text-muted-foreground transition-transform duration-200 group-data-[state=open]:rotate-180" />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div class="grid border-t border-border lg:grid-cols-[minmax(0,1fr)_320px]">
+            <pre class="m-0 max-h-[260px] min-h-[120px] overflow-auto whitespace-pre-wrap border-b border-border px-4 py-3.5 font-mono text-[13px] leading-relaxed text-muted-foreground lg:border-b-0 lg:border-r">{{ thoughts || '当前模型未返回可展示的思考内容。' }}</pre>
+            <ul class="m-0 max-h-[260px] min-h-[120px] list-decimal overflow-auto px-9 py-3.5 text-[13px] text-muted-foreground">
+              <li v-for="(log, idx) in logs" :key="idx">{{ log }}</li>
+              <li v-if="!logs.length">等待开始</li>
+            </ul>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   </div>
 </template>
