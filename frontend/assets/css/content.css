@@ -14,15 +14,12 @@
 
 .lg-name[data-color="Orange"] { color: var(--lg-orange); }
 
-.lg-name[data-color="Yellow"] { color: var(--lg-yellow); }
 
 .lg-name[data-color="Red"] { color: var(--lg-red); }
 
 .lg-name[data-color="Purple"] { color: var(--lg-purple); }
 
-.lg-name[data-color="Cyan"] { color: var(--lg-cyan); }
 
-.lg-name[data-color="Black"] { color: var(--lg-black-name); font-weight: 700; }
 
 .lg-name[data-color="Cheater"] { color: var(--lg-cheater); }
 
@@ -45,15 +42,12 @@
 
 .lg-badge[data-color="Orange"]  { background: var(--lg-orange); border-color: color-mix(in srgb, var(--lg-orange) 88%, #000); }
 
-.lg-badge[data-color="Yellow"]  { background: var(--lg-yellow); border-color: color-mix(in srgb, var(--lg-yellow) 88%, #000); color: #333; }
 
 .lg-badge[data-color="Red"]     { background: var(--lg-red); border-color: color-mix(in srgb, var(--lg-red) 88%, #000); }
 
 .lg-badge[data-color="Purple"]  { background: var(--lg-purple); border-color: color-mix(in srgb, var(--lg-purple) 88%, #000); }
 
-.lg-badge[data-color="Cyan"]    { background: var(--lg-cyan); border-color: color-mix(in srgb, var(--lg-cyan) 88%, #000); }
 
-.lg-badge[data-color="Black"]   { background: var(--lg-black); border-color: color-mix(in srgb, var(--lg-black) 88%, #000); }
 
 .lg-badge[data-color="Cheater"] { background: var(--lg-cheater-tag); border-color: color-mix(in srgb, var(--lg-cheater-tag) 88%, #000); }
 

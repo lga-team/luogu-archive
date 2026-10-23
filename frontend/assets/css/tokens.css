@@ -32,17 +32,13 @@
   --lg-purple: #9d3dcf;
   --lg-cyan: #13c2c2;
   --lg-black: #0e1d69;
-  /* 洛谷"黑题"在深色模式下用浅蓝（与官方一致），浅色模式使用公告里的深蓝色 */
-  --lg-black-name: var(--lg-black);
-  --lg-cheater: #ffdd54;          /* 棕名：名字色 */
-  --lg-cheater-tag: #bb9915;      /* 棕名：tag 背景色 */
+  --lg-cheater: #ad8b00;          /* 棕名：yellow-4 */
+  --lg-cheater-tag: #ad8b00;      /* 棕名：tag 背景色，与名字同色 */
 }
 
 .dark {
   --banner-bg: #3b2f00;
   --banner-border: #8b6e00;
-  /* 黑题在深色模式下用浅蓝，跟洛谷官方一致 */
-  --lg-black-name: #accbf4;
 }
 
 html,
