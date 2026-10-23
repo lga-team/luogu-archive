@@ -43,14 +43,16 @@ const {
 )
 
 const versions = computed(() => history.value?.versions || [])
-const selected = ref<VersionEntry | null>(null)
+// 选中态存 id 而非对象引用：接口重取后数组是新的，引用比较会失配（从历史页返回时可见）
+const selectedId = ref<number | null>(null)
 watchEffect(() => {
-  if (!selected.value && versions.value.length) {
-    selected.value = versions.value.find(v => v.is_current) || versions.value[0]
+  if (selectedId.value === null && versions.value.length) {
+    selectedId.value = (versions.value.find(v => v.is_current) || versions.value[0]).id
   }
 })
+const selected = computed(() => versions.value.find(v => v.id === selectedId.value) ?? null)
 function selectVersion(version: VersionEntry) {
-  selected.value = version
+  selectedId.value = version.id
 }
 
 // 正文接口与版本接口不保证同时成功（首次 404 时两者都失败，重查后正文可能先回来），
