@@ -103,6 +103,13 @@
   outline-offset: 1px;
 }
 
+/* 触屏没有 hover，按钮保持常显 */
+@media (hover: none) {
+  .code-copy-btn {
+    opacity: 1;
+  }
+}
+
 .lg-content pre:hover .code-copy-btn,
 .code-copy-btn:focus { opacity: 1; }
 
