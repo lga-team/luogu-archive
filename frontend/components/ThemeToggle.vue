@@ -42,9 +42,9 @@ function cycle() {
     :aria-label="`主题：${currentLabel}，点击切换为${nextLabel}`"
     @click="cycle"
   >
-    <Sun v-if="preference === 'light'" class="size-[18px]" />
-    <Moon v-else-if="preference === 'dark'" class="size-[18px]" />
-    <Monitor v-else class="size-[18px]" />
+    <Sun v-show="preference === 'light'" class="size-[18px] shrink-0" />
+    <Moon v-show="preference === 'dark'" class="size-[18px] shrink-0" />
+    <Monitor v-show="preference === 'system'" class="size-[18px] shrink-0" />
   </Button>
   <button
     v-else
@@ -54,9 +54,9 @@ function cycle() {
     :aria-label="`主题：${currentLabel}，点击切换为${nextLabel}`"
     @click="cycle"
   >
-    <Sun v-if="preference === 'light'" class="size-[18px] shrink-0" />
-    <Moon v-else-if="preference === 'dark'" class="size-[18px] shrink-0" />
-    <Monitor v-else class="size-[18px] shrink-0" />
+    <Sun v-show="preference === 'light'" class="size-[18px] shrink-0" />
+    <Moon v-show="preference === 'dark'" class="size-[18px] shrink-0" />
+    <Monitor v-show="preference === 'system'" class="size-[18px] shrink-0" />
     <span
       class="overflow-hidden text-ellipsis whitespace-nowrap transition-[max-width,opacity] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)]"
       :class="collapsed ? 'max-w-0 opacity-0' : 'max-w-[112px] opacity-100'"
