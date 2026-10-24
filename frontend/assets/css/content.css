@@ -61,8 +61,10 @@
   word-wrap: break-word;
 }
 
-.lg-content pre {
+/* 复制按钮的定位容器：pre 自身横向滚动，按钮放在不滚动的外层 */
+.code-block-wrap {
   position: relative;
+  margin: 1rem 0;
 }
 
 /* 代码框一键复制按钮（由 useCopyCode 注入） */
@@ -110,7 +112,7 @@
   }
 }
 
-.lg-content pre:hover .code-copy-btn,
+.code-block-wrap:hover .code-copy-btn,
 .code-copy-btn:focus { opacity: 1; }
 
 
@@ -523,7 +525,7 @@
 }
 
 .lg-content pre {
-  margin: 1rem 0;
+  margin: 0;
   padding: 1rem 1.125rem;
   overflow-x: auto;
   border: 1px solid var(--border);

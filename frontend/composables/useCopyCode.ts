@@ -16,7 +16,6 @@ export function useCopyCode(containerRef: Ref<HTMLElement | null | undefined>) {
     el.querySelectorAll<HTMLPreElement>('pre').forEach((pre) => {
       if (pre.dataset.copyBound === '1') return
       pre.dataset.copyBound = '1'
-      pre.style.position ||= 'relative'
 
       const btn = document.createElement('button')
       btn.type = 'button'
@@ -42,7 +41,15 @@ export function useCopyCode(containerRef: Ref<HTMLElement | null | undefined>) {
           btn.setAttribute('aria-label', '复制代码')
         }, 1500)
       })
-      pre.appendChild(btn)
+      // pre 自身横向滚动，按钮挂在它外面，滚动时保持不动
+      let host = pre.parentElement
+      if (!host?.classList.contains('code-block-wrap')) {
+        host = document.createElement('div')
+        host.className = 'code-block-wrap'
+        pre.parentNode?.insertBefore(host, pre)
+        host.appendChild(pre)
+      }
+      host.appendChild(btn)
     })
   }
 
