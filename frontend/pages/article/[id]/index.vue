@@ -1,4 +1,6 @@
 <script setup lang="ts">
+definePageMeta({ pageWidth: 'wide' })
+
 import { Check, ChevronDown, Clock3, Copy, ExternalLink, History } from '@lucide/vue'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/components/ui/collapsible'
 

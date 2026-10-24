@@ -21,6 +21,11 @@ const api = useApi()
 const runtimeConfig = useRuntimeConfig()
 const route = useRoute()
 
+// 文档详情页通过 definePageMeta({ pageWidth: 'wide' }) 声明需要更宽的容器
+const contentWidth = computed(() =>
+  route.meta.pageWidth === 'wide' ? 'max-w-[1400px]' : 'max-w-[1180px]',
+)
+
 type UmamiProps = Record<string, unknown>
 type UmamiTracker = {
   track: (
@@ -316,12 +321,12 @@ watch(() => route.fullPath, () => { mobileOpen.value = false })
     </aside>
 
     <div class="flex min-h-dvh flex-col pt-14 transition-[padding] duration-300 ease-[cubic-bezier(0.2,0.7,0.3,1)] lg:pt-0" :class="collapsed ? 'lg:pl-14' : 'lg:pl-60'">
-      <main class="mx-auto w-full max-w-[1180px] flex-1 px-[var(--page-gutter)] py-8">
+      <main :class="['mx-auto w-full flex-1 px-[var(--page-gutter)] py-8', contentWidth]">
         <slot />
       </main>
 
       <footer class="border-t border-border bg-card">
-        <div class="mx-auto flex w-full max-w-[1180px] flex-col gap-6 px-[var(--page-gutter)] py-8 sm:flex-row sm:items-start sm:justify-between">
+        <div :class="['mx-auto flex w-full flex-col gap-6 px-[var(--page-gutter)] py-8 sm:flex-row sm:items-start sm:justify-between', contentWidth]">
           <div class="min-w-0">
             <div class="flex flex-wrap items-baseline gap-3">
               <span class="text-base font-semibold text-foreground">洛谷档案馆</span>
