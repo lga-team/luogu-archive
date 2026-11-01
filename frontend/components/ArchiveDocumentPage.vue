@@ -53,7 +53,7 @@ async function copyOriginal() {
 </script>
 
 <template>
-  <div class="archive-ui document-page">
+  <div class="archive-ui document-page" :class="{ 'document-article': contentType === 'article' }">
     <div class="document-layout">
     <header class="document-header">
       <div class="document-heading archive-card">
@@ -130,7 +130,9 @@ async function copyOriginal() {
 /* hidden 会形成额外滚动容器，clip 只裁剪横向溢出，不截断侧栏的吸顶链。 */
 :global(html:has(.document-page)), :global(body:has(.document-page)) { overflow-x: clip; }
 .document-page { container-type: inline-size; container-name: document-page; width: min(100%, 1180px); min-width: 0; margin: 0 auto; }
+.document-page.document-article { width: min(100%, 1380px); }
 .document-layout { --document-side-width: 250px; display: grid; grid-template-columns: var(--document-side-width) minmax(0, 1fr) var(--document-side-width); grid-template-areas: 'versions header toc' 'versions content toc'; align-items: start; gap: 16px; min-width: 0; }
+.document-article .document-layout { --document-side-width: 220px; }
 .document-header { grid-area: header; display: grid; gap: 16px; min-width: 0; }
 .document-heading { display: block; padding: 22px 24px; min-width: 0; }
 .document-heading h1 { font-size: 28px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; margin: 0 0 18px; }
@@ -182,6 +184,7 @@ async function copyOriginal() {
 .document-state p { margin: 0 0 10px; }
 @container document-page (max-width: 1090px) {
   .document-layout { --document-side-width: 210px; grid-template-columns: var(--document-side-width) minmax(0, 1fr); grid-template-areas: 'versions header' 'versions content'; }
+  .document-article .document-layout { --document-side-width: 190px; }
   .document-toc { display: none; }
   .document-versions > details { padding: 18px 16px; }
 }

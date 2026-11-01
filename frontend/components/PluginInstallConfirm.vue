@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { Copy, Download, LoaderCircle, ShieldCheck } from 'lucide-vue-next'
+import { Button, Dialog } from '~/components/ui'
 import type { PluginVersion } from '~/types/plugin'
+import { PLUGIN_CODE_COPY_MAX_BYTES } from '~/utils/pluginCode'
 
 const props = defineProps<{
   open: boolean
@@ -13,19 +16,24 @@ const emit = defineEmits<{ close: []; done: [message: string]; analysis: [] }>()
 const api = useApi()
 const config = useRuntimeConfig()
 const { runtimeMode } = usePluginLabels()
+const busy = ref(false)
+const errorText = ref('')
 const codeBytes = computed(() => props.version.code_bytes)
-const copyBlocked = computed(() => props.action === 'copy' && codeBytes.value > 100 * 1024)
+const copyBlocked = computed(() => props.action === 'copy' && codeBytes.value > PLUGIN_CODE_COPY_MAX_BYTES)
 const codeSize = computed(() => {
   if (codeBytes.value < 1024 * 1024) return `${Math.ceil(codeBytes.value / 1024)} KiB`
   return `${(codeBytes.value / 1024 / 1024).toFixed(2)} MiB`
 })
 
 async function confirm() {
+  if (busy.value) return
   if (copyBlocked.value) {
     emit('done', '完整代码超过 100 KiB，请下载文件')
     emit('close')
     return
   }
+  busy.value = true
+  errorText.value = ''
   try {
     const path = `/plugins/${props.articleId}/download/${props.version.id}`
 
@@ -62,61 +70,66 @@ async function confirm() {
       anchor.href = url
       anchor.download = props.version.download_filename
       anchor.click()
-      URL.revokeObjectURL(url)
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
       emit('done', '下载已经开始')
     }
   } catch {
-    emit('done', `${props.action === 'copy' ? '复制' : '下载'}失败，请重试`)
+    errorText.value = `${props.action === 'copy' ? '复制' : '下载'}失败，请检查网络${props.action === 'copy' ? '及剪贴板权限' : ''}后重试。`
+    return
+  } finally {
+    busy.value = false
   }
   emit('close')
 }
+watch(() => props.open, () => { errorText.value = '' })
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="dialog-backdrop" @click.self="emit('close')">
-      <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="install-title">
-        <header>
-          <h2 id="install-title">确认{{ action === 'copy' ? '复制' : '下载' }}代码</h2>
-          <button type="button" class="close" title="关闭" aria-label="关闭" @click="emit('close')">×</button>
-        </header>
-        <dl>
-          <div><dt>插件</dt><dd>{{ pluginName }}</dd></div>
-          <div><dt>版本</dt><dd>{{ version.version }}</dd></div>
-          <div><dt>请求等级</dt><dd><PluginRequestLevelBadge :level="version.final_request_level" compact /></dd></div>
-          <div><dt>运行方式</dt><dd>{{ runtimeMode(version.runtime_mode) }}</dd></div>
-          <div><dt>最后验证</dt><dd>{{ version.last_verified_on }}</dd></div>
-          <div><dt>SHA-256</dt><dd><code>{{ version.code_sha256 }}</code></dd></div>
-        </dl>
-        <p class="notice">代码由上传者提供，本站不会执行或自动验证代码。安装前请阅读请求分析并自行确认风险。</p>
-        <p v-if="copyBlocked" class="copy-warning">
-          完整代码大小为 {{ codeSize }}，超过 100 KiB，不能复制，请下载文件。
-        </p>
-        <footer>
-          <button type="button" class="analysis-link" @click="emit('analysis')">查看请求分析</button>
-          <button type="button" class="archive-action-button" @click="emit('close')">取消</button>
-          <button type="button" class="archive-action-button" :disabled="copyBlocked" @click="confirm">确认{{ action === 'copy' ? '复制' : '下载' }}</button>
-        </footer>
-      </section>
-    </div>
-  </Teleport>
+  <Dialog :open="open" :title="'确认' + (action === 'copy' ? '复制' : '下载') + '代码'" description="代码由上传者提供，本站不会执行或自动验证代码。请先确认请求等级与运行方式。" content-class="plugin-install-dialog" overlay-class="plugin-install-overlay" :locked="busy" @update:open="!$event && emit('close')">
+    <dl class="plugin-install-details">
+      <div><dt>插件</dt><dd>{{ pluginName }}</dd></div>
+      <div><dt>版本</dt><dd>v{{ version.version }}</dd></div>
+      <div><dt>请求等级</dt><dd><PluginRequestLevelBadge :level="version.final_request_level" compact /></dd></div>
+      <div><dt>运行方式</dt><dd>{{ runtimeMode(version.runtime_mode) }}</dd></div>
+      <div><dt>最后验证</dt><dd>{{ version.last_verified_on || '未注明' }}</dd></div>
+      <div><dt>文件大小</dt><dd>{{ codeSize }}</dd></div>
+    </dl>
+    <details class="plugin-install-technical"><summary>SHA-256</summary><code>{{ version.code_sha256 }}</code></details>
+    <p v-if="copyBlocked" class="plugin-install-error" role="alert">完整代码超过 100 KiB，不能复制，请下载文件。</p>
+    <p v-if="errorText" class="plugin-install-error" role="alert">{{ errorText }}</p>
+    <template #footer>
+      <Button size="sm" variant="ghost" class="plugin-install-analysis" :disabled="busy" @click="emit('analysis')"><ShieldCheck :size="14" aria-hidden="true" />请求分析</Button>
+      <Button size="sm" variant="outline" :disabled="busy" @click="emit('close')">取消</Button>
+      <Button size="sm" class="plugin-install-confirm" :disabled="copyBlocked || busy" @click="confirm"><LoaderCircle v-if="busy" :size="14" class="plugin-install-spinner" aria-hidden="true" /><Copy v-else-if="action === 'copy'" :size="14" aria-hidden="true" /><Download v-else :size="14" aria-hidden="true" />{{ busy ? '正在处理…' : action === 'copy' ? '确认复制' : '确认下载' }}</Button>
+    </template>
+  </Dialog>
 </template>
 
 <style scoped>
-.dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(0, 0, 0, .52); }
-.dialog { width: min(620px, 100%); max-height: calc(100vh - 36px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 18px 55px rgba(0, 0, 0, .28); }
-header, footer { display: flex; align-items: center; padding: 16px 18px; }
-header { justify-content: space-between; border-bottom: 1px solid var(--border); }
-header h2 { margin: 0; font-size: 19px; }
-.close { border: 0; background: transparent; color: var(--text-muted); font-size: 26px; cursor: pointer; }
-dl { margin: 0; padding: 16px 18px; display: grid; gap: 11px; }
-dl > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
-dt { color: var(--text-muted); }
-dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-code { font-size: 12px; }
-.notice { margin: 0 18px; padding: 11px 13px; border-left: 3px solid var(--lg-orange); background: var(--hover); color: var(--text-muted); font-size: 13px; }
-.copy-warning { margin: 10px 18px 0; padding: 11px 13px; border-left: 3px solid var(--lg-yellow); background: color-mix(in srgb, var(--lg-yellow) 10%, var(--surface)); color: var(--text-muted); font-size: 13px; }
-footer { justify-content: flex-end; gap: 10px; }
-.analysis-link { margin-right: auto; border: 0; background: transparent; color: var(--link); }
-@media (max-width: 520px) { dl > div { grid-template-columns: 1fr; gap: 3px; } }
+/* 根滚动条已预留空间，不再叠加组件库的 body 宽度补偿。 */
+:global(html:has(.plugin-install-overlay)) { scrollbar-gutter: stable; overflow-y: hidden; }
+:global(body:has(.plugin-install-overlay)) { padding-right: 0 !important; margin-right: 0 !important; }
+:global(.plugin-install-overlay[data-state=open]) { animation: plugin-overlay-in 160ms ease-out both; }
+:global(.plugin-install-overlay[data-state=closed]) { animation: plugin-overlay-out 120ms ease-in both; }
+:global(.plugin-install-dialog[data-state=open]) { animation: plugin-dialog-in 180ms cubic-bezier(.16, 1, .3, 1) both; }
+:global(.plugin-install-dialog[data-state=closed]) { animation: plugin-dialog-out 120ms ease-in both; pointer-events: none; }
+@keyframes plugin-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes plugin-overlay-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes plugin-dialog-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 6px)) scale(.97); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes plugin-dialog-out { from { opacity: 1; transform: translate(-50%, -50%) scale(1); } to { opacity: 0; transform: translate(-50%, calc(-50% + 4px)) scale(.98); } }
+.plugin-install-details { display: grid; gap: 14px; margin: 0; font-size: 14px; }
+.plugin-install-details > div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; align-items: start; }
+.plugin-install-details dt { color: var(--text-muted); font-size: 13px; }
+.plugin-install-details dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.plugin-install-technical { padding-top: 16px; border-top: 1px solid var(--border); font-size: 12px; color: var(--text-muted); }
+.plugin-install-technical summary { cursor: pointer; }
+.plugin-install-technical code { display: block; margin-top: 10px; overflow-wrap: anywhere; font-size: 11px; }
+.plugin-install-error { margin: 0; color: var(--lg-red); font-size: 13px; line-height: 1.6; }
+.plugin-install-analysis { margin-right: auto; }
+.archive-ui .plugin-install-confirm { background: var(--link); color: #fff; min-width: 108px; }
+.archive-ui .plugin-install-confirm:hover { background: color-mix(in srgb, var(--link) 88%, #000); color: #fff; }
+.plugin-install-spinner { animation: plugin-install-spin 1s linear infinite; }
+@keyframes plugin-install-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .plugin-install-spinner { animation: none; } :global(.plugin-install-overlay[data-state]), :global(.plugin-install-dialog[data-state]) { animation: none; } }
+@media (max-width: 420px) { .plugin-install-details > div { grid-template-columns: 64px minmax(0, 1fr); gap: 8px; } .plugin-install-analysis { margin-right: 0; } }
 </style>

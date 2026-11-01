@@ -1,13 +1,17 @@
 <script setup lang="ts">
+import { ChevronDown, Clock3, Code2, Copy, Download, ExternalLink, FileText, Flag, Info, LoaderCircle, MoreHorizontal, Pencil, RefreshCw, ShieldCheck } from 'lucide-vue-next'
+import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuContent, DropdownMenuItem } from 'reka-ui'
+import { Button, Dialog, Select, Tabs, TabsList, TabsTrigger, TabsContent, Textarea } from '~/components/ui'
 import type { PluginDetail, PluginSnapshot, PluginVersion } from '~/types/plugin'
 import { PLUGIN_CODE_COPY_MAX_BYTES } from '~/utils/pluginCode'
 
 const route = useRoute()
+definePageMeta({ key: route => route.path })
 const articleId = String(route.params.article_id)
 const auth = useAuthStore()
 const api = useApi()
 const { render } = useMarkdown()
-const { format } = useTime()
+const { format, smart } = useTime()
 const { runtimeMode } = usePluginLabels()
 
 const loading = ref(true)
@@ -16,8 +20,8 @@ const detail = ref<PluginDetail | null>(null)
 const article = ref<any>(null)
 const selectedVersion = ref<PluginVersion | null>(null)
 const showPending = ref(false)
-const activeTab = ref<'article' | 'code' | 'analysis'>('article')
-const articleRef = ref<HTMLElement | null>(null)
+const activeTab = ref('article')
+const articleRef = shallowRef<HTMLElement | null>(null)
 const action = ref<'copy' | 'download'>('copy')
 const confirmOpen = ref(false)
 const toast = ref('')
@@ -26,11 +30,21 @@ const reportType = ref('dangerous_request')
 const reportDescription = ref('')
 const claiming = ref(false)
 const claimError = ref('')
+const reportError = ref('')
+const reporting = ref(false)
+const versionLoading = ref(false)
+const versionError = ref('')
+const infoOpen = ref(true)
+let versionRequest = 0
+let toastTimer: ReturnType<typeof setTimeout> | undefined
+let disposed = false
+let infoMedia: MediaQueryList | undefined
+function updateInfoLayout() { infoOpen.value = !infoMedia?.matches }
 useCopyCode(articleRef)
 
 const pendingSnapshot = computed(() => detail.value?.pending_application?.snapshot || null)
 const displaySnapshot = computed<PluginSnapshot | null>(() => showPending.value ? pendingSnapshot.value : null)
-const displayName = computed(() => article.value?.title || detail.value?.name || '插件')
+const displayName = computed(() => article.value?.title || detail.value?.name || '插件详情')
 const displayTags = computed(() => showPending.value
   ? detail.value?.pending_application?.tags || []
   : detail.value?.tags || [])
@@ -68,6 +82,21 @@ const codePreview = computed(() => ({
   truncated: displayVersion.value?.code_truncated ?? false,
 }))
 const copyDisabled = computed(() => (displayVersion.value?.code_bytes ?? 0) > PLUGIN_CODE_COPY_MAX_BYTES)
+const actionsDisabled = computed(() => !displayVersion.value || showPending.value || versionLoading.value || loading.value)
+const selectedVersionKey = computed(() => showPending.value ? 'pending' : String(selectedVersion.value?.id || ''))
+const versionOptions = computed(() => [
+  ...(detail.value?.pending_application ? [{ value: 'pending', label: `v${detail.value.pending_application.snapshot.version} · 待审核` }] : []),
+  ...(detail.value?.versions || []).map(version => ({ value: String(version.id), label: `v${version.version}${version.is_current ? ' · 最新正式版' : ''}` })),
+])
+const compatibility = computed(() => [displayVersion.value?.supports_desktop ? '桌面端' : '', displayVersion.value?.supports_mobile ? '移动端' : ''].filter(Boolean).join('、') || '未注明')
+const reportOptions = [
+  { value: 'dangerous_request', label: '危险请求' }, { value: 'malicious_code', label: '恶意代码' },
+  { value: 'broken', label: '失效' }, { value: 'copyright', label: '侵权' },
+  { value: 'misleading', label: '信息不实' }, { value: 'other', label: '其他' },
+]
+function codeSize(bytes: number) {
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KiB` : `${(bytes / 1024 / 1024).toFixed(2)} MiB`
+}
 
 const userAnalysisHtml = computed(() => render(displayVersion.value?.user_request_analysis || ''))
 const adminAnalysisHtml = computed(() => render(displayVersion.value?.admin_request_analysis || ''))
@@ -75,33 +104,54 @@ const adminAnalysisHtml = computed(() => render(displayVersion.value?.admin_requ
 async function load() {
   loading.value = true
   errorText.value = ''
+  versionRequest++
+  versionLoading.value = false
+  versionError.value = ''
+  confirmOpen.value = false
   try {
     const [pluginData, articleData] = await Promise.all([
       api<PluginDetail>(`/plugins/${articleId}`),
       api<any>(`/article/${articleId}`),
     ])
+    if (disposed) return
     detail.value = pluginData
     article.value = articleData
     selectedVersion.value = pluginData.current
     showPending.value = Boolean(pluginData.pending_application)
   } catch (error: any) {
-    errorText.value = error?.data?.message || '插件不存在或尚未通过审核'
+    if (!disposed) errorText.value = error?.data?.message || '插件不存在、尚未通过审核或暂时无法读取。'
   } finally {
-    loading.value = false
+    if (!disposed) loading.value = false
   }
 }
 
 async function selectVersion(versionId: string) {
-  if (!versionId || !detail.value) return
-  selectedVersion.value = await api<PluginVersion>(`/plugins/${articleId}/versions/${versionId}`)
-  showPending.value = false
+  if (!versionId || !detail.value || versionLoading.value || versionId === selectedVersionKey.value) return
+  confirmOpen.value = false
+  versionError.value = ''
+  if (versionId === 'pending') {
+    if (pendingSnapshot.value) showPending.value = true
+    return
+  }
+  if (!detail.value.versions.some(version => String(version.id) === versionId)) return
+  const request = ++versionRequest
+  versionLoading.value = true
+  try {
+    const version = versionId === String(detail.value.current?.id)
+      ? detail.value.current
+      : await api<PluginVersion>(`/plugins/${articleId}/versions/${versionId}`)
+    if (disposed || request !== versionRequest) return
+    selectedVersion.value = version
+    showPending.value = false
+  } catch (error: any) {
+    if (!disposed && request === versionRequest) versionError.value = error?.data?.message || '版本读取失败，仍保留原来的内容，请重新选择。'
+  } finally {
+    if (!disposed && request === versionRequest) versionLoading.value = false
+  }
 }
 
 function openInstall(nextAction: 'copy' | 'download') {
-  if (showPending.value) {
-    toast.value = '待审核代码仅供上传者预览，审核通过后才能复制或下载。'
-    return
-  }
+  if (actionsDisabled.value) return
   if (nextAction === 'copy' && copyDisabled.value) {
     showToast('完整代码超过 100 KiB，请下载文件')
     return
@@ -111,26 +161,40 @@ function openInstall(nextAction: 'copy' | 'download') {
 }
 
 function showToast(message: string) {
+  clearTimeout(toastTimer)
   toast.value = message
-  setTimeout(() => { toast.value = '' }, 1800)
+  toastTimer = setTimeout(() => { toast.value = '' }, 3500)
 }
 
-async function submitReport() {
+async function openReport() {
   if (!auth.isLoggedIn) {
     await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
     return
   }
+  reportError.value = ''
+  reportOpen.value = true
+}
+
+async function submitReport() {
+  if (reporting.value) return
+  if (!auth.isLoggedIn) { await openReport(); return }
+  if (reportDescription.value.trim().length < 10) {
+    reportError.value = '请至少填写 10 个字的具体说明。'
+    return
+  }
+  reporting.value = true
+  reportError.value = ''
   try {
     await api(`/plugins/${articleId}/reports`, {
       method: 'POST',
-      body: { report_type: reportType.value, description: reportDescription.value },
+      body: { report_type: reportType.value, description: reportDescription.value.trim() },
     })
     reportOpen.value = false
     reportDescription.value = ''
     showToast('举报已提交')
   } catch (error: any) {
-    alert(error?.data?.message || '举报提交失败')
-  }
+    reportError.value = error?.data?.message || '举报提交失败，请重试。'
+  } finally { reporting.value = false }
 }
 
 async function claimPlugin() {
@@ -149,280 +213,260 @@ async function claimPlugin() {
 }
 
 onMounted(async () => {
+  infoMedia = window.matchMedia('(max-width: 760px)')
+  updateInfoLayout()
+  infoMedia.addEventListener('change', updateInfoLayout)
   if (!auth.initialized) await auth.tryRefresh()
-  await load()
+  if (!disposed) await load()
 })
+onBeforeUnmount(() => { disposed = true; versionRequest++; clearTimeout(toastTimer); infoMedia?.removeEventListener('change', updateInfoLayout) })
 
 useHead(() => ({ title: `${displayName.value} - 插件广场` }))
 </script>
 
 <template>
-  <LoadingPanel v-if="loading" title="loading……" text="" />
-  <div v-else-if="errorText" class="error-box">{{ errorText }}</div>
-  <div v-else-if="detail && article" class="plugin-detail">
-    <header class="plugin-header">
-      <div class="header-main">
-        <div class="title-line">
+  <div class="archive-ui plugin-page">
+    <div class="plugin-layout">
+      <header class="plugin-heading">
+        <section class="archive-card plugin-title-block">
           <h1>{{ displayName }}</h1>
-          <span v-if="detail.is_official" class="trust official">官方插件</span>
-          <span v-if="detail.is_recommended" class="trust recommended">推荐插件</span>
-        </div>
-        <div v-if="article.author" class="meta-line">
-          <div class="meta-author">
-            <NuxtLink :to="`/user/${article.author.uid}`" class="author-avatar" tabindex="-1" aria-hidden="true">
-              <img v-if="article.author.avatar" :src="article.author.avatar" alt="" loading="lazy">
-              <span v-else :data-color="article.author.color">{{ (article.author.name || '?').charAt(0).toUpperCase() }}</span>
-            </NuxtLink>
-            <LuoguUserName :user="article.author" show-badge />
+          <div class="plugin-meta">
+            <div class="plugin-author">
+              <NuxtLink v-if="article?.author" :to="'/user/' + article.author.uid" :aria-label="article.author.name + ' 的主页'">
+                <img v-if="article.author.avatar" :src="article.author.avatar" alt="" class="plugin-avatar" loading="lazy">
+                <span v-else class="plugin-avatar plugin-avatar-fallback">{{ (article.author.name || '?').charAt(0).toUpperCase() }}</span>
+              </NuxtLink>
+              <div class="plugin-author-name"><span class="plugin-label">作者</span><LuoguUserName v-if="article?.author" :user="article.author" show-badge /><span v-else>{{ loading ? '正在读取' : '作者未收录' }}</span></div>
+            </div>
+            <div class="plugin-published"><span class="plugin-label">最新版本</span><time v-if="detail?.current?.published_at" :datetime="detail.current.published_at">{{ format(detail.current.published_at, 'YYYY-MM-DD HH:mm:ss') }}</time><span v-else>—</span></div>
           </div>
-          <span class="meta-separator">·</span>
-          <span class="meta-item">{{ displayVersion ? runtimeMode(displayVersion.runtime_mode) : '未知运行方式' }}</span>
-          <span class="meta-separator">·</span>
-          <span class="meta-item">{{ detail.updated_at ? `更新于 ${format(detail.updated_at)}` : '更新时间未知' }}</span>
-          <span class="meta-separator">·</span>
-          <span class="meta-item" v-if="detail.total_usage !== undefined">使用次数 {{ detail.total_usage }}</span>
+          <PluginBadges class="plugin-tags" :is-official="detail?.is_official" :is-recommended="detail?.is_recommended" :tags="displayTags" />
+        </section>
+        <div class="archive-card plugin-toolbar">
+          <span class="plugin-updated">上次更新：<time v-if="detail?.updated_at" :datetime="detail.updated_at" :title="format(detail.updated_at, 'YYYY-MM-DD HH:mm:ss')">{{ smart(detail.updated_at) }}</time><span v-else>—</span></span>
+          <div class="plugin-actions">
+            <Button size="sm" class="plugin-primary" :disabled="actionsDisabled" @click="openInstall('download')"><Download :size="14" aria-hidden="true" />下载文件</Button>
+            <Button size="sm" variant="outline" :disabled="actionsDisabled || copyDisabled" :title="copyDisabled ? '完整代码超过 100 KiB，仅支持下载' : '复制完整代码'" @click="openInstall('copy')"><Copy :size="14" aria-hidden="true" />复制代码</Button>
+            <Button v-if="detail?.is_owner" size="sm" variant="outline" as-child><NuxtLink :to="'/plugin/submit?article_id=' + articleId"><Pencil :size="14" aria-hidden="true" />提交更新</NuxtLink></Button>
+            <DropdownMenuRoot :modal="false">
+              <DropdownMenuTrigger as-child><Button size="sm" variant="ghost" aria-label="更多操作" title="更多操作" :disabled="!detail"><MoreHorizontal :size="18" aria-hidden="true" /></Button></DropdownMenuTrigger>
+              <DropdownMenuPortal><DropdownMenuContent class="archive-ui plugin-more-menu" align="end" :side-offset="6" :collision-padding="8">
+                <DropdownMenuItem class="plugin-more-item" @select="openReport"><Flag :size="14" aria-hidden="true" />举报插件</DropdownMenuItem>
+              </DropdownMenuContent></DropdownMenuPortal>
+            </DropdownMenuRoot>
+          </div>
+          <p v-if="showPending || copyDisabled" class="plugin-action-note">{{ showPending ? '待审核代码仅供预览，暂不能复制或下载。' : '完整代码超过 100 KiB，仅支持下载。' }}</p>
         </div>
-        <div class="tag-row">
-          <span v-for="tag in displayTags" :key="tag.id" class="tag">{{ tag.name }}</span>
-        </div>
-      </div>
-      <PluginRequestLevelBadge v-if="displayVersion" :level="displayVersion.final_request_level" />
-    </header>
+      </header>
 
-    <div v-if="detail.can_claim" class="claim-banner" role="status">
-      <div>
-        <strong>此插件可能为你所有</strong>
-        <p>原文章作者与你绑定的洛谷账号一致，认领后可管理和更新此插件。</p>
-        <p v-if="claimError" class="claim-error">{{ claimError }}</p>
-      </div>
-      <button type="button" class="archive-action-button" :disabled="claiming" @click="claimPlugin">
-        {{ claiming ? '认领中…' : '认领' }}
-      </button>
+      <aside class="plugin-versions" aria-label="代码版本">
+        <div class="archive-card plugin-version-panel">
+          <h2><Clock3 :size="18" aria-hidden="true" />代码版本</h2>
+          <p v-if="loading" class="plugin-muted" role="status">正在加载版本…</p>
+          <template v-else-if="detail">
+            <div class="plugin-version-mobile"><Select aria-label="代码版本" :model-value="selectedVersionKey" :options="versionOptions" :disabled="versionLoading" @change="selectVersion" /></div>
+            <ol class="plugin-timeline">
+              <li v-if="detail.pending_application"><button type="button" :class="{ selected: showPending }" :aria-current="showPending ? 'true' : undefined" :disabled="versionLoading" @click="selectVersion('pending')"><span class="plugin-version-dot" aria-hidden="true" /><span>v{{ detail.pending_application.snapshot.version }}</span><small>待审核 · 仅授权用户可见</small></button></li>
+              <li v-for="version in detail.versions" :key="version.id"><button type="button" :class="{ selected: !showPending && selectedVersion?.id === version.id }" :aria-current="!showPending && selectedVersion?.id === version.id ? 'true' : undefined" :disabled="versionLoading" @click="selectVersion(String(version.id))"><span class="plugin-version-dot" aria-hidden="true" /><span>v{{ version.version }}<small v-if="version.is_current" class="plugin-latest">最新</small></span><time v-if="version.published_at" :datetime="version.published_at">{{ format(version.published_at, 'YYYY/M/D HH:mm') }}</time></button></li>
+            </ol>
+            <p v-if="!versionOptions.length" class="plugin-muted">暂无代码版本</p>
+          </template>
+          <p v-else class="plugin-muted">版本暂不可用</p>
+          <p v-if="versionLoading" class="plugin-version-status" role="status"><LoaderCircle :size="14" class="plugin-spinner" aria-hidden="true" />正在读取版本…</p>
+          <p v-if="versionError" class="plugin-error" role="alert">{{ versionError }}</p>
+        </div>
+      </aside>
+
+      <main class="plugin-content">
+        <div v-if="loading" class="archive-card plugin-state" role="status">正在读取插件…</div>
+        <div v-else-if="errorText" class="archive-card plugin-state" role="alert"><h2>无法读取插件</h2><p>{{ errorText }}</p><Button variant="outline" size="sm" @click="load"><RefreshCw :size="14" aria-hidden="true" />重新读取</Button></div>
+        <template v-else-if="detail && article">
+          <div v-if="detail.can_claim" class="plugin-notice"><div><strong>此插件可能为你所有</strong><p>文章作者与你绑定的洛谷账号一致，认领后可管理和更新。</p><p v-if="claimError" class="plugin-error" role="alert">{{ claimError }}</p></div><Button size="sm" variant="outline" :disabled="claiming" @click="claimPlugin">{{ claiming ? '认领中…' : '认领' }}</Button></div>
+          <div v-if="detail.pending_application" class="plugin-notice"><div><strong>{{ showPending ? '正在预览待审核版本 v' + detail.pending_application.snapshot.version : '你有一个待审核的更新' }}</strong><p>{{ showPending ? '此预览仅授权用户可见，审核通过前不会替换公开版本。' : '当前查看的是已审核代码，待审核内容尚未公开。' }}</p></div><Button v-if="!showPending || detail.current" size="sm" variant="outline" :disabled="versionLoading" @click="selectVersion(showPending && detail.current ? String(detail.current.id) : 'pending')">{{ showPending ? '查看正式版' : '查看待审核版' }}</Button></div>
+          <div v-if="!detail.is_listed" class="plugin-notice plugin-warning" role="status"><div><strong>插件已下架</strong><p>{{ detail.down_reason || '该插件暂不在广场公开展示。' }}</p></div></div>
+          <Tabs v-model="activeTab" class="plugin-content-tabs">
+            <nav class="plugin-tabbar" aria-label="插件内容">
+              <TabsList aria-label="插件内容"><TabsTrigger value="article"><FileText :size="15" aria-hidden="true" />插件介绍</TabsTrigger><TabsTrigger value="code"><Code2 :size="15" aria-hidden="true" />代码</TabsTrigger><TabsTrigger value="analysis"><ShieldCheck :size="15" aria-hidden="true" />请求分析</TabsTrigger></TabsList>
+              <a class="plugin-original" :href="'/article/' + articleId" target="_blank" rel="noopener noreferrer">原文<ExternalLink :size="13" aria-hidden="true" /></a>
+            </nav>
+            <TabsContent value="article" class="archive-card plugin-reading">
+              <ArticleAdminNote :note="article.admin_note" />
+              <p v-if="article.content_md && !articleHtml" class="plugin-muted" role="status">正在渲染介绍…</p>
+              <article v-else ref="articleRef" class="lg-content plugin-markdown" v-html="articleHtml" />
+              <p v-if="!article.content_md" class="plugin-muted">暂无插件介绍</p>
+            </TabsContent>
+            <TabsContent value="code" class="archive-card plugin-code-panel" :aria-busy="versionLoading">
+              <template v-if="displayVersion">
+                <header class="plugin-code-heading"><h2>源代码 <span>v{{ displayVersion.version }}</span></h2><span>{{ codeSize(displayVersion.code_bytes) }}</span></header>
+                <p v-if="codePreview.truncated" class="plugin-code-notice" role="status">代码已截断显示：最多 1,000 行且不超过 50 KiB，完整代码未被修改。</p>
+                <pre v-if="codePreview.code" class="plugin-code-view" tabindex="0" aria-label="源代码预览"><code>{{ codePreview.code }}</code></pre>
+                <p v-else class="plugin-muted">此版本没有代码内容</p>
+                <details class="plugin-technical"><summary>技术详情<ChevronDown :size="14" aria-hidden="true" /></summary><dl><div><dt>文件名</dt><dd>{{ displayVersion.download_filename }}</dd></div><div><dt>代码大小</dt><dd>{{ codeSize(displayVersion.code_bytes) }}</dd></div><div><dt>SHA-256</dt><dd><code>{{ displayVersion.code_sha256 }}</code></dd></div></dl></details>
+              </template>
+              <p v-else class="plugin-muted">暂无可查看的代码版本</p>
+            </TabsContent>
+            <TabsContent value="analysis" class="archive-card plugin-analysis">
+              <template v-if="displayVersion">
+                <section><h2>上传者请求分析</h2><div class="plugin-analysis-level"><span>用户提交等级</span><PluginRequestLevelBadge :level="displayVersion.user_request_level" /></div><div v-if="displayVersion.user_request_analysis" class="lg-content" v-html="userAnalysisHtml" /><p v-else class="plugin-muted">上传者未填写请求分析。</p></section>
+                <section v-if="displayVersion.admin_request_level !== null || displayVersion.admin_request_analysis"><h2>管理组请求分析</h2><div v-if="displayVersion.admin_request_level !== null" class="plugin-analysis-level"><span>管理员调整后的显示等级</span><PluginRequestLevelBadge :level="displayVersion.admin_request_level" /></div><div v-if="displayVersion.admin_request_analysis" class="lg-content" v-html="adminAnalysisHtml" /><p v-else class="plugin-muted">管理组未补充文字分析。</p></section>
+              </template>
+              <p v-else class="plugin-muted">暂无请求分析</p>
+            </TabsContent>
+          </Tabs>
+        </template>
+      </main>
+
+      <aside class="plugin-sidebar" aria-label="插件信息">
+        <div class="plugin-sidebar-stack">
+          <details class="archive-card plugin-info" :open="infoOpen" @toggle="infoOpen = ($event.target as HTMLDetailsElement).open">
+            <summary><Info :size="18" aria-hidden="true" /><h2>插件信息</h2><ChevronDown :size="14" class="plugin-info-chevron" aria-hidden="true" /></summary>
+            <template v-if="displayVersion"><div class="plugin-info-level"><span class="plugin-label">请求等级</span><PluginRequestLevelBadge :level="displayVersion.final_request_level" /></div><dl><div><dt>运行方式</dt><dd>{{ runtimeMode(displayVersion.runtime_mode) }}</dd></div><div><dt>兼容设备</dt><dd>{{ compatibility }}</dd></div><div v-if="detail?.total_usage !== undefined"><dt>累计使用</dt><dd>{{ detail.total_usage }}</dd></div></dl></template>
+            <p v-else class="plugin-muted">{{ loading ? '正在读取…' : '暂无版本信息' }}</p>
+          </details>
+          <ArchiveDocumentToc v-if="activeTab === 'article' && !loading" :content="articleRef" />
+        </div>
+      </aside>
     </div>
-
-    <div v-if="detail.pending_application" class="pending-banner">
-      <div>
-        <strong>当前显示的是待审核版本 v{{ detail.pending_application.snapshot.version }}</strong>
-        <p>此版本仅你和管理员可见，公开页面仍展示上一个已审核版本。</p>
-      </div>
-      <button
-        v-if="detail.current"
-        type="button"
-        class="archive-action-button"
-        @click="showPending = !showPending; selectedVersion = detail.current"
-      >{{ showPending ? '切到已审核代码' : '查看待审核代码' }}</button>
-    </div>
-
-    <div v-if="!detail.is_listed" class="down-banner">
-      <strong>插件已下架</strong>
-      <span>{{ detail.down_reason || '该插件暂不在广场公开展示。' }}</span>
-    </div>
-
-    <nav class="tabs" aria-label="插件内容">
-      <div class="tab-options">
-        <button type="button" :class="{ active: activeTab === 'article' }" @click="activeTab = 'article'">原文</button>
-        <button type="button" :class="{ active: activeTab === 'code' }" @click="activeTab = 'code'">代码</button>
-        <button type="button" :class="{ active: activeTab === 'analysis' }" @click="activeTab = 'analysis'">请求分析</button>
-      </div>
-      <div class="article-links">
-        <NuxtLink v-if="article.version_count > 1" :to="`/article/${articleId}/history`">历史版本</NuxtLink>
-        <a :href="`https://www.luogu.com.cn/article/${articleId}`" target="_blank" rel="noopener noreferrer">洛谷原文</a>
-      </div>
-    </nav>
-
-    <section v-if="activeTab === 'article'" class="tab-content article-tab">
-      <ArticleAdminNote :note="article.admin_note" />
-      <article ref="articleRef" class="lg-content" v-html="articleHtml" />
-    </section>
-
-    <section v-else-if="activeTab === 'code' && displayVersion" class="tab-content code-tab">
-      <div class="code-toolbar">
-        <div class="version-picker">
-          <label for="plugin-version">代码版本</label>
-          <select
-            id="plugin-version"
-            :value="showPending ? 'pending' : String(displayVersion.id)"
-            @change="selectVersion(($event.target as HTMLSelectElement).value)"
-          >
-            <option v-if="showPending" value="pending">v{{ displayVersion.version }} · 待审核</option>
-            <option v-for="version in detail.versions" :key="version.id" :value="String(version.id)">
-              v{{ version.version }}{{ version.is_current ? ' · 当前正式版' : '' }}
-            </option>
-          </select>
-          <span v-if="displayVersion.published_at">发布于 {{ format(displayVersion.published_at) }}</span>
-        </div>
-        <div class="code-actions">
-          <button
-            type="button"
-            class="archive-action-button"
-            :disabled="copyDisabled"
-            :title="copyDisabled ? '完整代码超过 100 KiB，仅支持下载' : '复制代码'"
-            @click="openInstall('copy')"
-          >复制代码</button>
-          <button type="button" class="archive-action-button" title="下载代码" @click="openInstall('download')">下载文件</button>
-        </div>
-      </div>
-      <div v-if="codePreview.truncated" class="code-truncation" role="status">
-        <strong>代码较长，已截断显示</strong>
-        <span>页面最多展示前 1000 行且不超过 50 KiB，完整代码未被修改。</span>
-      </div>
-      <div v-if="copyDisabled" class="copy-restriction" role="status">
-        <strong>复制已禁用</strong>
-        <span>完整代码超过 100 KiB，请下载文件。</span>
-      </div>
-      <pre class="code-view"><code>{{ codePreview.code }}</code></pre>
-      <dl class="compat-grid">
-        <div><dt>运行方式</dt><dd>{{ runtimeMode(displayVersion.runtime_mode) }}</dd></div>
-        <div><dt>兼容设备</dt><dd>{{ [displayVersion.supports_desktop ? '桌面端' : '', displayVersion.supports_mobile ? '移动端' : ''].filter(Boolean).join('、') }}</dd></div>
-        
-        <div><dt>下载次数</dt><dd>{{ displayVersion.download_count ?? 0 }}</dd></div>
-        
-        <div><dt>最后验证</dt><dd>{{ displayVersion.last_verified_on }}</dd></div>
-        <div><dt>SHA-256</dt><dd><code>{{ displayVersion.code_sha256 }}</code></dd></div>
-      </dl>
-    </section>
-
-    <section v-else-if="activeTab === 'analysis' && displayVersion" class="tab-content analysis-tab">
-      <div class="level-comparison" :class="{ single: displayVersion.admin_request_level === null }">
-        <div><span>用户提交等级</span><PluginRequestLevelBadge :level="displayVersion.user_request_level" /></div>
-        <div v-if="displayVersion.admin_request_level !== null">
-          <span>管理员更改等级</span>
-          <PluginRequestLevelBadge :level="displayVersion.admin_request_level" />
-        </div>
-      </div>
-      <section>
-        <h2>上传者请求分析</h2>
-        <div class="lg-content analysis-content" v-html="userAnalysisHtml" />
-      </section>
-      <section v-if="displayVersion.admin_request_analysis">
-        <h2>管理组请求分析</h2>
-        <div class="lg-content analysis-content" v-html="adminAnalysisHtml" />
-      </section>
-    </section>
-
-    <footer class="detail-footer">
-      <span>文章编号 {{ articleId }}</span>
-      <div>
-        <NuxtLink v-if="detail.is_owner" :to="`/plugin/submit?article_id=${articleId}`" class="archive-action-button">提交更新</NuxtLink>
-        <button type="button" class="archive-action-button" @click="reportOpen = !reportOpen">举报插件</button>
-      </div>
-    </footer>
-
-    <form v-if="reportOpen" class="report-form" @submit.prevent="submitReport">
-      <h2>举报插件</h2>
-      <select v-model="reportType">
-        <option value="dangerous_request">危险请求</option>
-        <option value="malicious_code">恶意代码</option>
-        <option value="broken">失效</option>
-        <option value="copyright">侵权</option>
-        <option value="misleading">信息不实</option>
-        <option value="other">其他</option>
-      </select>
-      <textarea v-model.trim="reportDescription" minlength="10" maxlength="5000" rows="5" placeholder="请至少填写 10 个字的具体说明" required />
-      <button type="submit" class="archive-action-button">提交举报</button>
-    </form>
-
-    <p v-if="toast" class="toast">{{ toast }}</p>
-    <PluginInstallConfirm
-      v-if="displayVersion"
-      :open="confirmOpen"
-      :article-id="articleId"
-      :plugin-name="displayName"
-      :version="displayVersion"
-      :action="action"
-      :public-download="detail.is_listed"
-      @close="confirmOpen = false"
-      @done="showToast"
-      @analysis="activeTab = 'analysis'; confirmOpen = false"
-    />
+    <p v-if="toast" class="plugin-toast" role="status">{{ toast }}</p>
+    <Dialog :open="reportOpen" title="举报插件" description="请说明具体问题，帮助管理员核实。" :locked="reporting" @update:open="reportOpen = $event">
+      <form id="plugin-report-form" class="plugin-report-fields" @submit.prevent="submitReport"><label for="plugin-report-type">举报类型</label><Select id="plugin-report-type" v-model="reportType" :options="reportOptions" :disabled="reporting" /><label for="plugin-report-description">具体说明</label><Textarea id="plugin-report-description" v-model="reportDescription" :disabled="reporting" minlength="10" maxlength="5000" rows="6" placeholder="请至少填写 10 个字的具体说明" required :aria-invalid="Boolean(reportError)" :aria-describedby="reportError ? 'plugin-report-error' : undefined" /><p v-if="reportError" id="plugin-report-error" class="plugin-error" role="alert">{{ reportError }}</p></form>
+      <template #footer><Button variant="outline" :disabled="reporting" @click="reportOpen = false">取消</Button><Button type="submit" form="plugin-report-form" class="plugin-primary" :disabled="reporting"><Flag :size="14" aria-hidden="true" />{{ reporting ? '正在提交…' : '提交举报' }}</Button></template>
+    </Dialog>
+    <PluginInstallConfirm v-if="displayVersion && detail" :key="selectedVersionKey" :open="confirmOpen" :article-id="articleId" :plugin-name="displayName" :version="displayVersion" :action="action" :public-download="detail.is_listed" @close="confirmOpen = false" @done="showToast" @analysis="activeTab = 'analysis'; confirmOpen = false" />
   </div>
 </template>
 
 <style scoped>
-.plugin-detail { display: grid; gap: 18px; }
-.plugin-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; min-height: 130px; box-sizing: border-box; padding: 24px 28px; border: 1px solid var(--hero-border); border-radius: 8px; background: var(--hero-bg); }
-.header-main { min-width: 0; }
-.title-line { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; }
-.title-line h1 { margin: 0; font-size: 29px; overflow-wrap: anywhere; }
-.meta-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; color: var(--text-muted); font-size: 14px; }
-.meta-author { display: inline-flex; align-items: center; gap: 8px; }
-.author-avatar { display: inline-flex; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; text-decoration: none; }
-.author-avatar img, .author-avatar > span { width: 100%; height: 100%; }
-.author-avatar img { display: block; object-fit: cover; background: var(--bg); }
-.author-avatar > span { display: grid; place-items: center; background: var(--lg-gray); color: #fff; font-weight: 600; }
-.author-avatar > span[data-color="Blue"] { background: var(--lg-blue); }
-.author-avatar > span[data-color="Green"] { background: var(--lg-green); }
-.author-avatar > span[data-color="Orange"] { background: var(--lg-orange); }
-.author-avatar > span[data-color="Red"] { background: var(--lg-red); }
-.author-avatar > span[data-color="Purple"] { background: var(--lg-purple); }
-.author-avatar > span[data-color="Cyan"] { background: var(--lg-cyan); }
-.author-avatar > span[data-color="Black"] { background: var(--lg-black); }
-.author-avatar > span[data-color="Cheater"] { background: var(--lg-cheater-tag); }
-.meta-separator { color: var(--text-muted); }
-.meta-item { white-space: nowrap; }
-.trust, .tag { border-radius: 4px; padding: 2px 8px; font-size: 12px; }
-.official { background: var(--lg-blue); color: #fff; }
-.recommended { background: var(--lg-yellow); color: #332800; }
-.tag-row { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
-.tag { border: 1px solid var(--border); color: var(--text-muted); }
-.pending-banner, .down-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-left: 4px solid var(--lg-orange); background: var(--surface); }
-.pending-banner p { margin: 3px 0 0; color: var(--text-muted); font-size: 13px; }
-.pending-banner button { flex-shrink: 0; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 7px 11px; cursor: pointer; }
-.claim-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 13px 16px; border-left: 4px solid var(--link); background: var(--surface); }
-.claim-banner p { margin: 3px 0 0; color: var(--text-muted); font-size: 13px; }
-.claim-banner .claim-error { color: var(--lg-red); }
-.claim-banner button { flex-shrink: 0; }
-.down-banner { justify-content: flex-start; border-left-color: var(--lg-red); }
-.tabs { display: flex; align-items: flex-end; justify-content: space-between; gap: 22px; border-bottom: 1px solid var(--border); }
-.tab-options { display: flex; gap: 22px; }
-.tabs button { border: 0; border-bottom: 3px solid transparent; background: transparent; color: var(--text-muted); padding: 10px 3px; font: inherit; font-size: 16px; cursor: pointer; }
-.tabs button.active { border-bottom-color: var(--link); color: var(--link); font-weight: 600; }
-.article-links { display: flex; align-items: center; gap: 14px; padding: 10px 3px 12px; white-space: nowrap; font-size: 14px; }
-.tab-content { min-width: 0; padding: 22px 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.code-toolbar { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
-.version-picker { display: grid; grid-template-columns: auto minmax(150px, 250px); align-items: center; gap: 6px 10px; }
-.version-picker > span { grid-column: 2; color: var(--text-muted); font-size: 12px; }
-select, textarea { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 8px 10px; font: inherit; }
-.code-actions { display: flex; gap: 9px; }
-.code-actions button, .detail-footer button, .report-form button { border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); padding: 7px 11px; cursor: pointer; font: inherit; }
-.report-form button { border-color: var(--link); background: var(--link); color: #fff; }
-.code-actions button:disabled { border-color: var(--border); background: var(--hover); color: var(--text-muted); cursor: not-allowed; opacity: .7; }
-.code-truncation { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; padding: 10px 12px; border-left: 4px solid var(--lg-yellow); background: color-mix(in srgb, var(--lg-yellow) 10%, var(--surface)); }
-.code-truncation strong { font-size: 14px; }
-.code-truncation span { color: var(--text-muted); font-size: 13px; }
-.copy-restriction { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 10px; padding: 10px 12px; border-left: 4px solid var(--lg-red); background: color-mix(in srgb, var(--lg-red) 8%, var(--surface)); }
-.copy-restriction strong { font-size: 14px; }
-.copy-restriction span { color: var(--text-muted); font-size: 13px; }
-.compat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 18px 0 0; border-top: 1px solid var(--border); border-left: 1px solid var(--border); }
-.compat-grid > div { min-width: 0; padding: 11px 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-.compat-grid .wide { grid-column: 1 / -1; }
-.compat-grid dt { color: var(--text-muted); font-size: 12px; }
-.compat-grid dd { margin: 3px 0 0; overflow-wrap: anywhere; }
-.compat-grid code { font-size: 11px; }
-.code-view { max-height: 620px; overflow: auto; margin: 0; padding: 16px; border-radius: 6px; background: var(--hover); font-size: 13px; line-height: 1.55; white-space: pre; }
-.level-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-bottom: 28px; background: var(--border); border: 1px solid var(--border); }
-.level-comparison.single { grid-template-columns: minmax(0, 1fr); }
-.level-comparison > div { display: grid; align-content: center; justify-items: start; gap: 8px; min-height: 82px; padding: 13px; background: var(--surface); }
-.level-comparison span { color: var(--text-muted); font-size: 13px; }
-.analysis-tab > section + section { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); }
-.analysis-tab h2 { margin: 0 0 13px; font-size: 19px; }
-.analysis-content { min-height: 40px; }
-.detail-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--text-muted); font-size: 13px; }
-.detail-footer > div { display: flex; align-items: center; gap: 12px; }
-.report-form { display: grid; grid-template-columns: 180px minmax(0, 1fr) auto; align-items: start; gap: 10px; padding: 16px; border: 1px solid var(--border); background: var(--surface); }
-.report-form h2 { grid-column: 1 / -1; margin: 0 0 4px; font-size: 18px; }
-.report-form textarea { resize: vertical; }
-.toast { position: fixed; z-index: 900; left: 50%; bottom: 28px; transform: translateX(-50%); margin: 0; padding: 9px 15px; border-radius: 6px; background: #222; color: #fff; box-shadow: 0 8px 24px rgba(0,0,0,.24); }
-.error-box { padding: 36px; border: 1px solid var(--border); color: var(--lg-red); text-align: center; }
+:global(html:has(.plugin-page)), :global(body:has(.plugin-page)) { overflow-x: clip; }
+:global(html:has(.plugin-page)) { scrollbar-gutter: stable; }
+.plugin-page { width: min(100%, 1380px); min-width: 0; margin: 0 auto; }
+.plugin-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr) 220px; grid-template-areas: 'versions heading info' 'versions content info'; gap: 16px; align-items: start; min-width: 0; }
+.plugin-heading { grid-area: heading; display: grid; gap: 16px; min-width: 0; }
+.plugin-title-block { display: block; padding: 22px 24px; }
+.plugin-title-block h1 { margin: 0 0 18px; font-size: 28px; line-height: 1.4; font-weight: 600; overflow-wrap: anywhere; }
+.plugin-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; font-size: 13px; }
+.plugin-author { display: flex; gap: 10px; align-items: center; min-width: 0; margin-right: auto; }
+.plugin-author > a:first-child { display: inline-flex; flex: 0 0 36px; width: 36px; height: 36px; overflow: hidden; border-radius: 50%; text-decoration: none; }
+.plugin-author-name, .plugin-published { display: grid; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+.plugin-author :deep(.lg-user-wrap) { flex-wrap: wrap; }
+.plugin-avatar { display: block; width: 36px; height: 36px; border-radius: 50%; object-fit: cover; }
+.plugin-avatar-fallback { display: grid; place-items: center; background: var(--hover); color: var(--text-muted); }
+.plugin-label, .plugin-muted { color: var(--text-muted); font-size: 13px; }
+.plugin-label { font-size: 12px; }
+.plugin-tags { margin-top: 14px; }
+.plugin-toolbar { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 10px; padding: 12px 20px; }
+.plugin-updated { margin-right: auto; color: var(--text-muted); font-size: 12px; }
+.plugin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-left: auto; }
+.plugin-page .plugin-primary, :global(.archive-ui .plugin-primary) { background: var(--link); color: #fff; }
+.plugin-page .plugin-primary:hover, :global(.archive-ui .plugin-primary:hover) { background: color-mix(in srgb, var(--link) 88%, #000); color: #fff; }
+.plugin-action-note { flex-basis: 100%; margin: 0; color: var(--text-muted); font-size: 12px; }
+.plugin-versions { grid-area: versions; align-self: stretch; min-width: 0; }
+.plugin-version-panel { position: sticky; top: 18px; display: block; padding: 20px; max-height: calc(100vh - 36px); overflow-y: auto; scrollbar-width: thin; }
+.plugin-version-panel h2 { display: flex; align-items: center; gap: 9px; margin: 0 0 20px; font-size: 15px; font-weight: 600; }
+.plugin-version-panel h2 svg, .plugin-info summary > svg { color: var(--text-muted); flex-shrink: 0; }
+.plugin-timeline { list-style: none; margin: 0; padding: 0; }
+.plugin-timeline li { position: relative; padding-left: 24px; }
+.plugin-timeline li:not(:last-child)::before { content: ''; position: absolute; left: 6px; top: 10px; bottom: -10px; width: 1px; background: var(--border); }
+.plugin-timeline button { position: relative; display: grid; gap: 5px; width: 100%; border: 0; padding: 0 0 22px; background: transparent; color: var(--text); text-align: left; font: inherit; font-size: 13px; cursor: pointer; overflow-wrap: anywhere; }
+.plugin-timeline li:last-child button { padding-bottom: 0; }
+.plugin-timeline button:disabled { opacity: .55; cursor: wait; }
+.plugin-timeline button:focus-visible, .plugin-info summary:focus-visible { outline: 2px solid var(--link); outline-offset: 4px; }
+.plugin-timeline time, .plugin-timeline small { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.plugin-latest { margin-left: 8px; }
+.plugin-version-dot { position: absolute; left: -24px; top: 3px; width: 14px; height: 14px; border: 2px solid var(--text-muted); border-radius: 50%; background: var(--surface); }
+.plugin-timeline .selected { color: var(--link); }
+.plugin-timeline .selected .plugin-version-dot { border-color: var(--link); }
+.plugin-version-mobile { display: none; }
+.plugin-version-status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.plugin-content { grid-area: content; display: grid; gap: 16px; min-width: 0; }
+.plugin-content-tabs { min-width: 0; }
+.plugin-tabbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--border); }
+.plugin-tabbar :deep(.archive-tabs-list) { display: flex; gap: 16px; padding: 0; border-radius: 0; background: transparent; min-width: 0; }
+.plugin-tabbar :deep(.archive-tabs-trigger) { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 8px 0; border-radius: 0; border-bottom: 2px solid transparent; color: var(--text-muted); white-space: nowrap; background: transparent; box-shadow: none; }
+.plugin-tabbar :deep(.archive-tabs-trigger[data-state=active]) { border-bottom-color: var(--link); color: var(--link); }
+.plugin-original { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; font-size: 12px; text-decoration: none; }
+.plugin-reading, .plugin-code-panel, .plugin-analysis { display: block; min-width: 0; padding: 24px; margin: 0; }
+.plugin-content-tabs :deep(.archive-tabs-content[hidden]) { display: none; }
+.plugin-markdown { min-width: 0; overflow-wrap: anywhere; }
+.plugin-code-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.plugin-code-heading h2 { margin: 0; font-size: 16px; }
+.plugin-code-heading > span, .plugin-code-heading h2 span { color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.plugin-code-heading h2 span { margin-left: 6px; }
+.plugin-code-notice { margin: 0 0 14px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 4px; background: var(--hover); color: var(--text-muted); font-size: 13px; }
+.plugin-code-view { max-height: 640px; overflow: auto; margin: 0; padding: 16px; background: var(--hover); border-radius: 4px; font-size: 12px; line-height: 1.65; tab-size: 2; white-space: pre; scrollbar-width: thin; }
+.plugin-code-view:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.plugin-technical { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); font-size: 13px; }
+.plugin-technical summary { display: flex; justify-content: space-between; align-items: center; cursor: pointer; list-style: none; color: var(--text-muted); }
+.plugin-technical summary::-webkit-details-marker, .plugin-info summary::-webkit-details-marker { display: none; }
+.plugin-technical[open] summary svg { transform: rotate(180deg); }
+.plugin-technical dl { display: grid; gap: 12px; margin: 16px 0 0; }
+.plugin-technical dt { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+.plugin-technical dd { margin: 0; overflow-wrap: anywhere; }
+.plugin-technical code { font-size: 11px; }
+.plugin-analysis h2 { font-size: 17px; margin: 0 0 16px; }
+.plugin-analysis > section + section { margin-top: 28px; padding-top: 24px; border-top: 1px solid var(--border); }
+.plugin-analysis-level { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; font-size: 13px; color: var(--text-muted); }
+.plugin-sidebar { grid-area: info; align-self: stretch; min-width: 0; }
+.plugin-sidebar-stack { position: sticky; top: 18px; display: grid; gap: 16px; max-height: calc(100vh - 36px); overflow-y: auto; scrollbar-width: thin; }
+.plugin-info { display: block; padding: 20px; }
+.plugin-info summary { display: flex; align-items: center; gap: 9px; list-style: none; cursor: pointer; }
+.plugin-info h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.plugin-info-chevron { margin-left: auto; }
+.plugin-info[open] .plugin-info-chevron { transform: rotate(180deg); }
+.plugin-info-level { display: grid; justify-items: start; gap: 8px; margin: 20px 0; }
+.plugin-info dl { display: grid; gap: 14px; margin: 0; font-size: 13px; }
+.plugin-info dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; }
+.plugin-info dt { color: var(--text-muted); }
+.plugin-info dd { margin: 0; overflow-wrap: anywhere; }
+.plugin-sidebar-stack :deep(.document-toc-nav) { max-height: none; overflow: visible; }
+.plugin-sidebar-stack :deep(.document-toc-nav a) { font-size: 12px; }
+.plugin-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); font-size: 13px; }
+.plugin-notice strong { font-weight: 600; }
+.plugin-notice p { color: var(--text-muted); margin: 6px 0 0; line-height: 1.6; }
+.plugin-warning strong, .plugin-error, .plugin-notice .plugin-error { color: var(--lg-red); }
+.plugin-error { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.plugin-state { display: block; padding: 28px 24px; min-height: 180px; font-size: 14px; }
+.plugin-state h2 { margin: 0 0 12px; font-size: 18px; }
+.plugin-state > button { margin-top: 12px; }
+.plugin-report-fields { display: grid; gap: 10px; font-size: 14px; }
+.plugin-report-fields label:not(:first-child) { margin-top: 8px; }
+.plugin-report-fields p { margin: 0; }
+.plugin-toast { position: fixed; z-index: 1100; bottom: 24px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100vw - 32px); margin: 0; padding: 12px 18px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); box-shadow: 0 6px 20px #0002; font-size: 13px; overflow-wrap: anywhere; }
+:global(.plugin-more-menu) { min-width: 150px; z-index: 100; padding: 5px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); box-shadow: 0 6px 18px #0002; transform-origin: var(--reka-dropdown-menu-content-transform-origin); }
+:global(.plugin-more-menu[data-state=open]) { animation: plugin-menu-in 160ms cubic-bezier(.16, 1, .3, 1) both; }
+:global(.plugin-more-menu[data-state=closed]) { animation: plugin-menu-out 100ms ease-in both; pointer-events: none; }
+:global(.plugin-more-item) { display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-radius: 4px; cursor: pointer; outline: none; font-size: 13px; }
+:global(.plugin-more-item[data-highlighted]) { background: var(--hover); color: var(--link); }
+.plugin-spinner { animation: plugin-spin 1s linear infinite; }
+@keyframes plugin-spin { to { transform: rotate(360deg); } }
+@keyframes plugin-menu-in { from { opacity: 0; transform: translateY(-4px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes plugin-menu-out { from { opacity: 1; transform: translateY(0) scale(1); } to { opacity: 0; transform: translateY(-2px) scale(.98); } }
+@media (prefers-reduced-motion: reduce) { .plugin-spinner { animation: none; } :global(.plugin-more-menu[data-state]) { animation: none; } }
+@media (max-width: 1150px) {
+  .plugin-layout { grid-template-columns: 190px minmax(0, 1fr); grid-template-areas: 'versions heading' 'versions info' 'versions content'; }
+  .plugin-sidebar-stack { position: static; max-height: none; overflow: visible; }
+  .plugin-sidebar-stack :deep(.document-toc-nav) { display: none; }
+  .plugin-info dl { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 760px) {
-  .plugin-header, .pending-banner, .claim-banner, .code-toolbar, .detail-footer { align-items: flex-start; flex-direction: column; }
-  .tabs { align-items: stretch; flex-direction: column; gap: 0; }
-  .tab-options { overflow-x: auto; }
-  .article-links { align-self: flex-end; padding-top: 7px; }
-  .compat-grid, .level-comparison { grid-template-columns: 1fr; }
-  .compat-grid .wide { grid-column: auto; }
-  .report-form { grid-template-columns: 1fr; }
-  .report-form h2 { grid-column: auto; }
-  .tab-content { padding: 17px 15px; }
+  .plugin-layout { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'heading' 'versions' 'info' 'content'; gap: 12px; }
+  .plugin-heading { gap: 12px; }
+  .plugin-title-block, .plugin-reading, .plugin-analysis, .plugin-code-panel { padding: 20px 16px; }
+  .plugin-title-block h1 { font-size: 24px; }
+  .plugin-meta { gap: 16px 24px; }
+  .plugin-author { flex-basis: 100%; }
+  .plugin-toolbar { padding: 12px 16px; }
+  .plugin-version-panel { position: static; max-height: none; padding: 16px; }
+  .plugin-version-panel h2 { margin-bottom: 12px; }
+  .plugin-version-mobile { display: block; }
+  .plugin-timeline { display: none; }
+  .plugin-info { padding: 16px; }
+  .plugin-info dl { grid-template-columns: minmax(0, 1fr); }
+  .plugin-tabbar { flex-wrap: wrap; gap: 4px 12px; }
+  .plugin-tabbar :deep(.archive-tabs-list) { gap: 14px; flex-wrap: wrap; }
+  .plugin-tabbar :deep(.archive-tabs-trigger) { font-size: 13px; }
+  .plugin-original { margin-left: auto; margin-bottom: 8px; }
+  .plugin-actions { margin-left: 0; }
+  .plugin-updated { flex-basis: 100%; }
 }
 </style>

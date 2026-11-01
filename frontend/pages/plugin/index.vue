@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, BadgeCheck, Filter, FolderOpen, LayoutGrid, Plus, RefreshCw, RotateCcw, SlidersHorizontal, Sparkles, Tags } from 'lucide-vue-next'
+import { ArrowRight, Filter, FolderOpen, LayoutGrid, Plus, RefreshCw, RotateCcw, SlidersHorizontal, Tags } from 'lucide-vue-next'
 import { Button, Select } from '~/components/ui'
 import type { PluginTag } from '~/types/plugin'
 
@@ -197,11 +197,7 @@ useHead({ title: '插件广场 - 洛谷档案馆' })
               <NuxtLink v-if="!hasBadges(row)" :to="'/plugin/' + row.article_id" class="detail-link" :aria-label="'查看插件：' + (row.article_title || row.article_id)" title="查看插件"><ArrowRight :size="17" aria-hidden="true" /></NuxtLink>
             </div>
             <footer v-if="hasBadges(row)" class="row-footer">
-              <div class="badges">
-                <span v-if="row.is_official" class="trust official"><BadgeCheck :size="13" aria-hidden="true" />官方插件</span>
-                <span v-if="row.is_recommended" class="trust recommended"><Sparkles :size="13" aria-hidden="true" />推荐插件</span>
-                <span v-for="tag in row.tags" :key="tag.id" class="plugin-tag">{{ tag.name }}</span>
-              </div>
+              <PluginBadges :is-official="row.is_official" :is-recommended="row.is_recommended" :tags="row.tags" />
               <NuxtLink :to="'/plugin/' + row.article_id" class="detail-link" :aria-label="'查看插件：' + (row.article_title || row.article_id)" title="查看插件"><ArrowRight :size="17" aria-hidden="true" /></NuxtLink>
             </footer>
           </article>
@@ -263,12 +259,6 @@ useHead({ title: '插件广场 - 洛谷档案馆' })
 .author-avatar > span { display: grid; place-items: center; background: var(--hover); color: var(--text-muted); }
 .meta-item { overflow-wrap: anywhere; }
 .row-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
-.badges { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; min-width: 0; }
-.trust, .plugin-tag { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 7px; border: 1px solid var(--border); border-radius: 4px; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
-.official { color: var(--link); border-color: color-mix(in srgb, var(--link) 30%, var(--border)); background: color-mix(in srgb, var(--link) 7%, var(--surface)); }
-.recommended { color: var(--text); border-color: color-mix(in srgb, var(--lg-yellow) 65%, var(--border)); background: color-mix(in srgb, var(--lg-yellow) 15%, var(--surface)); }
-.trust svg { flex-shrink: 0; }
-.plugin-tag { color: var(--text-muted); }
 .detail-link { display: grid; place-items: center; width: 30px; height: 30px; flex: 0 0 30px; border-radius: 4px; color: var(--text-muted); }
 .row-meta > .detail-link { margin-left: auto; }
 .detail-link:hover { background: var(--hover); color: var(--link); }
