@@ -12,16 +12,12 @@
  *      不依赖 Nuxt plugin 的加载顺序。
  */
 import dayjs from 'dayjs'
-import 'dayjs/locale/zh-cn'
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
-import relativeTime from 'dayjs/plugin/relativeTime'
 
 // 模块顶层注册插件，幂等
 dayjs.extend(utc)
 dayjs.extend(timezone)
-dayjs.extend(relativeTime)
-dayjs.locale('zh-cn')
 
 const TZ = 'Asia/Shanghai'
 
@@ -35,15 +31,26 @@ export function useTime() {
     const d = toBJ(t)
     return d ? d.format(fmt) : ''
   }
+  function relative(d: any) {
+    const seconds = dayjs().tz(TZ).diff(d, 'second')
+    if (seconds < 45) return '刚刚'
+    const minutes = Math.floor(seconds / 60)
+    if (minutes < 60) return `${minutes} 分钟前`
+    const hours = Math.floor(minutes / 60)
+    if (hours < 24) return `${hours} 小时前`
+    const days = Math.floor(hours / 24)
+    if (days < 30) return `${days} 天前`
+    return d.format('YYYY-MM-DD HH:mm')
+  }
   function fromNow(t: any) {
     const d = toBJ(t)
-    return d ? d.fromNow() : ''
+    return d ? relative(d) : ''
   }
   function smart(t: any) {
     const d = toBJ(t)
     if (!d) return ''
     const now = dayjs().tz(TZ)
-    return now.diff(d, 'hour') < 24 ? d.fromNow() : d.format('YYYY-MM-DD HH:mm')
+    return now.diff(d, 'hour') < 24 ? relative(d) : d.format('YYYY-MM-DD HH:mm')
   }
   return { format, fromNow, smart, toBJ }
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { FilePlus2, FolderOpen, SearchCheck } from 'lucide-vue-next'
 import type { PluginDetail, PluginSnapshot, PluginTag } from '~/types/plugin'
 import { emptyPluginSnapshot } from '~/types/plugin'
 
@@ -38,7 +39,6 @@ function snapshotFromVersion(detail: PluginDetail, fullCode: string): PluginSnap
     admin_request_analysis: null,
   }
 }
-
 async function loadFullCode(path: string): Promise<string> {
   const blob = await api<Blob>(path, { responseType: 'blob' })
   return blob.text()
@@ -72,10 +72,7 @@ async function inspectArticle() {
         snapshot.value = { ...detail.pending_application.snapshot, code: fullCode }
         message.value = '已载入你的待审核申请，可以查看但不能重复提交。'
       } else if (detail.current) {
-        // 编辑时读取现有代码不属于真实安装，避免污染插件使用统计。
-        const fullCode = await loadFullCode(
-          `/plugins/${articleId.value}/download/${detail.current.id}?track_usage=false`,
-        )
+        const fullCode = await loadFullCode(`/plugins/${articleId.value}/download/${detail.current.id}?track_usage=false`)
         snapshot.value = snapshotFromVersion(detail, fullCode)
       }
     } catch (error: any) {
@@ -95,34 +92,16 @@ async function submit() {
     await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
     return
   }
-  if (!article.value) {
-    errorText.value = '请先确认文章编号'
-    return
-  }
-  if (confirmedArticleId.value !== articleId.value) {
-    errorText.value = '文章编号已改变，请重新确认文章'
-    return
-  }
-  if (hasPending.value) {
-    errorText.value = '已有待审核申请，请先等待审核或在“我的插件”中撤销。'
-    return
-  }
-  if (!snapshot.value.supports_desktop && !snapshot.value.supports_mobile) {
-    errorText.value = '至少选择一种兼容设备'
-    return
-  }
+  if (!article.value) { errorText.value = '请先确认文章编号'; return }
+  if (confirmedArticleId.value !== articleId.value) { errorText.value = '文章编号已改变，请重新确认文章'; return }
+  if (hasPending.value) { errorText.value = '已有待审核申请，请先等待审核或在“我的插件”中撤销。'; return }
+  if (!snapshot.value.supports_desktop && !snapshot.value.supports_mobile) { errorText.value = '至少选择一种兼容设备'; return }
   submitting.value = true
   try {
     if (editing.value) {
-      await api(`/plugins/${articleId.value}/applications/update`, {
-        method: 'POST',
-        body: snapshot.value,
-      })
+      await api(`/plugins/${articleId.value}/applications/update`, { method: 'POST', body: snapshot.value })
     } else {
-      await api('/plugins/applications/publish', {
-        method: 'POST',
-        body: { article_id: articleId.value, snapshot: snapshot.value },
-      })
+      await api('/plugins/applications/publish', { method: 'POST', body: { article_id: articleId.value, snapshot: snapshot.value } })
     }
     hasPending.value = true
     submitSucceeded.value = true
@@ -140,7 +119,7 @@ onMounted(async () => {
     await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
     return
   }
-  try { tags.value = await api<PluginTag[]>('/plugins/tags') } catch {}
+  try { tags.value = await api<PluginTag[]>('/plugins/tags') } catch { /* 无标签时仍可提交 */ }
   if (articleId.value) await inspectArticle()
   loading.value = false
 })
@@ -149,63 +128,65 @@ useHead({ title: '提交插件 - 洛谷档案馆' })
 </script>
 
 <template>
-  <LoadingPanel v-if="loading" title="loading……" text="" />
-  <div v-else class="submit-page">
-    <header class="page-head">
-      <div>
-        <h1>{{ editing ? '提交版本更新' : '发布插件' }}</h1>
-        <p>插件原文始终使用文章的最新归档版本，代码作为独立内容提交审核。</p>
-      </div>
-      <NuxtLink to="/plugin/manage" class="archive-action-button">返回我的插件</NuxtLink>
-    </header>
+  <LoadingPanel v-if="loading" variant="detail" title="正在准备提交表单" />
 
-    <section class="article-picker">
-      <label>
-        <span>洛谷文章编号</span>
-        <div class="input-action">
-          <input v-model.trim="articleId" maxlength="16" placeholder="例如 jbekb3o8" :disabled="editing || hasPending">
-          <button type="button" class="archive-action-button" @click="inspectArticle">确认文章</button>
-        </div>
-      </label>
-      <div v-if="article" class="article-result">
-        <strong>{{ article.title }}</strong>
-        <span>文章 {{ article.article_id }} 已收录</span>
+  <div v-else class="page page--medium">
+    <PageHeader
+      :title="editing ? '提交版本更新' : '发布插件'"
+      description="插件原文始终使用文章的最新归档版本，代码作为独立内容提交审核。"
+      eyebrow="Publish"
+    >
+      <template #icon><FilePlus2 :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+      <template #actions>
+        <FButton appearance="outline" @click="navigateTo('/plugin/manage')">
+          <template #start><FolderOpen :size="16" aria-hidden="true" /></template>我的插件
+        </FButton>
+      </template>
+    </PageHeader>
+
+    <section class="card card__body stack">
+      <label for="plugin-article-id" class="field-label">洛谷文章编号</label>
+      <div class="input-row" style="flex-wrap: wrap">
+        <FInput
+          id="plugin-article-id"
+          v-model.trim="articleId"
+          :maxlength="16"
+          placeholder="例如 jbekb3o8"
+          :disabled="editing || hasPending"
+          class="grow"
+          @enter="inspectArticle"
+        />
+        <FButton appearance="outline" :disabled="!articleId" @click="inspectArticle">
+          <template #start><SearchCheck :size="15" aria-hidden="true" /></template>确认文章
+        </FButton>
+      </div>
+      <div v-if="article" class="notice notice--brand">
+        <span><strong>{{ article.title }}</strong> · 文章 {{ article.article_id }} 已收录</span>
       </div>
     </section>
 
-    <p v-if="message" class="message ok" :class="{ submitted: submitSucceeded }" role="status">{{ message }}</p>
-    <p v-if="errorText" class="message error">{{ errorText }}</p>
+    <div v-if="message" class="notice" :class="submitSucceeded ? 'notice--brand' : ''" role="status">{{ message }}</div>
+    <div v-if="errorText" class="notice notice--warn" role="alert">{{ errorText }}</div>
 
-    <form v-if="article && !blocked" class="plugin-form" @submit.prevent="submit">
+    <form v-if="article && !blocked" class="card card__body" @submit.prevent="submit">
       <PluginSnapshotForm v-model="snapshot" :tags="tags" />
       <div class="submit-actions">
-        <span>提交即表示你确认代码和请求说明真实、完整。</span>
-        <button type="submit" class="archive-action-button" :disabled="submitting || hasPending">{{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}</button>
+        <span class="field-help">提交即表示你确认代码和请求说明真实、完整。</span>
+        <FButton type="submit" appearance="primary" :loading="submitting" :disabled="hasPending">
+          {{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}
+        </FButton>
       </div>
     </form>
   </div>
 </template>
 
 <style scoped>
-.submit-page { display: grid; gap: 22px; }
-.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 22px 26px; border: 1px solid var(--hero-border); border-radius: 8px; background: var(--hero-bg); }
-.page-head h1 { margin: 0; font-size: 27px; }
-.page-head p { margin: 7px 0 0; color: var(--text-muted); }
-.article-picker, .plugin-form { padding: 22px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.article-picker { display: grid; gap: 14px; }
-.article-picker label { display: grid; gap: 7px; font-weight: 600; }
-.input-action { display: flex; gap: 9px; }
-.input-action input { flex: 1; min-width: 0; }
-input { box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px; background: var(--surface); color: var(--text); font: inherit; }
-.article-result { display: flex; justify-content: space-between; gap: 12px; color: var(--text-muted); }
-.article-result strong { color: var(--text); }
-.message { margin: 0; padding: 10px 13px; border-left: 3px solid; background: var(--surface); }
-.message.ok { border-color: var(--lg-green); }
-.message.submitted { position: fixed; z-index: 850; left: 50%; bottom: 28px; width: min(560px, calc(100vw - 32px)); box-sizing: border-box; transform: translateX(-50%); border: 1px solid var(--lg-green); border-left-width: 5px; border-radius: 7px; background: var(--surface); color: var(--text); font-size: 15px; font-weight: 600; box-shadow: 0 12px 36px rgba(0, 0, 0, .22); }
-.message.error { border-color: var(--lg-red); color: var(--lg-red); }
-.submit-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
-@media (max-width: 650px) {
-  .page-head, .article-result, .submit-actions { align-items: flex-start; flex-direction: column; }
-  .input-action { flex-direction: column; }
+.submit-actions {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--colorNeutralStroke2);
+  flex-wrap: wrap;
+}
+@media (max-width: 680px) {
+  .submit-actions { align-items: stretch; flex-direction: column; }
 }
 </style>

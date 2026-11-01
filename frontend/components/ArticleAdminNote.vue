@@ -1,29 +1,27 @@
+<!-- 管理组提示独立于文章正文，普通文章页和插件原文使用同一套展示。 -->
 <script setup lang="ts">
-// 管理组提示独立于文章正文，普通文章页和插件原文使用同一套展示。
-const props = defineProps<{ note?: string | null }>()
-const { render } = useMarkdown()
-const html = computed(() => props.note ? render(props.note) : '')
+defineProps<{ note?: string | null }>()
 </script>
 
 <template>
-  <blockquote v-if="note" class="admin-public-comment">
-    <p class="admin-public-comment-title">管理组提示：</p>
-    <div class="lg-content admin-public-comment-content" v-html="html" />
-  </blockquote>
+  <div v-if="note" class="admin-note" role="note">
+    <strong class="admin-note__title">管理组提示</strong>
+    <MarkdownBody :source="note" class="markdown-body admin-note__content" />
+  </div>
 </template>
 
 <style scoped>
-.admin-public-comment {
+.admin-note {
   margin: 0 0 20px;
-  padding: 10px 20px;
-  background: color-mix(in srgb, var(--lg-red) 12%, var(--surface));
-  border: 0;
-  border-left: 5px solid var(--lg-red);
-  color: var(--text);
+  padding: 14px 16px;
+  border-radius: var(--borderRadiusLarge);
+  border: 1px solid color-mix(in srgb, var(--colorPaletteRedForeground1, #b10e1c) 24%, transparent);
+  background: color-mix(in srgb, var(--colorPaletteRedBackground1, #fde7e9) 70%, var(--colorNeutralBackground1));
+  color: var(--colorNeutralForeground1);
   overflow-wrap: anywhere;
 }
-.admin-public-comment-title { margin: 0 0 0.3em; font-weight: 700; }
-.admin-public-comment-content { color: inherit; }
-.admin-public-comment-content :deep(> :first-child) { margin-top: 0; }
-.admin-public-comment-content :deep(> :last-child) { margin-bottom: 0; }
+.admin-note__title { display: block; margin-bottom: 6px; font-size: 13px; color: var(--colorPaletteRedForeground1, #b10e1c); }
+.admin-note__content { font-size: 14px; line-height: 1.7; }
+.admin-note__content :deep(> :first-child) { margin-top: 0; }
+.admin-note__content :deep(> :last-child) { margin-bottom: 0; }
 </style>

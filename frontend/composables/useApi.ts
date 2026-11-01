@@ -1,22 +1,19 @@
 /**
  * API 客户端。
- * 服务端 SSR 用 apiInternalUrl（内网地址更快）
- * 浏览器用 apiBaseUrl
- * 自动附加 Authorization: Bearer <token>（若已登录）
+ * - 服务端 SSR 使用 apiInternalUrl（默认 http://127.0.0.1:8001）
+ * - 浏览器使用 public.apiBaseUrl（默认为空，走同源 /api/v1）
+ * - 跨域后端使用 Authorization Bearer，不携带 Cookie（远端 CORS 为 *）
  */
+type ApiClient = <T = any>(request: string, options?: any) => Promise<T>
+
 export const useApi = () => {
-  const config = useRuntimeConfig()
+  const base = useApiBase()
+  const credentials = useApiCredentials()
 
-  // SSR 服务端走 internal，否则走 public
-  const base = import.meta.server
-    ? config.apiInternalUrl
-    : config.public.apiBaseUrl
-
-  return $fetch.create({
+  const client = $fetch.create({
     baseURL: `${base}/api/v1`,
-    credentials: 'include',
+    credentials,
     onRequest({ options }) {
-      // 仅浏览器端附加 auth header（SSR 时还没登录态）
       if (import.meta.client) {
         const auth = useAuthStore()
         if (auth.accessToken) {
@@ -28,7 +25,11 @@ export const useApi = () => {
       }
     },
     onResponseError({ response }) {
+      // 未收录内容会返回 404 并触发后台爬取，这是正常业务流程。
+      if (response.status === 404) return
       console.warn('[api] error', response.status, response._data)
     },
   })
+
+  return client as unknown as ApiClient
 }

@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { Check, Copy, FilePenLine, WandSparkles } from 'lucide-vue-next'
+
 definePageMeta({ layout: 'default' })
+useHead({ title: '题解修 - 洛谷档案馆' })
 
 type FixMode = 'local' | 'ai'
 type DiffKind = 'same' | 'add' | 'remove' | 'change'
@@ -41,6 +44,10 @@ const logs = ref<string[]>([])
 const busy = ref(false)
 const copied = ref(false)
 const errorMessage = ref('')
+
+function setFixMode(value: string) {
+  fixMode.value = value === 'ai' ? 'ai' : 'local'
+}
 
 const canRun = computed(() => {
   if (busy.value) return false
@@ -148,12 +155,10 @@ async function runFix() {
 }
 
 async function runAiFix(input: string) {
-  const base = import.meta.server
-    ? config.apiInternalUrl
-    : config.public.apiBaseUrl
+  const base = useApiBase()
   const resp = await fetch(`${base}/api/v1/solution-fix/ai`, {
     method: 'POST',
-    credentials: 'include',
+    credentials: useApiCredentials(),
     headers: {
       'Content-Type': 'application/json',
       ...(auth.accessToken ? { Authorization: `Bearer ${auth.accessToken}` } : {}),
@@ -258,69 +263,66 @@ function buildDiff(leftText: string, rightText: string): DiffRow[] {
 </script>
 
 <template>
-  <div class="fix-page">
-    <PageHero
+
+  <div class="page fix-page">
+    <PageHeader
       title="题解修"
-      subtitle="对题解 Markdown 做格式修正，保留洛谷扩展语法；AI 模式需要登录。"
-    />
+      description="对题解 Markdown 做格式修正，保留洛谷扩展语法；AI 模式需要登录。"
+      eyebrow="Solution fix"
+    >
+      <template #icon><FilePenLine :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+    </PageHeader>
 
-    <section class="fix-shell">
-      <div class="input-panel">
-        <div class="panel-head">
-          <h2>输入</h2>
+    <section class="fix-shell" :class="{ 'has-result': busy || Boolean(fixedText) }">
+      <div class="card fix-input">
+        <div class="card__header">
+          <div>
+            <h2 class="card__title">输入</h2>
+            <p class="card__description">粘贴 Markdown，或填写洛谷文章链接自动读取。</p>
+          </div>
         </div>
+        <div class="card__body stack">
+          <FTextarea
+            v-model="sourceText"
+            :rows="12"
+            placeholder="粘贴题解 Markdown…"
+            aria-label="题解 Markdown"
+          />
+          <div class="stack stack--xs">
+            <span class="field-label">或从洛谷文章读取</span>
+            <FInput v-model="articleLink" placeholder="/article/xxxxxxxx、链接或纯 ID" aria-label="洛谷文章链接" />
+            <span class="field-help">同时填写时优先使用文章链接。</span>
+          </div>
 
-        <textarea
-          v-model="sourceText"
-          class="source-input textarea"
-          placeholder="粘贴题解 Markdown..."
-          spellcheck="false"
-        />
+          <FTabList
+            :model-value="fixMode"
+            :tabs="[{ id: 'local', label: '本地修正' }, { id: 'ai', label: 'AI 修正' }]"
+            aria-label="修正模式"
+            @update:model-value="setFixMode"
+          />
 
-        <label class="article-link-field">
-          <span>粘贴文章链接...</span>
-          <input
-            v-model="articleLink"
-            class="source-input"
-            placeholder="/article/xxxxxxxx、www.luogu.com.cn/article/xxxxxxxx 或纯 ID"
-            spellcheck="false"
-          >
-        </label>
+          <FButton appearance="primary" size="large" block :disabled="!canRun" :loading="busy" @click="runFix">
+            <template #start><WandSparkles v-if="!busy" :size="17" aria-hidden="true" /></template>
+            {{ busy ? '处理中…' : '开始修正' }}
+          </FButton>
 
-        <div class="mode-row" aria-label="修正模式">
-          <button type="button" :class="{ active: fixMode === 'local' }" @click="fixMode = 'local'">
-            本地修正
-          </button>
-          <button type="button" :class="{ active: fixMode === 'ai' }" @click="fixMode = 'ai'">
-            AI 修正
-          </button>
-        </div>
-
-        <button class="primary-btn" type="button" :disabled="!canRun" @click="runFix">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-          <span>{{ busy ? '处理中...' : '开始修正' }}</span>
-        </button>
-
-        <p v-if="errorMessage" class="error-text">{{ errorMessage }}</p>
-        <div v-if="notes.length" class="note-list">
-          <span v-for="note in notes" :key="note">{{ note }}</span>
+          <p v-if="errorMessage" class="notice notice--warn" role="alert">{{ errorMessage }}</p>
+          <div v-if="notes.length" class="cluster">
+            <span v-for="note in notes" :key="note" class="tag">{{ note }}</span>
+          </div>
         </div>
       </div>
 
-      <div class="result-panel">
-        <div class="result-toolbar">
+      <div class="card fix-result">
+        <div class="card__header">
           <div>
-            <h2>{{ articleTitle || '修正结果' }}</h2>
-            <p>{{ fixedText ? `变更行 ${changedCount}` : '等待输入后生成差异对比' }}</p>
+            <h2 class="card__title">{{ articleTitle || '修正结果' }}</h2>
+            <p class="card__description">{{ fixedText ? '变更行 ' + changedCount : '等待输入后生成差异对比' }}</p>
           </div>
-          <button type="button" class="copy-btn" :disabled="!fixedText" @click="copyResult">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 8h10v12H8zM6 16H4V4h12v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-            </svg>
-            <span>{{ copied ? '已复制' : '复制' }}</span>
-          </button>
+          <FButton appearance="outline" size="small" :disabled="!fixedText" @click="copyResult">
+            <template #start><component :is="copied ? Check : Copy" :size="14" aria-hidden="true" /></template>
+            {{ copied ? '已复制' : '复制结果' }}
+          </FButton>
         </div>
 
         <div class="diff-head">
@@ -328,12 +330,7 @@ function buildDiff(leftText: string, rightText: string): DiffRow[] {
           <span>修正后</span>
         </div>
         <div class="diff-view">
-          <div
-            v-for="(row, idx) in diffRows"
-            :key="idx"
-            class="diff-row"
-            :class="row.kind"
-          >
+          <div v-for="(row, idx) in diffRows" :key="idx" class="diff-row" :class="row.kind">
             <div class="line-cell">
               <span class="line-no">{{ row.leftNo || '' }}</span>
               <code>{{ row.left }}</code>
@@ -343,14 +340,14 @@ function buildDiff(leftText: string, rightText: string): DiffRow[] {
               <code>{{ row.right }}</code>
             </div>
           </div>
-          <div v-if="!diffRows.length" class="empty-state">暂无结果</div>
+          <EmptyState v-if="!diffRows.length" title="暂无结果" description="输入内容并开始修正后，这里会显示逐行差异。" />
         </div>
       </div>
     </section>
 
-    <section class="trace-panel">
+    <section class="card trace-panel">
       <details open>
-        <summary>模型思路 / 处理记录</summary>
+        <summary class="trace-summary">模型思路 / 处理记录</summary>
         <div class="trace-grid">
           <pre>{{ thoughts || '当前模型未返回可展示的思考内容。' }}</pre>
           <ul>
@@ -361,359 +358,50 @@ function buildDiff(leftText: string, rightText: string): DiffRow[] {
       </details>
     </section>
   </div>
+
 </template>
 
 <style scoped>
-.fix-page {
-  display: grid;
-  gap: 18px;
-}
-
-.fix-shell {
-  display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
-  gap: 18px;
-  align-items: stretch;
-}
-
-.input-panel,
-.result-panel,
-.trace-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-
-.input-panel {
-  padding: 18px;
-  display: grid;
-  grid-template-rows: auto minmax(220px, 1fr) auto auto auto auto;
-  gap: 14px;
-  min-height: 560px;
-}
-
-.panel-head,
-.result-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-h2 {
-  margin: 0;
-  font-size: 18px;
-  line-height: 1.3;
-}
-
-.result-toolbar p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-
-.segmented,
-.mode-row {
-  display: inline-flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  background: var(--surface);
-}
-
-.segmented button,
-.mode-row button {
-  border: 0;
-  border-right: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
-  min-height: 34px;
-  padding: 0 12px;
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-}
-
-.segmented button:last-child,
-.mode-row button:last-child {
-  border-right: 0;
-}
-
-.segmented button.active,
-.mode-row button.active {
-  background: color-mix(in srgb, var(--link) 10%, transparent);
-  color: var(--link);
-}
-
-.article-link-field {
-  display: grid;
-  gap: 6px;
-}
-
-.article-link-field span {
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.mode-row {
-  width: 100%;
-}
-
-.mode-row button {
-  flex: 1;
-}
-
-.source-input {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  padding: 10px 12px;
-}
-
-.textarea {
-  min-height: 260px;
-  resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.55;
-}
-
-.source-input:focus {
-  outline: 2px solid color-mix(in srgb, var(--link) 28%, transparent);
-  border-color: var(--link);
-}
-
-.primary-btn,
-.copy-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid var(--link);
-  border-radius: 6px;
-  background: var(--link);
-  color: #fff;
-  min-height: 40px;
-  padding: 0 16px;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 700;
-}
-
-.primary-btn svg,
-.copy-btn svg {
-  width: 17px;
-  height: 17px;
-}
-
-.primary-btn:disabled,
-.copy-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.copy-btn {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--border);
-  font-weight: 500;
-}
-
-.copy-btn:hover:not(:disabled) {
-  color: var(--link);
-  border-color: var(--link);
-}
-
-.error-text {
-  margin: 0;
-  color: var(--lg-red);
-  font-size: 13px;
-}
-
-.note-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.note-list span {
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--text-muted);
-  padding: 2px 9px;
-  font-size: 12px;
-}
-
-.result-panel {
-  min-width: 0;
-  display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
-  overflow: hidden;
-}
-
-.result-toolbar {
-  padding: 16px 18px;
-  border-bottom: 1px solid var(--border);
-}
-
+.fix-shell { display: grid; grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); gap: 16px; align-items: stretch; min-width: 0; }
+.fix-shell.has-result { align-items: start; }
+.fix-shell.has-result .fix-result { align-self: start; height: auto; max-height: calc(100dvh - 120px); }
+.fix-shell.has-result .diff-view { min-height: 360px; }
+.fix-shell > * { min-width: 0; }
+.fix-input { min-width: 0; display: flex; flex-direction: column; }
+.fix-input > .card__body { flex: 1 1 auto; }
+.fix-input .card__body { padding: 16px; min-width: 0; }
+.fix-input :deep(fluent-textarea) { width: 100%; }
+.fix-result { overflow: hidden; display: flex; flex-direction: column; }
 .diff-head {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-bottom: 1px solid var(--border);
-  background: var(--hover);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 700;
+  display: grid; grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--colorNeutralStroke2); border-bottom: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground2); color: var(--colorNeutralForeground3);
+  font-size: 11px; font-weight: 600;
 }
-
-.diff-head span {
-  padding: 7px 12px;
-}
-
-.diff-head span + span {
-  border-left: 1px solid var(--border);
-}
-
+.diff-head span { padding: 7px 12px; }
+.diff-head span + span { border-left: 1px solid var(--colorNeutralStroke2); }
 .diff-view {
-  overflow: auto;
-  min-height: 460px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-  line-height: 1.5;
+  overflow: auto; min-height: 440px; max-height: none; flex: 1 1 auto;
+  font-family: var(--fontFamilyMonospace); font-size: 12px; line-height: 1.5;
 }
-
-.diff-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  min-height: 24px;
-}
-
-.line-cell {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr);
-  border-bottom: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
-  min-width: 0;
-}
-
-.line-cell + .line-cell {
-  border-left: 1px solid var(--border);
-}
-
-.line-no {
-  padding: 3px 8px;
-  color: var(--text-muted);
-  text-align: right;
-  user-select: none;
-  background: color-mix(in srgb, var(--hover) 70%, transparent);
-}
-
-.line-cell code {
-  padding: 3px 10px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  color: var(--text);
-  font: inherit;
-}
-
+.diff-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 24px; }
+.line-cell { display: grid; grid-template-columns: 46px minmax(0, 1fr); border-bottom: 1px solid var(--colorNeutralStroke2); min-width: 0; }
+.line-cell + .line-cell { border-left: 1px solid var(--colorNeutralStroke2); }
+.line-no { padding: 3px 7px; color: var(--colorNeutralForeground4); text-align: right; user-select: none; background: var(--colorNeutralBackground2); }
+.line-cell code { padding: 3px 9px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--colorNeutralForeground1); font: inherit; }
 .diff-row.add .line-cell:nth-child(2),
-.diff-row.change .line-cell:nth-child(2) {
-  background: color-mix(in srgb, var(--lg-green) 14%, transparent);
-}
-
+.diff-row.change .line-cell:nth-child(2) { background: color-mix(in srgb, var(--colorPaletteGreenBackground1, #dff6dd) 60%, transparent); }
 .diff-row.remove .line-cell:nth-child(1),
-.diff-row.change .line-cell:nth-child(1) {
-  background: color-mix(in srgb, var(--lg-red) 12%, transparent);
-}
-
-.empty-state {
-  min-height: 360px;
-  display: grid;
-  place-items: center;
-  color: var(--text-muted);
-}
-
-.trace-panel {
-  overflow: hidden;
-}
-
-.trace-panel summary {
-  cursor: pointer;
-  padding: 12px 16px;
-  font-weight: 700;
-  border-bottom: 1px solid var(--border);
-}
-
-.trace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 0;
-}
-
-.trace-grid pre,
-.trace-grid ul {
-  margin: 0;
-  min-height: 120px;
-  max-height: 260px;
-  overflow: auto;
-  padding: 14px 16px;
-  box-sizing: border-box;
-}
-
-.trace-grid pre {
-  white-space: pre-wrap;
-  color: var(--text-muted);
-  border-right: 1px solid var(--border);
-  font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-}
-
-.trace-grid ul {
-  color: var(--text-muted);
-  font-size: 13px;
-  padding-left: 34px;
-}
-
-@media (max-width: 980px) {
-  .fix-shell,
-  .trace-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .input-panel {
-    min-height: auto;
-  }
-
-  .trace-grid pre {
-    border-right: 0;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-@media (max-width: 640px) {
-  .panel-head,
-  .result-toolbar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .copy-btn,
-  .primary-btn {
-    width: 100%;
-  }
-
-  .diff-head,
-  .diff-row {
-    grid-template-columns: 1fr;
-  }
-
-  .diff-head span + span,
-  .line-cell + .line-cell {
-    border-left: 0;
-  }
+.diff-row.change .line-cell:nth-child(1) { background: color-mix(in srgb, var(--colorPaletteRedBackground1, #fde7e9) 60%, transparent); }
+.trace-panel { overflow: hidden; }
+.trace-summary { padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: 13px; list-style: none; }
+.trace-summary::-webkit-details-marker { display: none; }
+.trace-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 1px; background: var(--colorNeutralStroke2); border-top: 1px solid var(--colorNeutralStroke2); }
+.trace-grid > * { margin: 0; padding: 14px 16px; background: var(--colorNeutralBackground1); font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+.trace-grid pre { white-space: pre-wrap; max-height: 280px; overflow: auto; font-family: var(--fontFamilyMonospace); }
+.trace-grid ul { list-style: none; display: flex; flex-direction: column; gap: 5px; color: var(--colorNeutralForeground3); }
+@media (max-width: 1020px) {
+  .fix-shell { grid-template-columns: minmax(0, 1fr); }
+  .trace-grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

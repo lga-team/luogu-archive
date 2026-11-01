@@ -1,19 +1,69 @@
 <script setup lang="ts">
+import { Flag } from 'lucide-vue-next'
+
 definePageMeta({ layout: 'admin' })
-const admin = useAdminStore(); const api = useAdminApi()
-const status = ref('pending'); const rows = ref<any[]>([])
-const typeNames: Record<string,string> = { dangerous_request:'危险请求', malicious_code:'恶意代码', broken:'失效', copyright:'侵权', misleading:'信息不实', other:'其他' }
-const statusNames: Record<string,string> = { pending:'待处理', resolved:'已解决', dismissed:'已驳回' }
-async function load(){ rows.value = await api('/admin/plugin-reports',{query:{status:status.value}}) }
-async function handle(id:number,next:'resolved'|'dismissed'){ const note=prompt('处理备注（可留空）：')||''; await api(`/admin/plugin-reports/${id}/handle`,{method:'POST',body:{status:next,admin_note:note}}); await load() }
-onMounted(async()=>{ if(!admin.isLoggedIn)return navigateTo('/admin/login'); await load() }); watch(status,()=>void load())
+const admin = useAdminStore()
+const api = useAdminApi()
+const status = ref('pending')
+const rows = ref<any[]>([])
+const typeNames: Record<string, string> = { dangerous_request: '危险请求', malicious_code: '恶意代码', broken: '失效', copyright: '侵权', misleading: '信息不实', other: '其他' }
+const statusNames: Record<string, string> = { pending: '待处理', resolved: '已解决', dismissed: '已驳回' }
+const statusOptions = [
+  { value: 'pending', label: '待处理' },
+  { value: 'resolved', label: '已解决' },
+  { value: 'dismissed', label: '已驳回' },
+  { value: 'all', label: '全部' },
+]
+async function load() { rows.value = await api<any[]>('/admin/plugin-reports', { query: { status: status.value } }) }
+async function handle(id: number, next: 'resolved' | 'dismissed') {
+  const note = prompt('处理备注（可留空）：') || ''
+  await api(`/admin/plugin-reports/${id}/handle`, { method: 'POST', body: { status: next, admin_note: note } })
+  await load()
+}
+onMounted(async () => {
+  if (!admin.isLoggedIn) return navigateTo('/admin/login')
+  await load()
+})
+watch(status, () => void load())
 </script>
 
-<template><div><h1>插件举报</h1><select v-model="status"><option value="pending">待处理</option><option value="resolved">已解决</option><option value="dismissed">已驳回</option><option value="all">全部</option></select>
-  <div class="reports"><article v-for="row in rows" :key="row.id"><header><strong>#{{row.id}} {{typeNames[row.report_type]}}</strong><span>{{statusNames[row.status] || row.status}}</span></header><p>{{row.description}}</p><div class="report-meta"><small>插件 #{{row.plugin_id}} · 举报人 #{{row.reporter_user_id}} · {{row.created_at}}</small><NuxtLink :to="`/plugin/${row.article_id}`" target="_blank">查看插件</NuxtLink></div><footer v-if="row.status==='pending'"><button @click="handle(row.id,'dismissed')">驳回</button><button class="ok" @click="handle(row.id,'resolved')">标记解决</button></footer></article><p v-if="!rows.length">暂无举报</p></div>
-</div></template>
+<template>
+  <div class="page">
+    <PageHeader title="插件举报" description="处理用户对插件代码与请求行为的举报。" eyebrow="Reports">
+      <template #icon><Flag :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+      <template #actions>
+        <FSelect v-model="status" :options="statusOptions" size="small" style="width:150px" aria-label="举报状态" />
+      </template>
+    </PageHeader>
+
+    <div v-if="rows.length" class="report-list">
+      <article v-for="row in rows" :key="row.id" class="card report-card">
+        <div class="cluster" style="justify-content:space-between">
+          <div class="cluster">
+            <strong>#{{ row.id }} {{ typeNames[row.report_type] || row.report_type }}</strong>
+            <span class="tag" :class="row.status === 'resolved' ? 'tag--success' : row.status === 'dismissed' ? 'tag' : 'tag--warn'">{{ statusNames[row.status] || row.status }}</span>
+          </div>
+          <span class="muted" style="font-size:11px">{{ row.created_at }}</span>
+        </div>
+        <p class="report-desc">{{ row.description }}</p>
+        <div class="cluster" style="justify-content:space-between">
+          <span class="muted" style="font-size:12px">插件 #{{ row.plugin_id }} · 举报人 #{{ row.reporter_user_id }}</span>
+          <div class="cluster">
+            <NuxtLink :to="`/plugin/${row.article_id}`" target="_blank" class="muted" style="font-size:12px">查看插件</NuxtLink>
+            <template v-if="row.status === 'pending'">
+              <FButton appearance="subtle" size="small" @click="handle(row.id, 'dismissed')">驳回</FButton>
+              <FButton appearance="primary" size="small" @click="handle(row.id, 'resolved')">标记解决</FButton>
+            </template>
+          </div>
+        </div>
+      </article>
+    </div>
+    <EmptyState v-else title="暂无举报" description="当前筛选条件下没有插件举报。" />
+  </div>
+</template>
 
 <style scoped>
-h1{margin-top:0}select,button{border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:7px 9px}.reports{margin-top:15px;border-top:1px solid var(--border)}article{padding:14px 2px;border-bottom:1px solid var(--border)}article header,article footer{display:flex;justify-content:space-between;gap:10px}article p{white-space:pre-wrap}small,header span{color:var(--text-muted)}.report-meta{display:flex;align-items:center;justify-content:space-between;gap:12px}.report-meta a{flex-shrink:0}footer{justify-content:flex-end!important;margin-top:10px}button{cursor:pointer}.ok{background:var(--lg-green);border-color:var(--lg-green);color:#fff}
-@media(max-width:600px){.report-meta{align-items:flex-start;flex-direction:column;gap:6px}}
+.report-list { display: flex; flex-direction: column; gap: 10px; }
+.report-card { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.report-desc { white-space: pre-wrap; color: var(--colorNeutralForeground2); font-size: 13px; line-height: 1.65; }
 </style>

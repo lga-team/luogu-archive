@@ -1,31 +1,50 @@
+// 允许环境变量填写源站、/api 或 /api/v1；内部统一归一化为源站，
+// 再由 API 客户端拼接 /api/v1。
+function normalizeApiBase(value: string | undefined): string {
+  const raw = (value || '').trim()
+  if (!raw) return ''
+  return raw.replace(/\/+$/, '').replace(/\/api(?:\/v1)?$/i, '')
+}
+
+const publicApiBase = normalizeApiBase(process.env.NUXT_PUBLIC_API_BASE_URL)
+const internalApiBase = normalizeApiBase(process.env.NUXT_API_INTERNAL_URL)
+  || `http://127.0.0.1:${process.env.WEB_PORT || '8001'}`
 const extendedArchiveModulesEnabled = process.env.NUXT_PUBLIC_EXTENDED_ARCHIVE_MODULES_ENABLED === 'true'
+// 本地预览只代理到显式指定的主站；生产构建不启用，避免改变线上部署。
+const previewUpstream = process.env.ARCHIVE_PREVIEW_UPSTREAM?.replace(/\/+$/, '')
 
 const hiddenArchiveExactPages = new Set(['/feed', '/fake-realtime'])
 const hiddenArchivePagePrefixes = ['/problem', '/contest', '/admin/problems', '/admin/contests']
 
 export default defineNuxtConfig({
-  devtools: { enabled: true },
+  devtools: { enabled: false },
   ssr: true,
-  modules: [
-    '@nuxtjs/color-mode',
-    '@pinia/nuxt',
-    '@vueuse/nuxt',
-    '@nuxt/fonts',
-  ],
+  vite: {
+    server: { allowedHosts: true },
+    optimizeDeps: {
+      include: ['@luogu-saver-next/markdown-renderer', 'dompurify'],
+    },
+  },
+  nitro: {
+    devProxy: previewUpstream ? {
+      '/api/': { target: previewUpstream + '/api/', changeOrigin: true },
+      '/static/img/': { target: previewUpstream + '/static/img/', changeOrigin: true },
+    } : {},
+  },
+  modules: ['@nuxtjs/color-mode', '@pinia/nuxt', '@vueuse/nuxt'],
   runtimeConfig: {
-    apiInternalUrl:
-      process.env.NUXT_API_INTERNAL_URL
-      || `http://127.0.0.1:${process.env.WEB_PORT || '8001'}`,
+    apiInternalUrl: internalApiBase,
     public: {
-      apiBaseUrl: process.env.NUXT_PUBLIC_API_BASE_URL || '',
+      // 浏览器请求的后端源站；留空时使用同源 /api/v1（由反向代理转发）。
+      apiBaseUrl: publicApiBase,
+      apiPath: '/api/v1',
       extendedArchiveModulesEnabled,
-      siteName: '\u6d1b\u8c37\u6863\u6848\u9986',
+      siteName: '洛谷档案馆',
       captchaProvider: process.env.NUXT_PUBLIC_CAPTCHA_PROVIDER || 'turnstile',
       captchaSiteKey: process.env.NUXT_PUBLIC_CAPTCHA_SITE_KEY || '',
       captchaAliyunPrefix: process.env.NUXT_PUBLIC_CAPTCHA_ALIYUN_PREFIX || '',
       captchaAliyunSceneId: process.env.NUXT_PUBLIC_CAPTCHA_ALIYUN_SCENE_ID || '',
       captchaAliyunRegion: process.env.NUXT_PUBLIC_CAPTCHA_ALIYUN_REGION || 'cn',
-      // Umami 统计只在公共布局中加载；留空时完全关闭统计。
       umamiScriptUrl: process.env.NUXT_PUBLIC_UMAMI_SCRIPT_URL || '',
       umamiWebsiteId: process.env.NUXT_PUBLIC_UMAMI_WEBSITE_ID || '',
     },
@@ -34,8 +53,13 @@ export default defineNuxtConfig({
     preference: 'system',
     fallback: 'light',
     classSuffix: '',
+    storageKey: 'la-color-mode',
   },
-  css: ['~/assets/css/base.css', 'katex/dist/katex.min.css'],
+  css: [
+    '~/assets/css/fluent-tokens.css',
+    'katex/dist/katex.min.css',
+    '~/assets/css/app.css',
+  ],
   routeRules: {
     '/favicon.png': {
       headers: {
@@ -69,19 +93,25 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'zh-CN' },
-      title: '\u6d1b\u8c37\u6863\u6848\u9986',
+      title: '洛谷档案馆',
       meta: [
         { charset: 'utf-8' },
-        { name: 'viewport', content: 'width=device-width, initial-scale=1' },
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        { name: 'theme-color', content: '#f5f5f5', media: '(prefers-color-scheme: light)' },
+        { name: 'theme-color', content: '#1f1f1f', media: '(prefers-color-scheme: dark)' },
         { name: 'robots', content: 'noindex,nofollow,noarchive' },
-        {
-          name: 'description',
-          content: '\u6d1b\u8c37\u6863\u6848\u9986 - \u7b2c\u4e09\u65b9\u5b58\u6863\uff1a\u6587\u7ae0 / \u526a\u8d34\u677f / \u7287\u7287 / \u9676\u7247\u653e\u9010 / \u9898\u89e3',
-        },
+        { name: 'description', content: '洛谷档案馆 - 第三方存档：文章 / 剪贴板 / 犇犇 / 陶片放逐 / 题解' },
+        { name: 'format-detection', content: 'telephone=no' },
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/favicon.png' },
+        { rel: 'apple-touch-icon', href: '/favicon.png' },
       ],
+    },
+  },
+  vue: {
+    compilerOptions: {
+      isCustomElement: (tag: string) => tag.startsWith('fluent-'),
     },
   },
   typescript: {

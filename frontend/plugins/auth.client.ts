@@ -1,8 +1,13 @@
 /**
- * 应用启动时尝试用 refresh cookie 换取 access token。
+ * 应用挂载后再尝试恢复登录态，避免插件在 hydration 前修改 store
+ * 造成服务端与客户端首帧不一致。
  */
-export default defineNuxtPlugin(async () => {
+import { onNuxtReady } from '#app'
+
+export default defineNuxtPlugin(() => {
   if (import.meta.server) return
   const auth = useAuthStore()
-  await auth.tryRefresh()
+  onNuxtReady(() => {
+    void auth.tryRefresh()
+  })
 })

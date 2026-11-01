@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { Puzzle, Search, Trophy } from 'lucide-vue-next'
+
 const api = useApi()
 const { format } = useTime()
 const page = ref(1)
@@ -15,13 +17,7 @@ interface ContestItem {
   rated: boolean
   status: string
 }
-
-interface ContestListResponse {
-  items: ContestItem[]
-  total: number
-  page: number
-  page_size: number
-}
+interface ContestListResponse { items: ContestItem[]; total: number; page: number; page_size: number }
 
 const { data, pending, refresh } = useLazyAsyncData(
   'contest-list',
@@ -38,90 +34,85 @@ function search() {
   appliedKeyword.value = keyword.value.trim()
   if (appliedKeyword.value === keyword.value.trim()) refresh()
 }
-
+function statusClass(status: string) {
+  if (status === '正式结果') return 'tag--success'
+  if (status === '不计等级分') return 'tag--warn'
+  return 'tag--info'
+}
 </script>
 
 <template>
-  <div class="contest-list-page">
-    <section class="contest-heading">
-      <div>
-        <h1>比赛</h1>
-        <p>已结束比赛的排行榜与等级分结果</p>
+  <div class="page page--medium">
+    <PageHeader
+      title="比赛"
+      description="已结束比赛的排行榜、等级分结果与题目归档。"
+      eyebrow="Contests"
+    >
+      <template #icon><Trophy :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+      <template #actions>
+        <FButton appearance="outline" href="/plugin/438gx0rt">
+          <template #start><Puzzle :size="16" aria-hidden="true" /></template>官方插件
+        </FButton>
+      </template>
+    </PageHeader>
+
+    <form class="contest-search card card__body" role="search" @submit.prevent="search">
+      <div class="contest-search__field">
+        <Search :size="18" class="contest-search__icon" aria-hidden="true" />
+        <FInput v-model="keyword" placeholder="比赛名称或 ID" aria-label="搜索比赛" />
       </div>
-      <form class="search" @submit.prevent="search">
-        <input v-model="keyword" placeholder="比赛名称或 ID" aria-label="搜索比赛">
-        <button type="submit" class="archive-action-button">搜索</button>
-        <NuxtLink to="/plugin/438gx0rt" class="archive-action-button">官方插件</NuxtLink>
-      </form>
-    </section>
+      <FButton type="submit" appearance="primary">搜索</FButton>
+    </form>
 
-    <LoadingPanel v-if="pending && !data" title="loading……" text="loading……" />
-    <section v-else class="contest-table-wrap">
-      <table class="contest-table">
-        <thead>
-          <tr><th>比赛</th><th>结束时间</th><th>题数</th><th>参赛人数</th><th>状态</th></tr>
-        </thead>
-        <tbody>
-          <tr v-for="item in data?.items || []" :key="item.id">
-            <td>
-              <NuxtLink :to="`/contest/${item.id}`" class="contest-name">{{ item.name }}</NuxtLink>
-              <span class="contest-id">#{{ item.id }}</span>
-            </td>
-            <td>{{ format(item.end_time) }}</td>
-            <td>{{ item.problem_count }}</td>
-            <td>{{ item.participant_count }}</td>
-            <td>
-              <span
-                class="status"
-                :class="{
-                  official: item.status === '正式结果',
-                  unrated: item.status === '不计等级分',
-                }"
-              >{{ item.status }}</span>
-            </td>
-          </tr>
-          <tr v-if="!data?.items.length"><td colspan="5" class="empty">没有找到比赛</td></tr>
-        </tbody>
-      </table>
-    </section>
+    <LoadingPanel v-if="pending && !data" variant="list" :rows="6" title="正在加载比赛" />
 
-    <nav v-if="totalPages > 1" class="pagination" aria-label="比赛列表分页">
-      <button class="archive-action-button" :disabled="page <= 1" @click="page--">上一页</button>
-      <span>{{ page }} / {{ totalPages }}</span>
-      <button class="archive-action-button" :disabled="page >= totalPages" @click="page++">下一页</button>
-    </nav>
+    <div v-else class="card">
+      <EmptyState
+        v-if="!data?.items.length"
+        title="没有找到比赛"
+        :description="appliedKeyword ? `没有与「${appliedKeyword}」匹配的比赛。` : '还没有已归档的比赛。'"
+      />
+      <div v-else class="table-wrap" style="border: 0; border-radius: 0">
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">比赛</th>
+              <th scope="col">结束时间</th>
+              <th scope="col">题数</th>
+              <th scope="col">参赛人数</th>
+              <th scope="col">状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="item in data.items" :key="item.id">
+              <td>
+                <NuxtLink :to="`/contest/${item.id}`" class="contest-name">{{ item.name }}</NuxtLink>
+                <span class="contest-id">#{{ item.id }}</span>
+              </td>
+              <td class="nowrap">{{ format(item.end_time) }}</td>
+              <td class="tabular">{{ item.problem_count }}</td>
+              <td class="tabular">{{ item.participant_count }}</td>
+              <td><span class="tag" :class="statusClass(item.status)">{{ item.status }}</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <ArchivePagination v-if="totalPages > 1" :page="page" :total-pages="totalPages" :pending="pending" @page="page = $event" />
   </div>
 </template>
 
 <style scoped>
-.contest-list-page { min-width: 0; }
-.contest-heading {
-  display: flex; align-items: end; justify-content: space-between; gap: 24px;
-  padding: 24px 28px; margin-bottom: 20px; border: 1px solid var(--hero-border);
-  background: var(--hero-bg); border-radius: 8px;
-}
-.contest-heading h1 { margin: 0; font-size: 26px; }
-.contest-heading p { margin: 5px 0 0; color: var(--text-muted); font-size: 14px; }
-.search { display: flex; gap: 8px; }
-.search input {
-  width: 240px; min-width: 0; padding: 8px 10px; border: 1px solid var(--border);
-  border-radius: 5px; background: var(--surface); color: var(--text); font: inherit;
-}
-.contest-table-wrap { overflow-x: auto; border: 1px solid var(--border); background: var(--surface); }
-.contest-table { width: 100%; min-width: 760px; border-collapse: collapse; }
-th, td { padding: 13px 16px; border-bottom: 1px solid var(--border); text-align: left; }
-th { color: var(--text-muted); font-size: 13px; font-weight: 600; }
-.contest-name { color: var(--text); font-weight: 600; }
-.contest-id { margin-left: 8px; color: var(--text-muted); font-size: 12px; }
-.status { color: var(--lg-orange); }
-.status.official { color: var(--lg-green); }
-.status.unrated { color: var(--text-muted); }
-.empty { text-align: center; color: var(--text-muted); padding: 36px; }
-.pagination { display: flex; justify-content: center; align-items: center; gap: 14px; margin-top: 20px; }
-@media (max-width: 768px) {
-  .contest-heading { align-items: stretch; flex-direction: column; padding: 18px 16px; }
-  .search input { width: 100%; }
-  .search { width: 100%; }
-  .search button { flex-shrink: 0; white-space: nowrap; }
+.contest-search { display: flex; gap: 8px; align-items: center; padding: 12px; }
+.contest-search__field { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; }
+.contest-search__icon { position: absolute; left: 11px; z-index: 1; color: var(--colorNeutralForeground3); pointer-events: none; }
+.contest-search__field :deep(fluent-text-input) { width: 100%; }
+.contest-search__field :deep(fluent-text-input::part(root)) { padding-left: 36px; }
+.contest-name { color: var(--colorNeutralForeground1); font-weight: 600; text-decoration: none; }
+.contest-name:hover { color: var(--colorBrandForeground1); }
+.contest-id { margin-left: 8px; color: var(--colorNeutralForeground3); font-size: 11px; font-family: var(--fontFamilyMonospace); }
+@media (max-width: 680px) {
+  .contest-search { flex-direction: column; align-items: stretch; }
 }
 </style>

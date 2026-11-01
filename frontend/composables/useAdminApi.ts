@@ -1,14 +1,13 @@
-/**
- * 管理后台专用 API 客户端，附加管理员 Authorization。
- */
-export const useAdminApi = () => {
-  const config = useRuntimeConfig()
-  const base = import.meta.server
-    ? config.apiInternalUrl
-    : config.public.apiBaseUrl
+/** 管理后台 API：与用户端共用同一后端源站，使用管理员 token。 */
+type AdminApiClient = <T = any>(request: string, options?: any) => Promise<T>
 
-  return $fetch.create({
+export const useAdminApi = () => {
+  const base = useApiBase()
+  const credentials = useApiCredentials()
+
+  const client = $fetch.create({
     baseURL: `${base}/api/v1`,
+    credentials,
     onRequest({ options }) {
       if (import.meta.client) {
         const admin = useAdminStore()
@@ -20,5 +19,10 @@ export const useAdminApi = () => {
         }
       }
     },
+    onResponseError({ response }) {
+      console.warn('[admin api] error', response.status, response._data)
+    },
   })
+
+  return client as unknown as AdminApiClient
 }

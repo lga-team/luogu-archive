@@ -1,10 +1,37 @@
 <script setup lang="ts">
+import { Mail } from 'lucide-vue-next'
+
 definePageMeta({ layout: 'admin' })
-const admin=useAdminStore(); const api=useAdminApi(); const email=ref(''); const message=ref('')
-onMounted(async()=>{if(!admin.isLoggedIn)return navigateTo('/admin/login');const data=await api<any>('/admin/notification-email');email.value=data.email||''})
-async function submit(){const data=await api<any>('/admin/notification-email',{method:'POST',body:{email:email.value}});message.value=data.message}
+const admin = useAdminStore()
+const api = useAdminApi()
+const email = ref('')
+const message = ref('')
+
+onMounted(async () => {
+  if (!admin.isLoggedIn) return navigateTo('/admin/login')
+  const data = await api<any>('/admin/notification-email')
+  email.value = data.email || ''
+})
+async function submit() {
+  const data = await api<any>('/admin/notification-email', { method: 'POST', body: { email: email.value } })
+  message.value = data.message
+}
 </script>
-<template><div class="email-page"><h1>管理员通知邮箱</h1><p>保存后，该邮箱会收到插件推荐、删除和举报通知。邮件发送失败不会回滚申请。</p><form @submit.prevent="submit"><label>通知邮箱<input v-model.trim="email" type="email" required></label><button>保存</button></form><p v-if="message" class="message">{{message}}</p></div></template>
-<style scoped>
-h1{margin-top:0}.email-page>p{color:var(--text-muted)}form{display:flex;align-items:flex-end;gap:10px;margin-top:20px}label{display:grid;gap:6px;min-width:320px}input,button{border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:8px 10px;font:inherit}button{background:var(--link);border-color:var(--link);color:#fff;cursor:pointer}.message{padding:10px;border-left:3px solid var(--link)}@media(max-width:600px){form{align-items:stretch;flex-direction:column}label{min-width:0}}
-</style>
+
+<template>
+  <div class="page page--narrow">
+    <PageHeader title="通知邮箱" description="保存后，该邮箱会收到插件推荐、删除和举报通知。邮件发送失败不会回滚申请。" eyebrow="Notifications">
+      <template #icon><Mail :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+    </PageHeader>
+    <form class="card card__body form" @submit.prevent="submit">
+      <div class="stack stack--xs">
+        <label for="admin-notify-email" class="field-label">通知邮箱</label>
+        <FInput id="admin-notify-email" v-model.trim="email" type="email" required placeholder="admin@example.com" />
+      </div>
+      <div class="form-actions">
+        <FButton type="submit" appearance="primary">保存</FButton>
+      </div>
+      <div v-if="message" class="notice notice--brand">{{ message }}</div>
+    </form>
+  </div>
+</template>

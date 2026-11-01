@@ -1,5 +1,16 @@
 # === luogu-archive 顶层配置 ===
 
+# 本地验证产物（截图 / 临时浏览器缓存 / 包管理器缓存）
+/.shots/
+/.tmp/
+/.tmp-pnpm/
+/.chrome-profile*/
+/.chrome-cdp/
+/.npm-cache/
+/.corepack/
+/.pnpm-home/
+/.pnpm-store/
+
 # 后端 Python 构建产物
 backend/__pycache__/
 backend/**/__pycache__/

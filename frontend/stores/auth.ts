@@ -1,18 +1,36 @@
 /**
  * 认证状态管理（Pinia store）。
  *
- * access token 放内存（刷新页面丢失，靠 refresh cookie 重新换）。
- * 前端初始化时调 /auth/refresh，用 refresh cookie 恢复登录态。
+ * access token 放内存 + sessionStorage（同一标签页刷新可恢复）。
+ * 当后端与前端同源时，额外用 refresh cookie 恢复；跨域部署默认只依赖 token。
  */
 import { defineStore } from 'pinia'
 
 interface AuthState {
   accessToken: string | null
-  expiresAt: number           // ms 时间戳
+  expiresAt: number
   displayName: string
   email: string
   emailVerified: boolean
   initialized: boolean
+}
+
+const SESSION_KEY = 'la_session_v1'
+
+function readSession(): { accessToken: string; expiresAt: number; displayName: string; email: string; emailVerified: boolean } | null {
+  try {
+    const raw = sessionStorage.getItem(SESSION_KEY)
+    if (!raw) return null
+    const value = JSON.parse(raw)
+    if (
+      typeof value?.accessToken !== 'string'
+      || typeof value?.expiresAt !== 'number'
+      || value.expiresAt <= Date.now()
+    ) return null
+    return value
+  } catch {
+    return null
+  }
 }
 
 export const useAuthStore = defineStore('auth', {
@@ -36,13 +54,33 @@ export const useAuthStore = defineStore('auth', {
       email_verified: boolean
     }) {
       this.accessToken = data.access_token
-      this.expiresAt = Date.now() + data.expires_in * 1000 - 10_000 // 提前 10s 视为过期
+      this.expiresAt = Date.now() + data.expires_in * 1000 - 10_000
       this.displayName = data.display_name
       this.email = data.email
       this.emailVerified = data.email_verified
       if (import.meta.client) {
-        localStorage.setItem('la_logged', '1')
+        try {
+          localStorage.setItem('la_logged', '1')
+          sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+            accessToken: this.accessToken,
+            expiresAt: this.expiresAt,
+            displayName: this.displayName,
+            email: this.email,
+            emailVerified: this.emailVerified,
+          }))
+        } catch { /* 隐私模式下存储不可用 */ }
       }
+    },
+    restoreSession(): boolean {
+      if (!import.meta.client) return false
+      const saved = readSession()
+      if (!saved) return false
+      this.accessToken = saved.accessToken
+      this.expiresAt = saved.expiresAt
+      this.displayName = saved.displayName
+      this.email = saved.email
+      this.emailVerified = saved.emailVerified
+      return true
     },
     clear() {
       this.accessToken = null
@@ -52,12 +90,19 @@ export const useAuthStore = defineStore('auth', {
       this.emailVerified = false
       this.initialized = true
       if (import.meta.client) {
-        localStorage.removeItem('la_logged')
+        try {
+          localStorage.removeItem('la_logged')
+          sessionStorage.removeItem(SESSION_KEY)
+        } catch { /* ignore */ }
       }
     },
     async tryRefresh() {
       if (import.meta.server) return
       if (this.accessToken && this.expiresAt > Date.now()) {
+        this.initialized = true
+        return
+      }
+      if (this.restoreSession()) {
         this.initialized = true
         return
       }

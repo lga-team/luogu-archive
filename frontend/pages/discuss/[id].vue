@@ -1,24 +1,18 @@
 <script setup lang="ts">
+import { ArrowLeft, Check, Copy, ExternalLink, MessageSquareReply, RefreshCw } from 'lucide-vue-next'
+
 const route = useRoute()
 const api = useApi()
-const { format } = useTime()
-const { render } = useMarkdown()
+const { format, smart } = useTime()
 const id = Number(route.params.id)
-// 回复分页与洛谷一致，每页展示 10 条。
+definePageMeta({ key: route => route.path })
 const perPage = 10
 const currentPage = computed(() => Math.max(1, Number.parseInt(String(route.query.page || '1'), 10) || 1))
 
 interface UserBrief {
-  uid: number
-  name: string
-  color: string
-  badge: string | null
-  avatar: string | null
-  ccf_level: number
-  xcpc_level: number
-  is_admin: boolean
+  uid: number; name: string; color: string; badge: string | null; avatar: string | null
+  ccf_level: number; xcpc_level: number; is_admin: boolean
 }
-
 interface DiscussionReply {
   reply_id: number
   content_md: string
@@ -26,7 +20,6 @@ interface DiscussionReply {
   source_time: string | null
   crawled_at: string
 }
-
 interface DiscussionDetail {
   discussion_id: number
   title: string
@@ -42,178 +35,197 @@ interface DiscussionDetail {
   replies: DiscussionReply[]
 }
 
-const { data, error, pending } = useLazyAsyncData(
+const { data, error, status, refresh } = useAsyncData(
   `discussion-${id}`,
-  () => api<DiscussionDetail>(`/discuss/${id}`, {
-    query: { page: currentPage.value, per_page: perPage },
-  }),
-  { server: false, watch: [currentPage] },
+  () => api<DiscussionDetail>(`/discuss/${id}`, { query: { page: currentPage.value, per_page: perPage } }),
+  { server: true, watch: [currentPage] },
 )
+const recordsPending = computed(() => status.value === 'idle' || status.value === 'pending')
+useHead(() => ({ title: `${data.value?.title || `讨论 #${id}`} - 洛谷档案馆` }))
 
 const totalPages = computed(() => Math.max(1, Math.ceil((data.value?.stored_reply_count || 0) / perPage)))
 const contentRef = ref<HTMLElement | null>(null)
 useCopyCode(contentRef)
 
-// 回复数据异步加载，等目标页的 DOM 出现后再定位，不能只依赖浏览器首次跳锚点。
-watch([() => data.value, () => route.hash], async () => {
-  if (data.value?.page !== currentPage.value || !/^#reply-\d+$/.test(route.hash)) return
+watch([() => data.value, () => route.hash, recordsPending], async () => {
+  if (recordsPending.value || data.value?.page !== currentPage.value || !/^#reply-\d+$/.test(route.hash)) return
   await nextTick()
   contentRef.value?.querySelector(route.hash)?.scrollIntoView({ block: 'center' })
 }, { flush: 'post' })
+
 const copied = ref<string | null>(null)
+const copyError = ref('')
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+onBeforeUnmount(() => clearTimeout(copyTimer))
 
 async function copyMarkdown(key: string, content: string) {
-  await navigator.clipboard.writeText(content)
-  copied.value = key
-  setTimeout(() => {
-    if (copied.value === key) copied.value = null
-  }, 1400)
+  copyError.value = ''
+  try {
+    await navigator.clipboard.writeText(content)
+    clearTimeout(copyTimer)
+    copied.value = key
+    copyTimer = setTimeout(() => { copied.value = null }, 1400)
+  } catch {
+    copyError.value = '复制失败，请检查浏览器的剪贴板权限后重试。'
+  }
 }
 
 function goPage(page: number) {
   if (page < 1 || page > totalPages.value || page === currentPage.value) return
-  navigateTo({ path: route.path, query: page === 1 ? {} : { page } })
+  if (recordsPending.value) return
+  const query = { ...route.query }
+  if (page === 1) delete query.page
+  else query.page = String(page)
+  void navigateTo({ path: route.path, query })
 }
 </script>
 
 <template>
-  <LoadingPanel v-if="pending && !data" title="正在加载讨论" text="正在读取主帖和已归档回复…" />
+  <div ref="contentRef" class="page page--medium discuss-detail">
+    <PageHeader
+      :title="data?.title || '讨论详情'"
+      :description="data?.forum_name ? `${data.forum_name} · ${data.stored_reply_count} 条已归档回复` : `讨论 #${id}`"
+      eyebrow="Discussion"
+    >
+      <template #actions>
+        <FButton appearance="outline" @click="navigateTo('/discuss')">
+          <template #start><ArrowLeft :size="16" aria-hidden="true" /></template>返回列表
+        </FButton>
+        <FButton appearance="outline" :href="'https://www.luogu.com.cn/discuss/' + id" target="_blank">
+          <template #start><ExternalLink :size="15" aria-hidden="true" /></template>查看原站
+        </FButton>
+        <SaveButton content-type="discuss" :content-id="String(id)">
+          <template #default="{ state, message, save }">
+            <FButton appearance="primary" :loading="state === 'pending'" @click="save">
+              <template #start><RefreshCw v-if="state !== 'pending'" :size="15" aria-hidden="true" /></template>
+              {{ state === 'idle' ? '更新' : message || '处理中…' }}
+            </FButton>
+          </template>
+        </SaveButton>
+      </template>
+    </PageHeader>
 
-  <div v-else-if="error && !data" class="error-box">
-    <h2>{{ error.data?.message || '加载失败' }}</h2>
-    <p v-if="error.statusCode === 404">首次保存已经进入队列，稍后刷新即可查看。</p>
-  </div>
-
-  <div v-else-if="data" ref="contentRef" class="discussion-page">
-    <header class="discussion-head">
-      <div class="head-main">
-        <span v-if="data.forum_name" class="forum-name">{{ data.forum_name }}</span>
-        <h1>{{ data.title }}</h1>
-        <div class="author-row">
-          <NuxtLink v-if="data.author" :to="`/user/${data.author.uid}`" class="author-link">
-            <img v-if="data.author.avatar" :src="data.author.avatar" alt="" class="avatar">
-            <LuoguUserName :user="data.author" show-badge no-link />
-          </NuxtLink>
-          <span v-else>发帖人未收录</span>
-          <time v-if="data.source_time" :datetime="data.source_time">{{ format(data.source_time) }}</time>
-        </div>
-      </div>
-      <div class="head-actions">
-        <a :href="`https://www.luogu.com.cn/discuss/${id}`" target="_blank" rel="noopener noreferrer" class="archive-action-button">
-          查看原文
-        </a>
-        <button type="button" class="archive-action-button" @click="copyMarkdown('post', data.content_md)">
-          {{ copied === 'post' ? '已复制' : '复制原文' }}
-        </button>
-        <SaveButton content-type="discuss" :content-id="String(id)" />
-      </div>
-    </header>
-
-    <article class="post-body lg-content" v-html="render(data.content_md)" />
-
-    <section class="reply-section" aria-labelledby="reply-title">
-      <header class="reply-head">
-        <div>
-          <h2 id="reply-title">回复</h2>
-          <p>本站已归档 {{ data.stored_reply_count }} 条，源站记录 {{ data.source_reply_count }} 条。</p>
-        </div>
-        <span>第 {{ currentPage }} / {{ totalPages }} 页</span>
-      </header>
-
-      <div v-if="data.replies.length" class="reply-list">
-        <article
-          v-for="reply in data.replies"
-          :id="`reply-${reply.reply_id}`"
-          :key="reply.reply_id"
-          class="reply-item"
-        >
-          <header class="reply-meta">
-            <NuxtLink v-if="reply.author" :to="`/user/${reply.author.uid}`" class="author-link">
-              <img v-if="reply.author.avatar" :src="reply.author.avatar" alt="" class="avatar small">
-              <LuoguUserName :user="reply.author" show-badge no-link />
-            </NuxtLink>
-            <span v-else>用户未收录</span>
-            <time v-if="reply.source_time" :datetime="reply.source_time">{{ format(reply.source_time) }}</time>
-            <span class="reply-id">#{{ reply.reply_id }}</span>
-            <button
-              type="button"
-              class="copy-reply"
-              @click="copyMarkdown(`reply-${reply.reply_id}`, reply.content_md)"
-            >{{ copied === `reply-${reply.reply_id}` ? '已复制' : '复制原文' }}</button>
-          </header>
-          <div class="lg-content reply-body" v-html="render(reply.content_md)" />
+    <div class="discuss-detail-grid">
+      <div class="stack stack--lg" style="min-width:0">
+        <article class="card">
+          <LoadingPanel v-if="recordsPending && !data" variant="detail" title="正在加载正文" />
+          <div v-else-if="error && !data" class="card__body">
+            <EmptyState title="讨论加载失败" :description="(error as any)?.data?.message || '可以提交一次更新，或稍后重试读取。'">
+              <template #actions><FButton appearance="outline" @click="refresh()">重试</FButton></template>
+            </EmptyState>
+          </div>
+          <template v-if="data">
+            <header class="discuss-post-head">
+              <NuxtLink v-if="data.author" :to="`/user/${data.author.uid}`" class="discuss-post-avatar" :aria-label="data.author.name">
+                <LuoguAvatar :user="data.author" :size="36" />
+              </NuxtLink>
+              <div class="stack stack--xs" style="flex:1 1 auto;min-width:0">
+                <LuoguUserName v-if="data.author" :user="data.author" show-badge />
+                <span v-else class="muted">发帖人未收录</span>
+                <span v-if="data.source_time" class="muted" style="font-size: 12px">发表于 {{ format(data.source_time) }}</span>
+              </div>
+              <FButton appearance="subtle" size="small" :disabled="!data" @click="copyMarkdown('post', data.content_md)">
+                <template #start><component :is="copied === 'post' ? Check : Copy" :size="14" aria-hidden="true" /></template>
+                {{ copied === 'post' ? '已复制' : '复制原文' }}
+              </FButton>
+            </header>
+            <div class="divider" />
+            <MarkdownBody :source="data.content_md" class="markdown-body discuss-post-body" />
+          </template>
         </article>
-      </div>
-      <p v-else class="empty-replies">本页没有已归档回复。</p>
 
-      <nav v-if="totalPages > 1" class="pagination" aria-label="回复分页">
-        <button type="button" :disabled="currentPage <= 1" title="上一页" @click="goPage(currentPage - 1)">‹</button>
-        <span>{{ currentPage }} / {{ totalPages }}</span>
-        <button type="button" :disabled="currentPage >= totalPages" title="下一页" @click="goPage(currentPage + 1)">›</button>
-      </nav>
-    </section>
+        <section v-if="data" class="reply-section" aria-labelledby="reply-title">
+          <div class="section-head">
+            <div class="section-head__text">
+              <h2 id="reply-title" class="section-title" style="display:flex;align-items:center;gap:8px">
+                <MessageSquareReply :size="20" aria-hidden="true" />回复
+              </h2>
+              <span class="section-subtitle">本站已归档 {{ data.stored_reply_count }} 条，源站记录 {{ data.source_reply_count }} 条</span>
+            </div>
+            <span class="tag">第 {{ currentPage }} / {{ totalPages }} 页</span>
+          </div>
+
+          <LoadingPanel v-if="recordsPending" variant="list" :rows="3" title="正在加载回复" compact />
+          <div v-else-if="error" class="card card__body">
+            <EmptyState title="回复加载失败" :description="(error as any)?.data?.message || '请稍后重试。'">
+              <template #actions><FButton appearance="outline" @click="refresh()">重试</FButton></template>
+            </EmptyState>
+          </div>
+          <div v-else-if="data.replies.length" class="reply-list">
+            <article v-for="reply in data.replies" :id="`reply-${reply.reply_id}`" :key="reply.reply_id" class="card reply-item">
+              <header class="reply-head">
+                <NuxtLink v-if="reply.author" :to="`/user/${reply.author.uid}`" class="discuss-post-avatar" :aria-label="reply.author.name">
+                  <LuoguAvatar :user="reply.author" :size="28" />
+                </NuxtLink>
+                <LuoguUserName v-if="reply.author" :user="reply.author" show-badge />
+                <span v-else class="muted">用户未收录</span>
+                <time v-if="reply.source_time" class="muted" :datetime="reply.source_time">{{ format(reply.source_time) }}</time>
+                <span class="reply-id">#{{ reply.reply_id }}</span>
+                <FButton appearance="subtle" size="small" @click="copyMarkdown(`reply-${reply.reply_id}`, reply.content_md)">
+                  <template #start><component :is="copied === `reply-${reply.reply_id}` ? Check : Copy" :size="13" aria-hidden="true" /></template>
+                  {{ copied === `reply-${reply.reply_id}` ? '已复制' : '复制' }}
+                </FButton>
+              </header>
+              <MarkdownBody :source="reply.content_md" class="markdown-body reply-body" />
+            </article>
+          </div>
+          <EmptyState v-else title="本页没有已归档回复" description="可以切换到其他页，或提交一次更新。" />
+
+          <ArchivePagination v-if="totalPages > 1" :page="currentPage" :total-pages="totalPages" :pending="recordsPending" @page="goPage" />
+        </section>
+      </div>
+
+      <aside class="discuss-sidebar" aria-label="讨论信息">
+        <div class="card">
+          <div class="card__header"><h2 class="card__title" style="font-size: 14px">讨论信息</h2></div>
+          <div class="card__body">
+            <dl class="info-list">
+              <div><dt>创建者</dt><dd>
+                <NuxtLink v-if="data?.author" :to="`/user/${data.author.uid}`" class="cluster" style="gap:6px">
+                  <LuoguAvatar :user="data.author" :size="24" />
+                  <LuoguUserName :user="data.author" show-badge no-link />
+                </NuxtLink>
+                <span v-else>{{ recordsPending ? '—' : '发帖人未收录' }}</span>
+              </dd></div>
+              <div><dt>发帖时间</dt><dd><time v-if="data?.source_time" :datetime="data.source_time">{{ format(data.source_time) }}</time><span v-else>—</span></dd></div>
+              <div><dt>所属版块</dt><dd>{{ data?.forum_name || '—' }}</dd></div>
+              <div><dt>上次归档</dt><dd>{{ data?.crawled_at ? smart(data.crawled_at) : '—' }}</dd></div>
+            </dl>
+          </div>
+        </div>
+        <p v-if="copyError" class="notice notice--warn" role="alert">{{ copyError }}</p>
+      </aside>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.discussion-page { display: grid; gap: 18px; }
-.discussion-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 22px;
-  padding: 22px 26px;
-  border: 1px solid var(--hero-border);
-  border-radius: 8px;
-  background: var(--hero-bg);
+.discuss-detail-grid { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 18px; align-items: start; }
+.discuss-sidebar { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 12px; }
+.discuss-post-head { display: flex; align-items: center; gap: 12px; padding: 18px 20px; flex-wrap: wrap; }
+.discuss-post-avatar img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block; }
+.discuss-post-body { padding: 18px 20px 24px; }
+.reply-section { display: flex; flex-direction: column; gap: 12px; }
+.reply-list { display: flex; flex-direction: column; gap: 10px; }
+.reply-item { scroll-margin-top: 80px; overflow: hidden; }
+.reply-head { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--colorNeutralStroke2); font-size: 12px; color: var(--colorNeutralForeground3); }
+.reply-head :deep(img) { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.reply-id { margin-left: auto; font-family: var(--fontFamilyMonospace); font-size: 11px; }
+.reply-body { padding: 16px; font-size: 14px; }
+.reply-body :deep(> :first-child) { margin-top: 0; }
+.reply-body :deep(> :last-child) { margin-bottom: 0; }
+.info-list { display: flex; flex-direction: column; gap: 12px; margin: 0; font-size: 12px; }
+.info-list > div { display: grid; grid-template-columns: 68px minmax(0, 1fr); gap: 8px; }
+.info-list dt { color: var(--colorNeutralForeground3); }
+.info-list dd { margin: 0; color: var(--colorNeutralForeground1); overflow-wrap: anywhere; }
+@media (max-width: 1020px) {
+  .discuss-detail-grid { grid-template-columns: minmax(0, 1fr); }
+  .discuss-sidebar { position: static; }
 }
-.head-main { min-width: 0; }
-.forum-name { color: var(--link); font-size: 13px; font-weight: 650; }
-.discussion-head h1 { margin: 5px 0 13px; font-size: 25px; line-height: 1.35; }
-.author-row, .author-link, .head-actions, .reply-meta, .pagination {
-  display: flex;
-  align-items: center;
-}
-.author-row { gap: 14px; color: var(--text-muted); font-size: 13px; }
-.author-link { gap: 8px; color: inherit; text-decoration: none; }
-.avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
-.avatar.small { width: 27px; height: 27px; }
-.head-actions { justify-content: flex-end; gap: 9px; flex-wrap: wrap; }
-.copy-reply, .pagination button {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-}
-.copy-reply:hover, .pagination button:hover:not(:disabled) { border-color: var(--link); color: var(--link); }
-.post-body { padding: 26px; border-bottom: 1px solid var(--border); }
-.reply-section { display: grid; gap: 14px; }
-.reply-head { display: flex; justify-content: space-between; align-items: end; gap: 18px; }
-.reply-head h2 { margin: 0; font-size: 20px; }
-.reply-head p { margin: 5px 0 0; color: var(--text-muted); font-size: 13px; }
-.reply-head > span { color: var(--text-muted); font-size: 13px; }
-.reply-list { display: grid; gap: 10px; }
-.reply-item { border: 1px solid var(--border); border-radius: 8px; background: var(--surface); overflow: hidden; }
-.reply-meta { min-height: 46px; gap: 12px; padding: 7px 14px; border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
-.reply-id { margin-left: auto; }
-.copy-reply { padding: 4px 8px; font-size: 12px; }
-.reply-body { padding: 16px 18px; }
-.reply-body :deep(> :first-child), .post-body :deep(> :first-child) { margin-top: 0; }
-.reply-body :deep(> :last-child), .post-body :deep(> :last-child) { margin-bottom: 0; }
-.empty-replies, .error-box { padding: 30px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); text-align: center; }
-.pagination { justify-content: center; gap: 14px; }
-.pagination button { width: 36px; height: 34px; font-size: 24px; line-height: 1; }
-.pagination button:disabled { opacity: 0.4; cursor: default; }
-.pagination span { min-width: 76px; text-align: center; color: var(--text-muted); font-size: 13px; }
-@media (max-width: 720px) {
-  .discussion-head { display: grid; padding: 18px 16px; }
-  .head-actions { justify-content: flex-start; }
-  .discussion-head h1 { font-size: 21px; }
-  .post-body { padding: 18px 4px; }
-  .reply-meta { flex-wrap: wrap; }
+@media (max-width: 680px) {
+  .discuss-post-head { padding: 14px; }
+  .discuss-post-body { padding: 14px 16px 18px; }
   .reply-id { margin-left: 0; }
-  .copy-reply { margin-left: auto; }
+  .discuss-post-head > :last-child { width: 100%; }
 }
 </style>

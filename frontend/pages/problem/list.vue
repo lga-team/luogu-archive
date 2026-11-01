@@ -1,106 +1,25 @@
 <script setup lang="ts">
+import { BookOpenCheck, ExternalLink, RefreshCw } from 'lucide-vue-next'
+
 const api = useApi()
 const route = useRoute()
 const { fromNow } = useTime()
 
-interface ProblemItem {
-  pid: string
-  title: string
-  difficulty: string | null
-  tags: Array<number | string>
-  solution_open: boolean
-}
-
-interface ProblemDifficultyBucket {
-  items: ProblemItem[]
-  total: number
-}
+interface ProblemItem { pid: string; title: string; difficulty: string | null; tags: Array<number | string>; solution_open: boolean }
+interface ProblemDifficultyBucket { items: ProblemItem[]; total: number }
 
 const PREVIEW_LIMIT = 20
-
-// 总览：每档前 20 条 + 该档总数
-// 题目库接口较慢时不阻塞页面打开，先显示加载窗口。
 const { data, pending: listPending } = useLazyAsyncData('problem-list', () =>
-  api<Record<string, ProblemDifficultyBucket>>('/problem/list', {
-    query: { preview_limit: PREVIEW_LIMIT },
-  }),
+  api<Record<string, ProblemDifficultyBucket>>('/problem/list', { query: { preview_limit: PREVIEW_LIMIT } }),
   { server: false },
 )
 const { data: lastCrawled } = useLazyAsyncData('problem-list-last-crawled', () =>
   api<{ last_crawled_at: string | null }>('/last-crawled?type=problem_catalog'),
   { server: false },
 )
+const relTime = computed(() => lastCrawled.value?.last_crawled_at ? fromNow(lastCrawled.value.last_crawled_at) : '未知')
 
-const saveState = ref<'idle' | 'pending' | 'success' | 'failed' | 'cooldown' | 'captcha'>('idle')
-const saveMessage = ref('')
-const captchaToken = ref('')
-const showCaptcha = ref(false)
-const captchaRef = ref<any>(null)
-
-const relTime = computed(() =>
-  lastCrawled.value?.last_crawled_at ? fromNow(lastCrawled.value.last_crawled_at) : '未知',
-)
-
-async function saveProblemList() {
-  if (saveState.value === 'pending') return
-  saveState.value = 'pending'
-  saveMessage.value = '排队中...'
-  try {
-    const resp = await api<{ task_id: string; merged: boolean; status: string }>('/save', {
-      method: 'POST',
-      body: {
-        content_type: 'problem',
-        id: 'list',
-        captcha_token: captchaToken.value || undefined,
-      },
-    })
-    showCaptcha.value = false
-    captchaToken.value = ''
-    captchaRef.value?.reset?.()
-    saveState.value = 'success'
-    saveMessage.value = resp.merged ? '已合并到进行中的任务' : '已派发，请稍后刷新'
-    setTimeout(() => {
-      saveState.value = 'idle'
-      saveMessage.value = ''
-    }, 3000)
-  } catch (e: any) {
-    const code = e?.data?.error_code
-    if (code === 'captcha_required') {
-      saveState.value = 'captcha'
-      showCaptcha.value = true
-      saveMessage.value = '请完成人机验证'
-      await nextTick()
-      try {
-        captchaToken.value = await captchaRef.value?.getToken?.()
-        await saveProblemList()
-      } catch (err: any) {
-        saveMessage.value = err?.message || '请先完成人机验证'
-      }
-    } else if (code === 'rate_limited') {
-      saveState.value = 'cooldown'
-      const s = e?.data?.data?.retry_after_sec || 30
-      saveMessage.value = `冷却中 ${s}s`
-      setTimeout(() => { saveState.value = 'idle' }, s * 1000)
-    } else {
-      saveState.value = 'failed'
-      saveMessage.value = e?.data?.message || '失败'
-      setTimeout(() => { saveState.value = 'idle' }, 3000)
-    }
-  }
-}
-
-// 按洛谷难度顺序排序
-async function onCaptchaVerified(token: string) {
-  if (saveState.value !== 'captcha') return
-  captchaToken.value = token
-  await saveProblemList()
-}
-
-const diffOrder = [
-  '入门', '普及-', '普及', '普及+/提高-',
-  '提高', '提高+/省选-', '省选/NOI-', 'NOI/NOI+/CTS',
-  '暂无评定',
-]
+const diffOrder = ['入门', '普及-', '普及', '普及+/提高-', '提高', '提高+/省选-', '省选/NOI-', 'NOI/NOI+/CTS', '暂无评定']
 const sortedKeys = computed(() => {
   if (!data.value) return []
   return Object.keys(data.value).sort((a, b) => {
@@ -110,268 +29,160 @@ const sortedKeys = computed(() => {
   })
 })
 
-const diffColor: Record<string, string> = {
-  '入门': 'Red',
-  '普及-': 'Orange',
-  '普及': 'Yellow',
-  '普及/提高-': 'Yellow',
-  '普及+/提高-': 'Green',
-  '普及+/提高': 'Green',
-  '提高': 'Cyan',
-  '提高+/省选-': 'Blue',
-  '省选/NOI-': 'Purple',
-  'NOI/NOI+/CTS': 'Black',
-  'NOI/NOI+/CTSC': 'Black',
-  'unknown_8': 'Black',
-  '暂无评定': 'Gray',
+const diffColors: Record<string, string> = {
+  '入门': '#FE4C61',
+  '普及-': '#F39C11',
+  '普及': '#FFC116',
+  '普及/提高-': '#FFC116',
+  '普及+/提高-': '#52C41A',
+  '普及+/提高': '#52C41A',
+  '提高': '#52C41A',
+  '提高+/省选-': '#3498DB',
+  '省选/NOI-': '#9D3DCF',
+  'NOI/NOI+/CTS': '#0E1D69',
+  'NOI/NOI+/CTSC': '#0E1D69',
+  'unknown_8': '#0E1D69',
+  '暂无评定': '#BFBFBF',
 }
-// 通过 ?difficulty=xxx 切到单档全列表视图
+function diffColor(key: string) { return diffColors[key] || '#BFBFBF' }
+
 const selectedDiff = computed<string | null>(() => {
   const d = route.query.difficulty
   return typeof d === 'string' && d.length > 0 ? d : null
 })
 
-// 单档全量数据：仅当 selectedDiff 非空时拉取，切换 query 时自动重拉
 const { data: fullList, pending: fullPending } = useLazyAsyncData(
   'problem-list-full',
   () => {
     if (!selectedDiff.value) return Promise.resolve<ProblemItem[]>([])
-    return api<ProblemItem[]>('/problem/list/by-difficulty', {
-      query: { difficulty: selectedDiff.value },
-    })
+    return api<ProblemItem[]>('/problem/list/by-difficulty', { query: { difficulty: selectedDiff.value } })
   },
   { server: false, watch: [selectedDiff] },
 )
 
 const visibleKeys = computed(() => {
-  if (selectedDiff.value) {
-    return sortedKeys.value.includes(selectedDiff.value) ? [selectedDiff.value] : []
-  }
+  if (selectedDiff.value) return sortedKeys.value.includes(selectedDiff.value) ? [selectedDiff.value] : []
   return sortedKeys.value
 })
-
-function previewFor(k: string): ProblemItem[] {
-  return data.value?.[k]?.items || []
-}
-
-function totalFor(k: string): number {
-  return data.value?.[k]?.total || 0
-}
+function previewFor(k: string): ProblemItem[] { return data.value?.[k]?.items || [] }
+function totalFor(k: string): number { return data.value?.[k]?.total || 0 }
 </script>
 
 <template>
-  <div>
-    <section class="problem-hero">
-      <h1>题目库</h1>
-      <div class="hero-meta">
-        <span class="attr">
-          <a href="https://www.luogu.com.cn/problem/list" target="_blank" rel="noopener noreferrer">
-            查看洛谷原文
+  <div class="page page--medium">
+    <PageHeader
+      title="题目库"
+      description="按洛谷难度分档归档题目，并记录题解是否开放。"
+      eyebrow="Problems"
+    >
+      <template #icon><BookOpenCheck :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+      <template #meta>
+        <span class="meta-item">上次更新：{{ relTime }}</span>
+        <a href="https://www.luogu.com.cn/problem/list" target="_blank" rel="noopener noreferrer" class="meta-item">
+          <ExternalLink :size="13" aria-hidden="true" />查看洛谷原站
+        </a>
+      </template>
+      <template #actions>
+        <SaveButton content-type="problem" content-id="list">
+          <template #default="{ state, message, save }">
+            <FButton appearance="outline" :loading="state === 'pending'" @click="save">
+              <template #start><RefreshCw v-if="state !== 'pending'" :size="15" aria-hidden="true" /></template>
+              {{ state === 'idle' ? '更新题库' : message || '处理中…' }}
+            </FButton>
+          </template>
+        </SaveButton>
+      </template>
+    </PageHeader>
+
+    <div v-if="selectedDiff" class="notice notice--brand">
+      <span>
+        当前难度：<strong :style="{ color: diffColor(selectedDiff) }">{{ selectedDiff }}</strong>
+        · <NuxtLink to="/problem/list">返回所有难度</NuxtLink>
+      </span>
+    </div>
+    <p v-else class="field-help">
+      每档显示前 {{ PREVIEW_LIMIT }} 道；点击「查看全部」浏览完整列表。题目链接会跳转到洛谷原站。
+    </p>
+
+    <LoadingPanel v-if="listPending && !data" variant="list" :rows="6" title="正在加载题目库" />
+
+    <section v-else-if="selectedDiff" class="page-section">
+      <div class="section-head">
+        <div class="section-head__text">
+          <h2 class="section-title" :style="{ color: diffColor(selectedDiff) }">{{ selectedDiff }}</h2>
+          <span class="section-subtitle">{{ fullList?.length || 0 }} 道题目</span>
+        </div>
+      </div>
+      <div class="card">
+        <LoadingPanel v-if="fullPending" variant="list" :rows="5" title="正在加载题目" compact />
+        <EmptyState v-else-if="!fullList?.length" title="该档暂无题目" />
+        <div v-else class="problem-grid">
+          <a
+            v-for="p in fullList"
+            :key="p.pid"
+            :href="`https://www.luogu.com.cn/problem/${p.pid}`"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="problem-row"
+          >
+            <span class="problem-pid" :style="{ color: diffColor(selectedDiff) }">{{ p.pid }}</span>
+            <span class="problem-title">{{ p.title }}</span>
+            <ExternalLink :size="13" class="problem-open" aria-hidden="true" />
           </a>
-          · 上次更新：{{ relTime }}
-        </span>
-        <button
-          class="archive-action-button hero-save-btn"
-          :class="{
-            success: saveState === 'success',
-            error: saveState === 'failed',
-            cooldown: saveState === 'cooldown' || saveState === 'captcha',
-          }"
-          :disabled="saveState === 'pending'"
-          @click="saveProblemList"
-        >
-          <span v-if="saveState === 'idle'">立即更新</span>
-          <span v-else>{{ saveMessage }}</span>
-        </button>
-        <CaptchaChallenge
-          v-if="showCaptcha"
-          ref="captchaRef"
-          id-suffix="problem-list-save"
-          @verified="onCaptchaVerified"
-        />
+        </div>
       </div>
     </section>
-    <p v-if="selectedDiff" class="note diff-current">
-      当前难度：
-      <span class="lg-name" :data-color="diffColor[selectedDiff] || 'Gray'">{{ selectedDiff }}</span>
-      · <NuxtLink to="/problem/list">← 返回所有难度</NuxtLink>
-    </p>
-    <p v-else class="note">
-      允许提交题解的题目，按洛谷难度分档，每档仅显示前 {{ PREVIEW_LIMIT }} 道，点"查看全部"看完整列表。
-    </p>
 
-    <LoadingPanel
-      v-if="listPending && !data"
-      title="正在加载题目库"
-      text="页面已经打开，正在读取题目和题解开放状态…"
-    />
-
-    <!-- 单档全量视图 -->
-    <section v-else-if="selectedDiff" class="diff-section">
-      <h2>
-        <span class="lg-name" :data-color="diffColor[selectedDiff] || 'Gray'">{{ selectedDiff }}</span>
-        <span class="count">{{ fullList?.length || 0 }}</span>
-      </h2>
-      <p v-if="fullPending" class="empty">加载中...</p>
-      <ul v-else-if="fullList && fullList.length" class="problem-list">
-        <li v-for="p in fullList" :key="p.pid">
-          <a :href="`https://www.luogu.com.cn/problem/${p.pid}`" target="_blank" rel="noopener">
-            <span class="pid lg-name" :data-color="diffColor[selectedDiff] || 'Gray'">{{ p.pid }}</span>
-            <span class="title">{{ p.title }}</span>
-          </a>
-        </li>
-      </ul>
-      <p v-else class="empty">该档暂无题目</p>
-    </section>
-
-    <!-- 总览：所有难度的预览 -->
-    <section v-for="k in visibleKeys" v-else :key="k" class="diff-section">
-      <h2>
-        <span class="lg-name" :data-color="diffColor[k] || 'Gray'">{{ k }}</span>
-        <span class="count">{{ totalFor(k) }}</span>
-        <NuxtLink
-          v-if="totalFor(k) > PREVIEW_LIMIT"
-          :to="{ path: '/problem/list', query: { difficulty: k } }"
-          class="view-all"
-        >
-          查看全部 →
-        </NuxtLink>
-      </h2>
-      <ul class="problem-list">
-        <li v-for="p in previewFor(k)" :key="p.pid">
-          <a :href="`https://www.luogu.com.cn/problem/${p.pid}`" target="_blank" rel="noopener">
-            <span class="pid lg-name" :data-color="diffColor[k] || 'Gray'">{{ p.pid }}</span>
-            <span class="title">{{ p.title }}</span>
-          </a>
-        </li>
-      </ul>
-      <p
-        v-if="totalFor(k) > PREVIEW_LIMIT"
-        class="more-hint"
-      >
-        仅显示前 {{ PREVIEW_LIMIT }} 道（共 {{ totalFor(k) }} 道），
-        <NuxtLink :to="{ path: '/problem/list', query: { difficulty: k } }">
-          查看该档全部题目 →
-        </NuxtLink>
-      </p>
-    </section>
+    <div v-else class="problem-sections">
+      <section v-for="k in visibleKeys" :key="k" class="page-section">
+        <div class="section-head">
+          <div class="section-head__text" style="flex-direction: row; align-items: center; gap: 10px">
+            <span class="diff-dot" :style="{ background: diffColor(k) }" />
+            <h2 class="section-title" style="font-size: 18px">{{ k }}</h2>
+            <span class="tag">{{ totalFor(k) }} 道</span>
+          </div>
+          <NuxtLink v-if="totalFor(k) > PREVIEW_LIMIT" :to="{ path: '/problem/list', query: { difficulty: k } }" class="section-actions">
+            <FButton appearance="subtle" size="small">查看全部</FButton>
+          </NuxtLink>
+        </div>
+        <div class="card">
+          <div class="problem-grid">
+            <a
+              v-for="p in previewFor(k)"
+              :key="p.pid"
+              :href="`https://www.luogu.com.cn/problem/${p.pid}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="problem-row"
+            >
+              <span class="problem-pid" :style="{ color: diffColor(k) }">{{ p.pid }}</span>
+              <span class="problem-title">{{ p.title }}</span>
+              <ExternalLink :size="13" class="problem-open" aria-hidden="true" />
+            </a>
+          </div>
+        </div>
+      </section>
+      <EmptyState v-if="!visibleKeys.length && !listPending" title="暂无题目数据" description="可以提交一次题库更新任务。" />
+    </div>
   </div>
 </template>
 
 <style scoped>
-.problem-hero {
-  position: relative;
-  border-radius: 12px;
-  padding: 22px 26px;
-  margin-bottom: 20px;
-  overflow: hidden;
-  background: var(--hero-bg);
-  border: 1px solid var(--hero-border);
+.problem-sections { display: flex; flex-direction: column; gap: 22px; }
+.diff-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.problem-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; padding: 8px; }
+.problem-row {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  padding: 8px 10px; border-radius: var(--borderRadiusMedium);
+  color: var(--colorNeutralForeground1); text-decoration: none;
+  transition: background var(--app-transition);
 }
-.problem-hero h1 {
-  margin: 0 0 10px;
-  color: var(--hero-text);
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 0.3px;
-}
-.hero-meta {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.attr {
-  flex: 1;
-  min-width: 0;
-  color: var(--hero-text-muted);
-  font-size: 13.5px;
-}
-.attr a {
-  color: var(--link);
-  text-decoration: none;
-}
-.attr a:hover {
-  text-decoration: underline;
-}
-.hero-save-btn {
-  flex-shrink: 0;
-}
-.hero-save-btn.success { color: var(--lg-green); border-color: var(--lg-green); }
-.hero-save-btn.error { color: var(--lg-red); border-color: var(--lg-red); }
-.hero-save-btn.cooldown { color: var(--lg-orange); border-color: var(--lg-orange); }
-.note { color: var(--text-muted); }
-.sub { font-size: 18px; font-weight: normal; margin-left: 4px; }
-.diff-section {
-  margin-bottom: 24px;
-  min-width: 0;
-}
-.diff-section h2 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  flex-wrap: wrap;
-}
-.count {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: normal;
-}
-.view-all {
-  font-size: 13px;
-  font-weight: normal;
-  margin-left: auto;
-}
-.problem-list {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  min-width: 0;
-}
-.problem-list li {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  min-width: 0;
-  box-sizing: border-box;
-}
-.problem-list a {
-  color: var(--text);
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-}
-.pid { font-family: monospace; font-weight: 600; }
-.title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.more-hint {
-  margin: 8px 0 0;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-@media (max-width: 768px) {
-  .problem-hero {
-    padding: 18px 16px;
-  }
-  .problem-list {
-    grid-template-columns: 1fr;
-  }
-  .view-all {
-    margin-left: 0;
-  }
+.problem-row:hover { background: var(--colorNeutralBackground1Hover); text-decoration: none; }
+.problem-pid { font-family: var(--fontFamilyMonospace); font-weight: 600; font-size: 12.5px; flex-shrink: 0; }
+.problem-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13.5px; }
+.problem-open { color: var(--colorNeutralForeground4); flex-shrink: 0; opacity: 0; }
+.problem-row:hover .problem-open { opacity: 1; }
+@media (max-width: 760px) {
+  .problem-grid { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

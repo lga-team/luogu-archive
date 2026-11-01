@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Activity, ChartNoAxesColumn, ExternalLink, FileText, History, Trophy } from 'lucide-vue-next'
+
+definePageMeta({ key: route => route.path })
 const route = useRoute()
 const api = useApi()
 const { smart, format } = useTime()
@@ -107,11 +110,41 @@ function describePermission(bits: number): string[] {
   return out
 }
 
-// 用户页不阻塞首屏：资料回来前先显示加载窗口。
-const { data: profile, error, pending: profilePending } = useLazyAsyncData(`user-${uid}`, () =>
+const { data: profile, error, status: profileStatus } = useLazyAsyncData(`user-${uid}`, () =>
   api<UserProfile>(`/user/${uid}`),
   { server: false },
 )
+useHead({ title: computed(() => profile.value ? `${profile.value.name_hidden ? `UID ${uid}` : profile.value.name} - 用户档案 - 洛谷档案馆` : '用户档案 - 洛谷档案馆') })
+
+// 等级分只取官方缓存，独立加载，不阻塞资料卡，也不触发额外爬取。
+const { data: ratingHistory, execute: loadRatingHistory } = useLazyAsyncData(
+  `user-rating-${uid}`,
+  () => api<Array<{ rating: number | null }>>(`/user/${uid}/rating-history`),
+  { server: false, immediate: false },
+)
+watch(() => profile.value?.last_crawled_at, () => {
+  if (profile.value) void loadRatingHistory()
+}, { immediate: true })
+const latestRating = computed(() => ratingHistory.value?.at(-1)?.rating ?? null)
+const profileStats = computed(() => [
+  { label: '关注', value: profile.value?.following_count },
+  { label: '粉丝', value: profile.value?.follower_count },
+  { label: '提交', value: profile.value?.submitted_problem_count },
+  { label: '通过', value: profile.value?.passed_problem_count },
+  { label: '排名', value: profile.value?.ranking },
+  { label: '等级分', value: latestRating.value },
+])
+const userType = computed(() => profile.value?.is_banned ? '封禁用户' : profile.value?.is_admin ? '管理员' : '普通用户')
+const registrationDate = computed(() => {
+  const value = profile.value?.register_time
+  return value && !Number.isNaN(new Date(value).getTime()) ? format(value, 'YYYY-MM-DD') : '-'
+})
+const compactCount = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 2 })
+function formatProfileStat(value: number | null | undefined, label: string) {
+  if (value == null || !Number.isFinite(value)) return '-'
+  // 等级分保留精确整数；其他长计数用紧凑格式，悬停仍能查看完整值。
+  return label === '等级分' ? String(value) : compactCount.format(value).toLowerCase()
+}
 
 const includeFeed = ref(true)
 const includeDiscussion = ref(true)
@@ -120,12 +153,13 @@ const activity = ref<ActivityItem[]>([])
 const activityLoading = ref(false)
 const activityNoMore = ref(false)
 const activityBefore = ref<string | null>(null)
+const activityError = ref('')
 // 筛选变化后丢弃旧请求结果，避免快速切换开关时串入上一次筛选的数据。
 let activityRequestVersion = 0
 const PAGE_SIZE = 50
 
 // 活动第一页同样懒加载，避免用户资料页等待活动接口。
-const { data: firstPage, pending: activityInitialPending } = useLazyAsyncData(
+const { data: firstPage, status: activityInitialStatus, error: activityInitialError } = useLazyAsyncData(
   `user-activity-${uid}`,
   () =>
     api<ActivityItem[]>(`/user/${uid}/activity`, {
@@ -137,6 +171,7 @@ const { data: firstPage, pending: activityInitialPending } = useLazyAsyncData(
     }),
   { server: false },
 )
+const activityInitialPending = computed(() => activityInitialStatus.value === 'idle' || activityInitialStatus.value === 'pending')
 
 watch(firstPage, (page) => {
   if (!page || activityRequestVersion !== 0) return
@@ -149,6 +184,7 @@ async function loadMoreActivity() {
   if (activityLoading.value || activityInitialPending.value || activityNoMore.value) return
   const requestVersion = activityRequestVersion
   activityLoading.value = true
+  activityError.value = ''
   try {
     const q: Record<string, any> = {
       include_feed: includeFeed.value ? 'true' : 'false',
@@ -165,18 +201,21 @@ async function loadMoreActivity() {
       activityBefore.value = page[page.length - 1].time
       if (page.length < PAGE_SIZE) activityNoMore.value = true
     }
+  } catch (e: any) {
+    if (requestVersion === activityRequestVersion) activityError.value = e?.data?.message || '活动加载失败，请重试。'
   } finally {
     if (requestVersion === activityRequestVersion) activityLoading.value = false
   }
 }
 
 // 两种活动独立筛选；切换后重新分页，避免隐藏内容占用返回条数。
-watch([includeFeed, includeDiscussion], async () => {
+async function reloadActivity() {
   const requestVersion = ++activityRequestVersion
   activity.value = []
   activityBefore.value = null
   activityNoMore.value = false
   activityLoading.value = true
+  activityError.value = ''
   try {
     const page = await api<ActivityItem[]>(`/user/${uid}/activity`, {
       query: {
@@ -193,15 +232,15 @@ watch([includeFeed, includeDiscussion], async () => {
       activityBefore.value = page[page.length - 1].time
       if (page.length < PAGE_SIZE) activityNoMore.value = true
     }
+  } catch (e: any) {
+    if (requestVersion === activityRequestVersion) activityError.value = e?.data?.message || '活动加载失败，请重试。'
   } finally {
     if (requestVersion === activityRequestVersion) activityLoading.value = false
   }
-})
+}
+watch([includeFeed, includeDiscussion], reloadActivity)
 
 const { render } = useMarkdown()
-const introHtml = computed(() =>
-  profile.value?.introduction_md ? render(profile.value.introduction_md) : '',
-)
 const completionTip = '此内容由洛谷档案馆根据回复链自动补全'
 
 function markMergedMedia(html: string, links: string[], images: string[]) {
@@ -229,6 +268,7 @@ function renderMergedSuffix(content: string, mergedSuffix: string) {
   const prefix = content.slice(0, Math.max(0, content.length - mergedSuffix.length))
   const prefixHtml = render(prefix)
   const suffixHtml = render(mergedSuffix)
+  if ((prefix && !prefixHtml) || !suffixHtml) return ''
   const suffixParagraph = suffixHtml.match(/^<p>([\s\S]*)<\/p>\s*$/)
 
   // 普通文字尾巴接回原段落；只有原 Markdown 明确换行或包含多个块时才另起一行。
@@ -257,12 +297,24 @@ function feedHtml(
 }
 
 const copiedIntroOriginal = ref(false)
+const copyError = ref('')
+let copyTimer: ReturnType<typeof setTimeout> | undefined
 async function copyIntroOriginal() {
   if (!profile.value?.introduction_md) return
-  await navigator.clipboard.writeText(profile.value.introduction_md)
-  copiedIntroOriginal.value = true
-  setTimeout(() => { copiedIntroOriginal.value = false }, 1400)
+  copyError.value = ''
+  try {
+    await navigator.clipboard.writeText(profile.value.introduction_md)
+    copiedIntroOriginal.value = true
+    if (copyTimer) clearTimeout(copyTimer)
+    copyTimer = setTimeout(() => { copiedIntroOriginal.value = false }, 1400)
+  } catch {
+    copyError.value = '复制失败，请检查浏览器剪贴板权限。'
+  }
 }
+onBeforeUnmount(() => {
+  activityRequestVersion++
+  if (copyTimer) clearTimeout(copyTimer)
+})
 
 const userBrief = computed(() => profile.value ? {
   uid: profile.value.uid,
@@ -345,6 +397,19 @@ const tabs: Array<{ key: TabKey; label: string; show: () => boolean }> = [
   { key: 'prizes', label: 'OI 获奖', show: () => (profile.value?.prizes?.length ?? 0) > 0 },
   { key: 'names', label: '用户名历史', show: () => nameHistory.value.length > 1 },
 ]
+const visibleTabs = computed(() => tabs.filter(tab => tab.show()).map(({ key, label }) => ({ key, label })))
+const tabIcons: Record<string, any> = { activity: Activity, intro: FileText, prizes: Trophy, names: History }
+const tabItems = computed(() => visibleTabs.value.map(tab => ({ id: tab.key, label: tab.label, icon: tabIcons[tab.key] })))
+function selectTab(tab: string) {
+  if (visibleTabs.value.some(item => item.key === tab)) activeTab.value = tab as TabKey
+}
+function activityTone(kind: string) {
+  if (kind === 'feed') return 'tag--brand'
+  if (kind === 'judgement') return 'tag--warn'
+  if (kind === 'article') return 'tag--info'
+  if (kind === 'discussion' || kind === 'discussion_reply') return 'tag'
+  return 'tag'
+}
 
 // 代码复制按钮：绑在右侧内容容器上，覆盖 activity / intro 两种 md 场景
 const contentRef = ref<HTMLElement | null>(null)
@@ -357,95 +422,79 @@ function formatScore(s: number): string {
 </script>
 
 <template>
-  <LoadingPanel v-if="profilePending" title="正在加载用户档案" text="页面已经打开，正在读取用户资料和活动记录…" />
-
-  <div v-else-if="error" class="error-box">
-    <h2>{{ error.data?.message || '用户未收录' }}</h2>
-    <p>已触发一次爬取，稍等片刻刷新即可。</p>
-  </div>
-
-  <div v-else-if="profile" class="user-page">
-    <OriginBanner
-      :origin-url="`https://www.luogu.com.cn/user/${uid}`"
-      compact
-      :crawled-at="profile.last_crawled_at"
-      content-type="user"
-      :content-id="String(uid)"
-    />
-
+  <div ref="contentRef" class="user-page">
     <div class="two-col">
-      <!-- 左侧：用户信息 + Tab -->
+      <!-- 右侧：用户资料、操作与栏目 -->
       <aside class="sidebar">
-        <section class="profile-head">
-          <img v-if="profile.avatar" :src="profile.avatar" class="avatar" alt="">
-          <h1 class="name-row">
-            <LuoguUserName :user="userBrief" :hidden="profile.name_hidden" show-badge no-link />
-          </h1>
-          <p v-if="profile.slogan" class="slogan">{{ profile.slogan }}</p>
-
-          <div class="badges">
-            <span v-if="profile.is_banned" class="tag banned">已封禁</span>
-            <span v-if="profile.is_admin" class="tag admin">管理员</span>
-          </div>
-
-          <FollowButton :uid="profile.uid" />
-          <NuxtLink :to="`/user/${profile.uid}/card`" class="card-link-btn">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M4 19V5M9 19v-8M14 19v-5M19 19V9M3 19h18"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              />
-            </svg>
-            <span>图卡</span>
-          </NuxtLink>
-
-          <dl class="stats">
-            <div><dt>关注</dt><dd>{{ profile.following_count }}</dd></div>
-            <div><dt>粉丝</dt><dd>{{ profile.follower_count }}</dd></div>
-            <div v-if="profile.ranking !== null"><dt>做题榜</dt><dd>#{{ profile.ranking }}</dd></div>
-            <div v-if="profile.ccf_level > 0"><dt>CCF</dt><dd>{{ profile.ccf_level }}</dd></div>
-            <div v-if="profile.xcpc_level > 0"><dt>XCPC</dt><dd>{{ profile.xcpc_level }}</dd></div>
-          </dl>
-        </section>
-
-        <!-- Tab 切换（垂直方向，侧栏底部） -->
-        <nav class="tabs">
-          <button
-            v-for="t in tabs.filter(x => x.show())"
-            :key="t.key"
-            :class="{ active: activeTab === t.key }"
-            @click="activeTab = t.key"
-          >{{ t.label }}</button>
-        </nav>
-      </aside>
-
-      <!-- 右侧：tab 内容 -->
-      <main ref="contentRef" class="content">
-        <!-- 活动 -->
-        <section v-if="activeTab === 'activity'">
-          <div class="section-head">
-            <h2>活动</h2>
-            <div class="activity-filters">
-              <label class="toggle">
-                <input type="checkbox" v-model="includeFeed"> 显示犇犇
-              </label>
-              <label class="toggle">
-                <input type="checkbox" v-model="includeDiscussion"> 显示讨论
-              </label>
+        <section v-if="profile" class="profile-head archive-card">
+          <div class="profile-identity">
+            <LuoguAvatar :user="profile" :size="60" :hidden="profile.name_hidden" class="avatar" />
+            <div class="profile-identity-copy">
+              <h1 class="name-row">
+                <LuoguUserName :user="userBrief" :hidden="profile.name_hidden" show-badge no-link />
+              </h1>
+              <p v-if="profile.slogan" class="slogan">{{ profile.slogan }}</p>
             </div>
           </div>
+
+          <dl class="profile-details">
+            <div><dt>用户编号</dt><dd>{{ profile.uid ?? '-' }}</dd></div>
+            <div><dt>用户类型</dt><dd>{{ userType }}</dd></div>
+            <div><dt>注册时间</dt><dd>{{ registrationDate }}</dd></div>
+            <div v-if="profile.ccf_level > 0"><dt>OI 程序设计能力</dt><dd>{{ profile.ccf_level }} 级</dd></div>
+            <div v-if="profile.xcpc_level > 0"><dt>ICPC/CCPC 程序设计能力</dt><dd>{{ profile.xcpc_level }} 级</dd></div>
+          </dl>
+          <dl class="stats">
+            <div v-for="stat in profileStats" :key="stat.label"><dt>{{ stat.label }}</dt><dd :title="stat.value == null ? undefined : String(stat.value)">{{ formatProfileStat(stat.value, stat.label) }}</dd></div>
+          </dl>
+        </section>
+        <FollowButton :uid="Number(uid)">
+          <template #default="{ following, loading, toggle }">
+            <SaveButton content-type="user" :content-id="uid">
+              <template #default="{ state, message, save }">
+                <UserControls mode="toolbar" :uid="uid" :state="state" :message="message" :updated-at="profile?.last_crawled_at ? smart(profile.last_crawled_at) : ''" :show-profile-actions="!!profile" :following="following" :pending="loading" @update="save" @follow="toggle" @card="navigateTo(`/user/${uid}/card`)" />
+              </template>
+            </SaveButton>
+          </template>
+        </FollowButton>
+        <div v-if="profile" class="user-sidebar-navigation">
+          <UserControls mode="tabs" :tabs="visibleTabs" :active-tab="activeTab" @tab="selectTab" />
+        </div>
+        <div v-if="profile" class="user-filters archive-card">
+          <div class="user-filters-head">
+            <h2>活动筛选</h2>
+            <span class="muted">只影响活动列表</span>
+          </div>
+          <UserControls
+            mode="filters"
+            :include-feed="includeFeed"
+            :include-discussion="includeDiscussion"
+            @feed="includeFeed = $event"
+            @discussion="includeDiscussion = $event"
+          />
+        </div>
+      </aside>
+
+      <!-- 左侧：栏目内容 -->
+      <div v-if="profile" class="content">
+        <!-- 活动 -->
+        <section v-if="activeTab === 'activity'">
+          <div class="section-head activity-heading">
+            <div>
+              <h2>活动</h2>
+              <span class="muted" style="font-size: 12px">公开动态、文章、讨论与陶片记录</span>
+            </div>
+            <span class="tag">{{ activity.length }} 条</span>
+          </div>
           <LoadingPanel
-            v-if="activityInitialPending && !activity.length"
+            v-if="(activityInitialPending || activityLoading) && !activity.length"
+            variant="list"
+            :rows="4"
             title="正在加载活动记录"
-            text="用户资料已经打开，正在读取活动时间线…"
           />
 
           <ul v-else-if="activity && activity.length" class="activity-list">
-            <li v-for="(a, idx) in activity" :key="idx" :class="`act-${a.kind}`">
+            <li v-for="(a, idx) in activity" :key="idx" :class="`act-${a.kind}`" class="archive-card">
               <span class="kind-tag">{{ KIND_LABEL[a.kind] || a.kind }}</span>
               <span class="time">{{ smart(a.time) }}</span>
               <template v-if="a.kind === 'feed'">
@@ -533,41 +582,33 @@ function formatScore(s: number): string {
               </template>
             </li>
           </ul>
-          <p v-else class="empty">暂无活动记录</p>
+          <p v-else-if="!activityError && !(activityInitialError && activityRequestVersion === 0)" class="empty">暂无活动记录</p>
+          <div v-if="activityError || (activityInitialError && activityRequestVersion === 0)" class="activity-error" role="alert">
+            <p>{{ activityError || (activityInitialError as any)?.data?.message || '活动加载失败，请重试。' }}</p>
+            <UserControls mode="retry" :pending="activityLoading" @action="reloadActivity" />
+          </div>
 
           <!-- 加载更多 -->
           <div v-if="activity && activity.length" class="loader">
-            <button v-if="!activityNoMore" :disabled="activityLoading" @click="loadMoreActivity">
-              {{ activityLoading ? '加载中...' : '加载更多' }}
-            </button>
+            <UserControls v-if="!activityNoMore" mode="more" :pending="activityLoading" @action="loadMoreActivity" />
             <span v-else class="empty">没有更多了</span>
           </div>
         </section>
 
         <!-- 个人介绍 -->
-        <section v-if="activeTab === 'intro'">
+        <section v-if="activeTab === 'intro'" class="user-detail-panel archive-card">
           <div class="section-head">
             <h2>个人介绍</h2>
-            <button type="button" class="section-action-btn" @click="copyIntroOriginal">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path
-                  d="M8 8h10v12H8zM6 16H4V4h12v2"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linejoin="round"
-                />
-              </svg>
-              <span>{{ copiedIntroOriginal ? '已复制' : '复制原文' }}</span>
-            </button>
+            <UserControls mode="copy" :copied="copiedIntroOriginal" @action="copyIntroOriginal" />
           </div>
-          <article class="lg-content" v-html="introHtml" />
+          <p v-if="copyError" class="activity-error" role="alert">{{ copyError }}</p>
+          <MarkdownBody :source="profile.introduction_md" class="lg-content" />
         </section>
 
         <!-- OI 获奖 -->
-        <section v-if="activeTab === 'prizes'">
+        <section v-if="activeTab === 'prizes'" class="user-detail-panel archive-card">
           <h2>OI 获奖</h2>
-          <table class="prize-table">
+          <div class="prize-table-scroll"><table class="prize-table">
             <thead>
               <tr>
                 <th>年份</th>
@@ -596,15 +637,14 @@ function formatScore(s: number): string {
                 </template>
               </tr>
             </tbody>
-          </table>
+          </table></div>
         </section>
 
         <!-- 用户名外显历史 -->
-        <section v-if="activeTab === 'names'" class="name-history-panel">
+        <section v-if="activeTab === 'names'" class="name-history-panel archive-card">
           <header class="name-history-head">
             <div>
               <h2>历史用户名外显</h2>
-              <p>追踪最近的用户名外显变动记录。</p>
             </div>
             <span>{{ nameHistory.length }} 次记录</span>
           </header>
@@ -636,565 +676,178 @@ function formatScore(s: number): string {
             </li>
           </ol>
         </section>
-      </main>
+      </div>
+      <div v-else-if="error" class="error-box archive-card" role="alert">
+        <h2>{{ (error as any)?.data?.message || '用户未收录' }}</h2>
+        <p>已触发一次爬取，稍等片刻刷新即可。</p>
+      </div>
+      <LoadingPanel v-else-if="profileStatus === 'idle' || profileStatus === 'pending'" title="正在加载用户资料" text="" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.user-page {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
+/* 新版 Fluent 用户档案布局：内容在左、资料与操作在右。 */
+.user-page { width: 100%; }
 .two-col {
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 32px;
-  margin-top: 16px;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-areas: 'content sidebar';
+  gap: 18px;
   align-items: start;
 }
-@media (max-width: 768px) {
-  .two-col { grid-template-columns: 1fr; gap: 16px; }
-}
-
+.two-col > :not(.sidebar) { grid-area: content; min-width: 0; }
 .sidebar {
+  grid-area: sidebar;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   position: sticky;
   top: 16px;
-  align-self: start;
 }
-@media (max-width: 768px) {
-  /* 手机端：sidebar 变普通块，跟随页面向上滚出视口；tab 横向铺开 */
-  .sidebar {
-    position: static;
-    top: auto;
-  }
-}
+.content { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
 .profile-head {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 20px 16px;
-  text-align: center;
-  margin-bottom: 12px;
+  background:
+    radial-gradient(420px 200px at 90% -30%, var(--colorBrandBackground2), transparent 70%),
+    var(--colorNeutralBackground1);
+  padding: 20px;
+  text-align: left;
 }
-.avatar {
-  width: 100px;
-  height: 100px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-}
-.name-row {
-  margin: 10px 0 4px;
-  font-size: 20px;
-}
-.slogan {
-  color: var(--text-muted);
-  margin: 4px 0 12px;
-  font-size: 14px;
-}
-.badges {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-.tag {
-  font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: var(--hover);
-  color: var(--text-muted);
-}
-.tag.banned { background: #ffecec; color: var(--lg-red); }
-.tag.admin { background: #e9f5ff; color: var(--lg-blue); }
-
-.card-link-btn {
-  width: fit-content;
-  margin: 10px auto 0;
-  padding: 6px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  text-decoration: none;
-  font-size: 14px;
-}
-.card-link-btn:hover {
-  border-color: var(--link);
-  color: var(--link);
-  text-decoration: none;
-}
-.card-link-btn svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
+.profile-identity { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.profile-identity-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.avatar { width: 60px; height: 60px; flex: 0 0 60px; object-fit: cover; border-radius: 50%; border: 1px solid var(--colorNeutralStroke2); }
+.avatar-fallback { display: grid; place-items: center; background: var(--colorBrandBackground2); color: var(--colorBrandForeground1); font-size: 22px; font-weight: 600; }
+.name-row { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+.name-row :deep(.lg-user-wrap) { justify-content: flex-start; flex-wrap: wrap; max-width: 100%; }
+.slogan { margin: 0; color: var(--colorNeutralForeground3); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
+.profile-details { display: flex; flex-direction: column; gap: 9px; margin: 16px 0 0; font-size: 12px; }
+.profile-details > div { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.profile-details dt { color: var(--colorNeutralForeground3); }
+.profile-details dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-  margin: 14px 0 0;
-  text-align: left;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px;
+  margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--colorNeutralStroke2); text-align: center;
 }
-.stats > div {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 5px 10px;
-}
-.stats dt { font-size: 11px; color: var(--text-muted); margin: 0; }
-.stats dd { margin: 0; font-weight: 600; font-size: 14px; }
+.stats dt { font-size: 10.5px; color: var(--colorNeutralForeground3); margin: 0 0 2px; }
+.stats dd { margin: 0; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.user-sidebar-navigation { min-width: 0; }
 
-.tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px;
+.activity-heading { margin-bottom: 12px; }
+.activity-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.activity-list > li {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--colorNeutralStroke2);
 }
-.tabs button {
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
-  border-radius: 4px;
-  font: inherit;
-}
-.tabs button:hover { background: var(--hover); }
-.tabs button.active {
-  background: var(--link);
-  color: #fff;
-}
-
-@media (max-width: 768px) {
-  /* 手机端 tab 横向铺开，便于一行选 */
-  .tabs {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .tabs button {
-    flex: 1 0 auto;
-    text-align: center;
-  }
-}
-
-.content {
-  min-width: 0;
-  width: 100%;
-}
-.content h2 { margin-top: 0; }
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-.section-head h2 { margin: 0; }
-.activity-filters {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-.toggle {
-  font-size: 14px;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-.section-action-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  font-size: 13px;
-  transition: border-color 0.15s, color 0.15s, transform 0.1s;
-}
-.section-action-btn:hover {
-  border-color: var(--link);
-  color: var(--link);
-  transform: translateY(-1px);
-}
-.section-action-btn svg {
-  width: 15px;
-  height: 15px;
-  flex: 0 0 auto;
-}
-
-.activity-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-.activity-list li {
-  padding: 10px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  margin-bottom: 8px;
-}
+.activity-list > li.act-feed { border-left-color: var(--colorBrandStroke1); }
+.activity-list > li.act-discussion,
+.activity-list > li.act-discussion_reply { border-left-color: #13C2C2; }
+.activity-list > li.act-judgement { border-left-color: var(--colorPaletteDarkOrangeForeground1, #8a3707); }
 .kind-tag {
-  font-size: 11px;
-  padding: 2px 8px;
-  background: var(--hover);
-  color: var(--text-muted);
-  border-radius: 10px;
-  margin-right: 8px;
+  display: inline-flex; align-items: center; align-self: flex-start;
+  padding: 1px 7px; border-radius: var(--borderRadiusSmall);
+  background: var(--colorNeutralBackground2); color: var(--colorNeutralForeground3);
+  font-size: 11px; font-weight: 600;
 }
-.time {
-  color: var(--text-muted);
-  font-size: 13px;
-  margin-left: 12px;
-}
-.link-line {
-  /* 文章 / 剪贴板的链接独占一行，上方留空与 feed 内容块保持一致 */
-  margin-top: 8px;
-}
-.discussion-excerpt {
-  margin: 8px 0 0;
-  color: var(--text-muted);
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-}
-.discussion-title {
-  margin: 12px 0 0;
-  font-size: 16px;
-  font-weight: 650;
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-.discussion-title a { color: var(--text); }
-.discussion-title a:hover { color: var(--link); }
-.discussion-context {
-  margin: 12px 0 0;
-  color: var(--text-muted);
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
+.time { color: var(--colorNeutralForeground3); font-size: 11px; margin-left: auto; }
+.activity-list > li > .kind-tag + .time { position: absolute; }
+.activity-list > li { position: relative; }
+.activity-list > li > .time { position: absolute; top: 14px; right: 16px; }
+.feed-foot { display: flex; align-items: center; gap: 10px; padding-top: 6px; border-top: 1px solid var(--colorNeutralStroke2); }
+.feed-id { color: var(--colorNeutralForeground3); font-family: var(--fontFamilyMonospace); font-size: 11px; }
+.link-line { font-weight: 600; font-size: 14px; }
+.link-line a { color: var(--colorNeutralForeground1); text-decoration: none; }
+.link-line a:hover { color: var(--colorBrandForeground1); }
+.discussion-title { margin: 0; font-size: 14.5px; font-weight: 600; }
+.discussion-title a { color: var(--colorNeutralForeground1); text-decoration: none; }
+.discussion-title a:hover { color: var(--colorBrandForeground1); }
+.discussion-excerpt { margin: 0; color: var(--colorNeutralForeground3); font-size: 13px; line-height: 1.6; }
+.discussion-stats { color: var(--colorNeutralForeground3); font-size: 11px; }
+.discussion-context { margin: 0; color: var(--colorNeutralForeground3); font-size: 13px; }
 .discussion-quote {
-  margin: 10px 0 2px;
-  padding: 2px 0 2px 12px;
-  border-left: 3px solid var(--border);
-  color: var(--text);
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
+  margin: 0; padding: 9px 12px; border-left: 3px solid var(--colorBrandStroke1);
+  border-radius: 0 var(--borderRadiusMedium) var(--borderRadiusMedium) 0;
+  background: var(--colorNeutralBackground2); color: var(--colorNeutralForeground2); font-size: 13px;
 }
-.discussion-stats { margin-top: 10px; color: var(--text-muted); font-size: 12px; }
-.name-history-panel {
-  overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-}
-.name-history-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 22px;
-  border-bottom: 1px solid var(--border);
-}
-.name-history-head h2 {
-  margin: 0;
-  font-size: 18px;
-}
-.name-history-head p {
-  margin: 4px 0 0;
-  color: var(--text-muted);
+.judgement-card { display: flex; flex-direction: column; gap: 7px; }
+.judgement-card .head { display: flex; align-items: center; gap: 8px; }
+.action-tag { display: inline-flex; padding: 1px 8px; border-radius: var(--borderRadiusSmall); font-size: 11px; font-weight: 600; }
+.action-tag.revoked { background: var(--colorPaletteRedBackground1, #fde7e9); color: var(--colorPaletteRedForeground1, #b10e1c); }
+.action-tag.added { background: var(--colorPaletteGreenBackground1, #dff6dd); color: var(--colorPaletteGreenForeground1, #0e700e); }
+.action-tag.cheater { background: var(--colorPaletteDarkOrangeBackground1, #fdf6ce); color: var(--colorPaletteDarkOrangeForeground1, #8a3707); }
+.perm-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-size: 12px; }
+.perm-label { font-weight: 600; font-size: 12px; }
+.perm-label.revoked { color: var(--colorPaletteRedForeground1, #b10e1c); }
+.perm-label.added { color: var(--colorPaletteGreenForeground1, #0e700e); }
+.perm-chip { padding: 1px 7px; border-radius: var(--borderRadiusSmall); background: var(--colorNeutralBackground2); border: 1px solid var(--colorNeutralStroke2); font-size: 11px; }
+.perm-suffix { color: var(--colorNeutralForeground3); font-size: 11px; }
+.reason { padding-top: 7px; border-top: 1px dashed var(--colorNeutralStroke2); font-size: 12.5px; color: var(--colorNeutralForeground2); }
+.empty { padding: 34px 20px; text-align: center; color: var(--colorNeutralForeground3); }
+.activity-error {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 12px 14px; border-radius: var(--borderRadiusLarge);
+  background: var(--colorPaletteDarkOrangeBackground1, #fdf6ce); color: var(--colorPaletteDarkOrangeForeground1, #8a3707);
   font-size: 13px;
 }
-.name-history-head > span {
-  flex: 0 0 auto;
-  color: var(--text-muted);
-  font-size: 12px;
+.activity-error p { margin: 0; }
+.loader { display: flex; justify-content: center; padding: 6px 0; }
+
+.user-detail-panel { padding: 18px 20px; }
+.user-detail-panel > h2 { font-size: 17px; margin-bottom: 12px; }
+.section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.section-head h2 { margin: 0; font-size: 17px; }
+.prize-table-scroll { overflow-x: auto; margin-top: 12px; }
+.prize-table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }
+.prize-table th, .prize-table td { padding: 9px 12px; border-bottom: 1px solid var(--colorNeutralStroke2); text-align: left; }
+.prize-table th { color: var(--colorNeutralForeground3); font-size: 11px; font-weight: 600; background: var(--colorNeutralBackground2); }
+.hidden-cell { color: var(--colorNeutralForeground3); text-align: center; }
+
+.name-history-panel { padding: 18px 20px; }
+.name-history-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.name-history-head h2 { margin: 0; font-size: 17px; }
+.name-history-head > span { color: var(--colorNeutralForeground3); font-size: 12px; }
+.name-history-list { list-style: none; margin: 0; padding: 0; }
+.name-history-list > li {
+  position: relative; display: flex; gap: 12px; margin-left: 5px;
+  padding: 8px 0 14px 20px; border-left: 1px solid var(--colorNeutralStroke2);
 }
-.name-history-list {
-  margin: 0;
-  padding: 8px 22px 12px;
-  list-style: none;
-}
-.name-history-list li {
-  position: relative;
-  min-height: 66px;
-  padding: 13px 0 13px 26px;
-}
-.history-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 5px;
-  width: 1px;
-  background: var(--border);
-}
-.name-history-list li:first-child .history-line {
-  top: 21px;
-}
-.name-history-list li:last-child .history-line {
-  bottom: calc(100% - 22px);
-}
+.name-history-list > li:last-child { border-left-color: transparent; padding-bottom: 0; }
+.history-line { display: none; }
 .history-dot {
-  position: absolute;
-  top: 19px;
-  left: 1px;
-  width: 9px;
-  height: 9px;
-  box-sizing: border-box;
-  border: 2px solid var(--surface);
-  border-radius: 50%;
-  background: var(--text-muted);
-  box-shadow: 0 0 0 1px var(--border);
+  position: absolute; left: -4px; top: 14px; width: 7px; height: 7px;
+  border-radius: 50%; background: var(--colorNeutralStroke1);
 }
-.name-history-list li.current .history-dot {
-  background: var(--link);
-  box-shadow: 0 0 0 1px var(--link);
+.name-history-list > li.current .history-dot { background: var(--colorBrandBackground); box-shadow: 0 0 0 3px var(--colorBrandBackground2); }
+.history-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.history-time { display: flex; gap: 4px 12px; flex-wrap: wrap; color: var(--colorNeutralForeground3); font-size: 11px; }
+.error-box { padding: 32px 20px; text-align: center; }
+.error-box h2 { font-size: 18px; }
+.error-box p { color: var(--colorNeutralForeground3); font-size: 13px; margin-top: 6px; }
+
+@media (max-width: 1020px) {
+  .two-col { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'sidebar' 'content'; gap: 14px; }
+  .sidebar { position: static; }
 }
-.history-content {
-  min-width: 0;
-}
-.history-time {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 16px;
-  margin-top: 7px;
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.4;
-}
-.name-history-list li.current .history-time {
-  color: var(--text);
-  font-weight: 500;
-}
-@media (max-width: 520px) {
-  .name-history-head {
-    padding: 16px;
-  }
-  .name-history-head > span {
-    display: none;
-  }
-  .name-history-list {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
-}
-.feed-foot {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+@media (max-width: 680px) {
+  .profile-head { padding: 16px; }
+  .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .activity-list > li { padding: 12px 14px; }
+  .activity-list > li > .time { position: static; }
+  .user-detail-panel, .name-history-panel { padding: 15px; }
 }
 
-/* 自动补回内容使用淡蓝下划线，并提供与比赛页一致的悬浮说明。 */
-.lg-content :deep(.feed-completion-wrap) {
-  position: relative;
-  display: inline;
-  cursor: help;
-  outline: none;
-}
-.lg-content :deep(.feed-completion-block) {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-}
-.lg-content :deep(.feed-auto-merged) {
-  text-decoration-line: underline;
-  text-decoration-color: #7db9e8;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-.lg-content :deep(.feed-auto-merged img) {
-  box-shadow: 0 2px 0 #7db9e8;
-}
-.lg-content :deep(.feed-auto-merged-image) {
-  display: inline-block;
-  max-width: 100%;
-  box-shadow: 0 2px 0 #7db9e8;
-}
-.lg-content :deep(.feed-auto-merged-image img) {
-  display: block;
-}
-.lg-content :deep(.feed-auto-merged-link),
-.lg-content :deep(.feed-auto-merged-link a) {
-  text-decoration-line: underline;
-  text-decoration-color: #7db9e8;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 3px;
-}
-.lg-content :deep(.feed-completion-popover) {
-  position: absolute;
-  z-index: 30;
-  top: calc(100% + 9px);
-  left: 50%;
-  display: none;
-  width: max-content;
-  max-width: 280px;
-  padding: 8px 10px;
-  transform: translateX(-50%);
-  border: 1px solid var(--border);
-  border-radius: 5px;
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.16);
-  font-size: 12px;
-  line-height: 1.55;
-  text-align: left;
-  white-space: normal;
-  pointer-events: none;
-}
-.lg-content :deep(.feed-completion-wrap:hover > .feed-completion-popover),
-.lg-content :deep(.feed-completion-wrap:focus-within > .feed-completion-popover) {
-  display: block;
-}
-.feed-id {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: ui-monospace, "SF Mono", Consolas, monospace;
-  opacity: 0.55;
-}
-
-/* 陶片放逐迷你卡片（沿用陶片页样式，但不带头像名字） */
-.judgement-card {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
-}
-.judgement-card .head {
-  display: flex;
-  align-items: center;
-}
-.judgement-card .action-tag {
-  font-size: 13px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 4px;
-}
-.judgement-card .action-tag.revoked { color: var(--lg-red); }
-.judgement-card .action-tag.added { color: var(--lg-green); }
-.judgement-card .action-tag.cheater { color: var(--lg-cheater-tag); }
-.judgement-card .perm-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  font-size: 14px;
-  padding-left: 8px;
-}
-.judgement-card .perm-label { font-weight: 500; }
-.judgement-card .perm-label.revoked { color: var(--lg-red); }
-.judgement-card .perm-label.added { color: var(--lg-green); }
-.judgement-card .perm-chip {
-  background: var(--hover);
-  border: 1px solid var(--border);
-  padding: 2px 10px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-.judgement-card .perm-suffix {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-.judgement-card .reason {
-  padding-top: 6px;
-  border-top: 1px dashed var(--border);
-  color: var(--text);
-  font-size: 14px;
-}
-.empty {
-  color: var(--text-muted);
-  text-align: center;
-  padding: 40px;
-}
-.prize-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  font-size: 14px;
-}
-.prize-table th,
-.prize-table td {
-  padding: 8px 14px;
-  text-align: left;
-  border-bottom: 1px solid var(--border);
-}
-.prize-table thead {
-  background: var(--hover);
-}
-.prize-table th {
-  font-weight: 600;
-  color: var(--text-muted);
-  font-size: 13px;
-}
-.prize-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.prize-table tbody tr:hover {
-  background: var(--hover);
-}
-.hidden-cell {
-  color: var(--text-muted);
-  font-size: 13px;
-}
-.prize-table td.hidden-merged {
-  text-align: center;
-}
-.loader {
-  text-align: center;
-  padding: 16px 0;
-}
-.loader button {
-  padding: 8px 24px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  cursor: pointer;
-  color: var(--text);
-  font: inherit;
-}
-.loader button:hover:not(:disabled) {
-  border-color: var(--link);
-  color: var(--link);
-}
-.loader button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.loader .empty {
-  padding: 8px;
-}
-.error-box {
-  padding: 30px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-}
+.user-filters { padding: 15px 16px; display: flex; flex-direction: column; gap: 10px; background: var(--colorNeutralBackground2); box-shadow: none; }
+.user-filters-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.user-filters-head h2 { font-size: 14px; font-weight: 600; }
+.user-filters-head span { font-size: 10.5px; }
+.user-filters :deep(.cluster) { flex-direction: column; align-items: flex-start; gap: 8px; }
+.activity-heading { margin-bottom: 10px; }
+.activity-heading h2 { font-size: 19px; }
+.profile-head { padding: 18px; background: radial-gradient(320px 160px at 92% -20%, var(--colorBrandBackground2), transparent 70%), var(--colorNeutralBackground1); }
+.name-row { font-size: 21px; }
+.slogan { font-size: 12px; }
+.stats { gap: 10px; }
+.stats dd { font-size: 16px; }
 </style>

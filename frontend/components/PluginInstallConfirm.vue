@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Download, ShieldAlert } from 'lucide-vue-next'
 import type { PluginVersion } from '~/types/plugin'
 
 const props = defineProps<{
@@ -11,7 +12,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ close: []; done: [message: string]; analysis: [] }>()
 const api = useApi()
-const config = useRuntimeConfig()
+const apiBase = useApiBase()
 const { runtimeMode } = usePluginLabels()
 const codeBytes = computed(() => props.version.code_bytes)
 const copyBlocked = computed(() => props.action === 'copy' && codeBytes.value > 100 * 1024)
@@ -28,12 +29,9 @@ async function confirm() {
   }
   try {
     const path = `/plugins/${props.articleId}/download/${props.version.id}`
-
-    // 公开下载由真实文件请求在后端记数，不再依赖可绕过的客户端累计接口。
     if (props.action === 'download' && props.publicDownload) {
-      const base = String(config.public.apiBaseUrl || '').replace(/\/$/, '')
       const anchor = document.createElement('a')
-      anchor.href = `${base}/api/v1${path}`
+      anchor.href = `${apiBase}/api/v1${path}`
       anchor.download = props.version.download_filename
       anchor.hidden = true
       document.body.appendChild(anchor)
@@ -43,20 +41,15 @@ async function confirm() {
       emit('close')
       return
     }
-
-    // 复制只在剪贴板写入成功后上报，读取代码本身不应被算作下载。
     const codePath = props.action === 'copy' ? `${path}?track_usage=false` : path
     const blob = await api<Blob>(codePath, { responseType: 'blob' })
     if (props.action === 'copy') {
       await navigator.clipboard.writeText(await blob.text())
       try {
         await api(`/plugins/${props.articleId}/increment_copy/${props.version.id}`, { method: 'POST' })
-      } catch (e) {
-        // 统计失败不能影响已经完成的复制操作。
-      }
+      } catch { /* 统计失败不影响复制 */ }
       emit('done', '代码已复制')
     } else {
-      // 非公开下载已经在读取文件时由后端完成记数。
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
@@ -73,50 +66,44 @@ async function confirm() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <div v-if="open" class="dialog-backdrop" @click.self="emit('close')">
-      <section class="dialog" role="dialog" aria-modal="true" aria-labelledby="install-title">
-        <header>
-          <h2 id="install-title">确认{{ action === 'copy' ? '复制' : '下载' }}代码</h2>
-          <button type="button" class="close" title="关闭" aria-label="关闭" @click="emit('close')">×</button>
-        </header>
-        <dl>
-          <div><dt>插件</dt><dd>{{ pluginName }}</dd></div>
-          <div><dt>版本</dt><dd>{{ version.version }}</dd></div>
-          <div><dt>请求等级</dt><dd><PluginRequestLevelBadge :level="version.final_request_level" compact /></dd></div>
-          <div><dt>运行方式</dt><dd>{{ runtimeMode(version.runtime_mode) }}</dd></div>
-          <div><dt>最后验证</dt><dd>{{ version.last_verified_on }}</dd></div>
-          <div><dt>SHA-256</dt><dd><code>{{ version.code_sha256 }}</code></dd></div>
-        </dl>
-        <p class="notice">代码由上传者提供，本站不会执行或自动验证代码。安装前请阅读请求分析并自行确认风险。</p>
-        <p v-if="copyBlocked" class="copy-warning">
-          完整代码大小为 {{ codeSize }}，超过 100 KiB，不能复制，请下载文件。
-        </p>
-        <footer>
-          <button type="button" class="analysis-link" @click="emit('analysis')">查看请求分析</button>
-          <button type="button" class="archive-action-button" @click="emit('close')">取消</button>
-          <button type="button" class="archive-action-button" :disabled="copyBlocked" @click="confirm">确认{{ action === 'copy' ? '复制' : '下载' }}</button>
-        </footer>
-      </section>
+  <FDialog
+    :open="open"
+    :title="`确认${action === 'copy' ? '复制' : '下载'}代码`"
+    @update:open="!$event && emit('close')"
+  >
+    <div class="install-dialog">
+      <dl class="install-list">
+        <div><dt>插件</dt><dd>{{ pluginName }}</dd></div>
+        <div><dt>版本</dt><dd>{{ version.version }}</dd></div>
+        <div><dt>请求等级</dt><dd><PluginRequestLevelBadge :level="version.final_request_level" compact /></dd></div>
+        <div><dt>运行方式</dt><dd>{{ runtimeMode(version.runtime_mode) }}</dd></div>
+        <div><dt>最后验证</dt><dd>{{ version.last_verified_on }}</dd></div>
+        <div><dt>SHA-256</dt><dd><code class="code-inline">{{ version.code_sha256 }}</code></dd></div>
+      </dl>
+      <div class="notice notice--warn">
+        <ShieldAlert :size="18" aria-hidden="true" />
+        <span>代码由上传者提供，本站不会执行或自动验证代码。安装前请阅读请求分析并自行确认风险。</span>
+      </div>
+      <div v-if="copyBlocked" class="notice notice--warn">
+        <span>完整代码大小为 {{ codeSize }}，超过 100 KiB，不能复制，请下载文件。</span>
+      </div>
     </div>
-  </Teleport>
+    <template #actions>
+      <FButton appearance="subtle" @click="emit('analysis')">查看请求分析</FButton>
+      <FButton appearance="outline" @click="emit('close')">取消</FButton>
+      <FButton appearance="primary" :disabled="copyBlocked" @click="confirm">
+        <template #start><Download :size="15" aria-hidden="true" /></template>
+        确认{{ action === 'copy' ? '复制' : '下载' }}
+      </FButton>
+    </template>
+  </FDialog>
 </template>
 
 <style scoped>
-.dialog-backdrop { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(0, 0, 0, .52); }
-.dialog { width: min(620px, 100%); max-height: calc(100vh - 36px); overflow: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); box-shadow: 0 18px 55px rgba(0, 0, 0, .28); }
-header, footer { display: flex; align-items: center; padding: 16px 18px; }
-header { justify-content: space-between; border-bottom: 1px solid var(--border); }
-header h2 { margin: 0; font-size: 19px; }
-.close { border: 0; background: transparent; color: var(--text-muted); font-size: 26px; cursor: pointer; }
-dl { margin: 0; padding: 16px 18px; display: grid; gap: 11px; }
-dl > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; }
-dt { color: var(--text-muted); }
-dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-code { font-size: 12px; }
-.notice { margin: 0 18px; padding: 11px 13px; border-left: 3px solid var(--lg-orange); background: var(--hover); color: var(--text-muted); font-size: 13px; }
-.copy-warning { margin: 10px 18px 0; padding: 11px 13px; border-left: 3px solid var(--lg-yellow); background: color-mix(in srgb, var(--lg-yellow) 10%, var(--surface)); color: var(--text-muted); font-size: 13px; }
-footer { justify-content: flex-end; gap: 10px; }
-.analysis-link { margin-right: auto; border: 0; background: transparent; color: var(--link); }
-@media (max-width: 520px) { dl > div { grid-template-columns: 1fr; gap: 3px; } }
+.install-dialog { display: flex; flex-direction: column; gap: 12px; }
+.install-list { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.install-list > div { display: grid; grid-template-columns: 88px minmax(0, 1fr); gap: 10px; font-size: 13px; }
+.install-list dt { color: var(--colorNeutralForeground3); }
+.install-list dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+@media (max-width: 520px) { .install-list > div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
 </style>

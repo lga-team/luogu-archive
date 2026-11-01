@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ArrowLeft, ExternalLink, MessageSquareText } from 'lucide-vue-next'
+
 interface FeedItem {
   id: number
   type: number
@@ -44,6 +46,7 @@ function renderMergedSuffix(content: string, mergedSuffix: string) {
   const prefix = content.slice(0, Math.max(0, content.length - mergedSuffix.length))
   const prefixHtml = render(prefix)
   const suffixHtml = render(mergedSuffix)
+  if ((prefix && !prefixHtml) || !suffixHtml) return ''
   const suffixParagraph = suffixHtml.match(/^<p>([\s\S]*)<\/p>\s*$/)
   if (!mergedSuffix.startsWith('\n') && suffixParagraph && /<\/p>\s*$/.test(prefixHtml)) {
     const marked = `<span class="feed-completion-wrap" tabindex="0"><span class="feed-auto-merged">${suffixParagraph[1]}</span><span class="feed-completion-popover" role="tooltip">${completionTip}</span></span>`
@@ -64,37 +67,66 @@ useCopyCode(contentRef)
 </script>
 
 <template>
-  <div class="feed-detail">
-    <LoadingPanel v-if="pending" title="loading……" text="" />
-    <div v-else-if="error" class="error-box">
-      <h2>{{ error.data?.message || '犇犇加载失败' }}</h2>
+  <div class="page page--medium">
+    <PageHeader title="犇犇详情" :description="feed ? `#${feed.id}` : `#${feedId}`" eyebrow="Feed">
+      <template #icon><MessageSquareText :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+      <template #actions>
+        <FButton appearance="outline" @click="navigateTo('/feed')">
+          <template #start><ArrowLeft :size="16" aria-hidden="true" /></template>返回犇犇
+        </FButton>
+        <FButton appearance="outline" :href="'https://www.luogu.com.cn/feed/' + feedId" target="_blank">
+          <template #start><ExternalLink :size="15" aria-hidden="true" /></template>查看原站
+        </FButton>
+      </template>
+    </PageHeader>
+
+    <LoadingPanel v-if="pending" variant="detail" title="正在加载犇犇" />
+    <div v-else-if="error" class="card card__body">
+      <EmptyState title="犇犇加载失败" :description="(error as any)?.data?.message || '请稍后重试。'">
+        <template #actions><FButton appearance="outline" @click="navigateTo('/feed')">返回列表</FButton></template>
+      </EmptyState>
     </div>
-    <article v-else-if="feed" class="feed-item">
-      <NuxtLink v-if="feed.user" :to="`/user/${feed.user.uid}`" class="avatar-link">
-        <img v-if="feed.user.avatar" :src="feed.user.avatar" alt="" class="avatar">
-        <div v-else class="avatar avatar-fallback" :data-color="feed.user.color">{{ (feed.user.name || '?').charAt(0).toUpperCase() }}</div>
-      </NuxtLink>
-      <div v-else class="avatar avatar-fallback" data-color="Gray">?</div>
-      <div class="body">
-        <header class="meta">
+
+    <article v-else-if="feed" class="card feed-detail-card">
+      <header class="feed-detail-head">
+        <NuxtLink v-if="feed.user" :to="`/user/${feed.user.uid}`" class="feed-detail-avatar" :aria-label="`${feed.user.name} 的主页`">
+          <LuoguAvatar :user="feed.user" :size="48" />
+        </NuxtLink>
+        <div class="stack stack--xs" style="flex:1 1 auto;min-width:0">
           <LuoguUserName :user="feed.user" show-badge />
-          <span class="time">{{ smart(feed.time) }}</span>
-        </header>
-        <div ref="contentRef" class="lg-content content" v-html="feedHtml(feed)" />
-        <footer class="feed-foot">
-          <NuxtLink :to="`/feed/${feed.id}`" class="feed-id">#{{ feed.id }}</NuxtLink>
-          <FeedReplyButton :content="feed.content_md" :sender-name="feed.user?.name" />
-        </footer>
-      </div>
+          <span class="muted" style="font-size: 12px">{{ smart(feed.time) }}</span>
+        </div>
+        <FeedReplyButton :content="feed.content_md" :sender-name="feed.user?.name" />
+      </header>
+      <div ref="contentRef" class="markdown-body feed-detail-content" v-html="feedHtml(feed)" />
+      <footer class="feed-detail-foot">
+        <span class="feed-id">#{{ feed.id }}</span>
+      </footer>
     </article>
   </div>
 </template>
 
 <style scoped>
-.feed-detail{max-width:100%;padding-top:4px}.feed-item{display:flex;gap:14px;padding:18px 20px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}
-.avatar-link{flex-shrink:0;text-decoration:none}.avatar{display:block;width:48px;height:48px;border-radius:50%;object-fit:cover;background:var(--bg)}.avatar-fallback{display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:600;background:var(--lg-gray)}
-.avatar-fallback[data-color="Blue"]{background:var(--lg-blue)}.avatar-fallback[data-color="Green"]{background:var(--lg-green)}.avatar-fallback[data-color="Orange"]{background:var(--lg-orange)}.avatar-fallback[data-color="Red"]{background:var(--lg-red)}.avatar-fallback[data-color="Purple"]{background:var(--lg-purple)}.avatar-fallback[data-color="Cyan"]{background:var(--lg-cyan)}.avatar-fallback[data-color="Black"]{background:var(--lg-black)}.avatar-fallback[data-color="Cheater"]{background:var(--lg-cheater-tag)}
-.body{min-width:0;flex:1;overflow-wrap:anywhere;word-break:break-word}.meta{display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:8px}.time{color:var(--text-muted);font-size:12px}.content{font-size:15px;line-height:1.65;overflow-wrap:anywhere;word-break:break-word}.content :deep(img){max-width:100%;height:auto}.feed-foot{display:flex;align-items:center;gap:10px;margin-top:10px}.feed-id{color:var(--text-muted);font-family:ui-monospace,"SF Mono",Consolas,monospace;font-size:11px;opacity:.55}
-.content :deep(.feed-completion-wrap){position:relative;display:inline;cursor:help;outline:none}.content :deep(.feed-completion-block){display:block;width:fit-content;max-width:100%}.content :deep(.feed-auto-merged),.content :deep(.feed-auto-merged-link),.content :deep(.feed-auto-merged-link a){text-decoration-line:underline;text-decoration-color:#7db9e8;text-decoration-thickness:2px;text-underline-offset:3px}.content :deep(.feed-auto-merged-image){display:inline-block;max-width:100%;box-shadow:0 2px 0 #7db9e8}.content :deep(.feed-auto-merged-image img){display:block}.content :deep(.feed-completion-popover){position:absolute;z-index:30;top:calc(100% + 9px);left:50%;display:none;width:max-content;max-width:280px;padding:8px 10px;transform:translateX(-50%);border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);box-shadow:0 8px 22px rgba(0,0,0,.16);font-size:12px;line-height:1.55;white-space:normal;pointer-events:none}.content :deep(.feed-completion-wrap:hover>.feed-completion-popover),.content :deep(.feed-completion-wrap:focus-within>.feed-completion-popover){display:block}
-.error-box{padding:28px;border:1px solid var(--border);border-radius:8px;background:var(--surface);text-align:center}@media(max-width:768px){.feed-item{gap:11px;padding:14px}.avatar{width:42px;height:42px}}
+.feed-detail-card { padding: clamp(18px, 3vw, 26px); display: flex; flex-direction: column; gap: 14px; }
+.feed-detail-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.feed-detail-avatar img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; display: block; }
+.feed-detail-content { font-size: 15px; line-height: 1.75; }
+.feed-detail-content :deep(img) { max-width: 100%; height: auto; border-radius: var(--borderRadiusMedium); }
+.feed-detail-foot { display: flex; align-items: center; gap: 10px; border-top: 1px solid var(--colorNeutralStroke2); padding-top: 10px; }
+.feed-id { color: var(--colorNeutralForeground3); font-family: var(--fontFamilyMonospace); font-size: 11px; }
+.feed-detail-content :deep(.feed-completion-wrap) { position: relative; display: inline; cursor: help; outline: none; }
+.feed-detail-content :deep(.feed-completion-block) { display: block; width: fit-content; max-width: 100%; }
+.feed-detail-content :deep(.feed-auto-merged),
+.feed-detail-content :deep(.feed-auto-merged-link),
+.feed-detail-content :deep(.feed-auto-merged-link a) { text-decoration-line: underline; text-decoration-color: #7db9e8; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+.feed-detail-content :deep(.feed-auto-merged-image) { display: inline-block; max-width: 100%; box-shadow: 0 2px 0 #7db9e8; }
+.feed-detail-content :deep(.feed-completion-popover) {
+  position: absolute; z-index: 30; top: calc(100% + 9px); left: 50%; display: none;
+  width: max-content; max-width: 280px; padding: 8px 10px; transform: translateX(-50%);
+  border: 1px solid var(--colorNeutralStroke2); border-radius: var(--borderRadiusMedium);
+  background: var(--colorNeutralBackground1); color: var(--colorNeutralForeground1);
+  box-shadow: var(--shadow16); font-size: 12px; line-height: 1.55; white-space: normal; pointer-events: none;
+}
+.feed-detail-content :deep(.feed-completion-wrap:hover > .feed-completion-popover),
+.feed-detail-content :deep(.feed-completion-wrap:focus-within > .feed-completion-popover) { display: block; }
 </style>

@@ -1,19 +1,19 @@
 <script setup lang="ts">
+import { FolderOpen, Plus, RefreshCw } from 'lucide-vue-next'
+
 const auth = useAuthStore()
 const api = useApi()
 const loading = ref(true)
 const errorText = ref('')
 const data = ref<{ plugins: any[]; applications: any[] }>({ plugins: [], applications: [] })
 
-const typeNames: Record<string, string> = {
-  publish: '首次发布', update: '版本更新', recommend: '推荐申请', delete: '删除申请',
-}
-const statusNames: Record<string, string> = {
-  pending: '待审核', approved: '已通过', rejected: '已拒绝', cancelled: '已撤销',
-}
+const typeNames: Record<string, string> = { publish: '首次发布', update: '版本更新', recommend: '推荐申请', delete: '删除申请' }
+const statusNames: Record<string, string> = { pending: '待审核', approved: '已通过', rejected: '已拒绝', cancelled: '已撤销' }
+const statusClass = (status: string) => status === 'approved' ? 'tag--success' : status === 'rejected' ? 'tag--danger' : status === 'pending' ? 'tag--warn' : 'tag'
 
 async function load() {
   loading.value = true
+  errorText.value = ''
   try {
     data.value = await api('/plugins/manage')
   } catch (error: any) {
@@ -22,13 +22,11 @@ async function load() {
     loading.value = false
   }
 }
-
 async function cancel(applicationId: number) {
   if (!confirm('确定撤销这条待审核申请吗？')) return
   await api(`/plugins/applications/${applicationId}`, { method: 'DELETE' })
   await load()
 }
-
 async function reasonAction(articleId: string, type: 'recommend' | 'delete') {
   const reason = prompt(type === 'recommend' ? '请填写推荐理由：' : '请填写删除原因：')
   if (!reason) return
@@ -53,76 +51,85 @@ useHead({ title: '我的插件 - 洛谷档案馆' })
 </script>
 
 <template>
-  <div class="manage-page">
-    <header class="manage-head">
-      <div><h1>我的插件</h1><p>查看公开插件、待审核版本和历史申请。</p></div>
-      <NuxtLink to="/plugin/submit" class="archive-action-button">提交新插件</NuxtLink>
-    </header>
-    <LoadingPanel v-if="loading" title="loading……" text="" />
-    <p v-else-if="errorText" class="error">{{ errorText }}</p>
+  <div class="page page--medium">
+    <PageHeader title="我的插件" description="查看公开插件、待审核版本和历史申请。" eyebrow="My plugins">
+      <template #icon><FolderOpen :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
+      <template #actions>
+        <FButton appearance="subtle" icon-only :disabled="loading" aria-label="刷新" title="刷新" @click="load">
+          <RefreshCw :size="15" aria-hidden="true" />
+        </FButton>
+        <FButton appearance="primary" @click="navigateTo('/plugin/submit')">
+          <template #start><Plus :size="15" aria-hidden="true" /></template>提交新插件
+        </FButton>
+      </template>
+    </PageHeader>
+
+    <LoadingPanel v-if="loading" variant="list" :rows="4" title="正在加载我的插件" />
+    <div v-else-if="errorText" class="notice notice--warn" role="alert">{{ errorText }}</div>
+
     <template v-else>
-      <section>
-        <h2>已发布插件</h2>
-        <div v-if="data.plugins.length" class="plugin-list">
-          <article v-for="plugin in data.plugins" :key="plugin.id" class="plugin-row">
-            <div>
-              <h3><NuxtLink :to="`/plugin/${plugin.article_id}`">{{ plugin.name }}</NuxtLink></h3>
-              <p>文章 {{ plugin.article_id }} · {{ plugin.is_listed ? '公开展示' : '已下架' }}</p>
+      <section class="page-section">
+        <div class="section-head">
+          <div class="section-head__text">
+            <h2 class="section-title">已发布插件</h2>
+            <span class="section-subtitle">{{ data.plugins.length }} 个公开插件</span>
+          </div>
+        </div>
+        <div v-if="data.plugins.length" class="plugin-manage-list">
+          <article v-for="plugin in data.plugins" :key="plugin.id" class="card plugin-manage-row">
+            <div class="plugin-manage-main">
+              <NuxtLink :to="`/plugin/${plugin.article_id}`" class="plugin-manage-name">{{ plugin.name }}</NuxtLink>
+              <p class="muted" style="font-size: 12px">
+                文章 {{ plugin.article_id }} ·
+                <span :class="plugin.is_listed ? 'success-text' : 'warning-text'">{{ plugin.is_listed ? '公开展示' : '已下架' }}</span>
+              </p>
             </div>
-            <div class="row-actions">
-              <NuxtLink :to="`/plugin/submit?article_id=${plugin.article_id}`" class="archive-action-button">提交更新</NuxtLink>
-              <button v-if="!plugin.is_recommended" type="button" class="archive-action-button" @click="reasonAction(plugin.article_id, 'recommend')">申请推荐</button>
-              <button type="button" class="archive-action-button danger" @click="reasonAction(plugin.article_id, 'delete')">申请删除</button>
+            <div class="cluster">
+              <FButton appearance="outline" size="small" @click="navigateTo(`/plugin/submit?article_id=${plugin.article_id}`)">提交更新</FButton>
+              <FButton v-if="!plugin.is_recommended" appearance="subtle" size="small" @click="reasonAction(plugin.article_id, 'recommend')">申请推荐</FButton>
+              <FButton appearance="subtle" size="small" @click="reasonAction(plugin.article_id, 'delete')">申请删除</FButton>
             </div>
           </article>
         </div>
-        <p v-else class="empty">还没有通过审核的插件</p>
+        <EmptyState v-else title="还没有通过审核的插件" description="提交插件并通过审核后会出现在这里。">
+          <template #actions><FButton appearance="primary" @click="navigateTo('/plugin/submit')">提交插件</FButton></template>
+        </EmptyState>
       </section>
 
-      <section>
-        <h2>申请记录</h2>
-        <div v-if="data.applications.length" class="applications">
+      <section class="page-section">
+        <div class="section-head">
+          <div class="section-head__text">
+            <h2 class="section-title">申请记录</h2>
+            <span class="section-subtitle">{{ data.applications.length }} 条记录</span>
+          </div>
+        </div>
+        <div v-if="data.applications.length" class="card list">
           <article v-for="application in data.applications" :key="application.id" class="application-row">
-            <div>
-              <strong>{{ typeNames[application.application_type] || application.application_type }}</strong>
-              <span>文章 {{ application.article_id }}<template v-if="application.version"> · v{{ application.version }}</template></span>
+            <div class="stack stack--xs" style="min-width:0">
+              <div class="cluster">
+                <strong>{{ typeNames[application.application_type] || application.application_type }}</strong>
+                <span class="tag" :class="statusClass(application.status)">{{ statusNames[application.status] || application.status }}</span>
+              </div>
+              <span class="muted" style="font-size: 12px">
+                文章 {{ application.article_id }}<template v-if="application.version"> · v{{ application.version }}</template>
+              </span>
+              <p v-if="application.review_note" class="field-error" style="margin-top:4px">审核意见：{{ application.review_note }}</p>
             </div>
-            <div class="application-status">
-              <span :class="`status ${application.status}`">{{ statusNames[application.status] || application.status }}</span>
-              <button v-if="application.status === 'pending'" type="button" class="archive-action-button" @click="cancel(application.id)">撤销</button>
-            </div>
-            <p v-if="application.review_note" class="review-note">审核意见：{{ application.review_note }}</p>
+            <FButton v-if="application.status === 'pending'" appearance="outline" size="small" @click="cancel(application.id)">撤销</FButton>
           </article>
         </div>
-        <p v-else class="empty">暂无申请记录</p>
+        <EmptyState v-else title="暂无申请记录" description="提交插件或版本更新后会在这里看到审核进度。" />
       </section>
     </template>
   </div>
 </template>
 
 <style scoped>
-.manage-page { display: grid; gap: 26px; }
-.manage-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 22px 26px; border: 1px solid var(--hero-border); border-radius: 8px; background: var(--hero-bg); }
-.manage-head h1 { margin: 0; font-size: 27px; }
-.manage-head p { margin: 6px 0 0; color: var(--text-muted); }
-section > h2 { margin: 0 0 12px; font-size: 20px; }
-.plugin-list, .applications { border-top: 1px solid var(--border); }
-.plugin-row, .application-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 20px; padding: 15px 2px; border-bottom: 1px solid var(--border); }
-.plugin-row h3 { margin: 0; font-size: 17px; }
-.plugin-row p, .application-row span { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; }
-.row-actions, .application-status { display: flex; align-items: center; gap: 9px; }
-.row-actions .danger { color: var(--lg-red); }
-.status { padding: 2px 8px; border-radius: 4px; }
-.status.pending { background: #fff3cd; color: #7a5d00; }
-.status.approved { background: #d8f3df; color: #17652d; }
-.status.rejected { background: #ffe0e0; color: #9f1c24; }
-.status.cancelled { background: var(--hover); }
-.review-note { grid-column: 1 / -1; margin: 0; color: var(--lg-red); font-size: 13px; }
-.empty { padding: 28px 0; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border); }
-.error { color: var(--lg-red); }
-@media (max-width: 720px) {
-  .manage-head { align-items: flex-start; flex-direction: column; }
-  .plugin-row, .application-row { grid-template-columns: 1fr; }
-  .row-actions { flex-wrap: wrap; }
-}
+.plugin-manage-list { display: flex; flex-direction: column; gap: 8px; }
+.plugin-manage-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; flex-wrap: wrap; }
+.plugin-manage-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plugin-manage-name { font-weight: 600; font-size: 15px; color: var(--colorNeutralForeground1); text-decoration: none; }
+.plugin-manage-name:hover { color: var(--colorBrandForeground1); }
+.application-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--colorNeutralStroke2); flex-wrap: wrap; }
+.application-row:last-child { border-bottom: 0; }
 </style>
