@@ -17,6 +17,7 @@ const hasPending = ref(false)
 const blocked = ref(false)
 const loading = ref(true)
 const submitting = ref(false)
+const readingFile = ref(false)
 const submitSucceeded = ref(false)
 const message = ref('')
 const errorText = ref('')
@@ -99,6 +100,10 @@ async function submit() {
   errorText.value = ''
   message.value = ''
   submitSucceeded.value = false
+  if (readingFile.value) {
+    errorText.value = '文件正在读取，请稍候'
+    return
+  }
   if (!auth.isLoggedIn) {
     await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
     return
@@ -189,10 +194,10 @@ useHead({ title: '提交插件 - 洛谷档案馆' })
     <p v-if="errorText" class="message error">{{ errorText }}</p>
 
     <form v-if="article && !blocked" class="plugin-form" @submit.prevent="submit">
-      <PluginSnapshotForm v-model="snapshot" :tags="tags" />
+      <PluginSnapshotForm v-model="snapshot" v-model:reading="readingFile" :tags="tags" />
       <div class="submit-actions">
         <span>提交即表示你确认代码和请求说明真实、完整。</span>
-        <button type="submit" class="archive-action-button" :disabled="submitting || hasPending">{{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}</button>
+        <button type="submit" class="archive-action-button" :disabled="submitting || hasPending || readingFile">{{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : readingFile ? '读取文件中…' : '提交审核' }}</button>
       </div>
     </form>
   </div>

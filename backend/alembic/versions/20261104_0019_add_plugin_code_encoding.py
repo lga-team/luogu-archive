@@ -1,8 +1,8 @@
 """插件支持二进制文件：为版本表记录内容编码方式。
 
-Revision ID: 20260918_0017
-Revises: 20260912_0016
-Create Date: 2026-09-18
+Revision ID: 20261104_0019
+Revises: 20261016_0018
+Create Date: 2026-11-04
 """
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "20260918_0017"
-down_revision: str | Sequence[str] | None = "20260912_0016"
+revision: str = "20261104_0019"
+down_revision: str | Sequence[str] | None = "20261016_0018"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

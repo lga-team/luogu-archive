@@ -109,6 +109,12 @@ class PluginSnapshot(BaseModel):
     def valid_code_payload(self) -> PluginSnapshot:
         """体积按存储方式分别校验；二进制额外限制扩展名。"""
         if self.code_encoding == "base64":
+            # 合法 base64 的长度最多为 4 * ceil(字节数 / 3)。先拒绝超长输入，
+            # 再解码并精确检查末尾填充可能造成的 1–2 字节差异。
+            if len(self.code) > 4 * ((BINARY_FILE_MAX_BYTES + 2) // 3):
+                raise ValueError(
+                    f"二进制文件不能超过 {BINARY_FILE_MAX_BYTES // (1024 * 1024)} MiB"
+                )
             try:
                 decoded = base64.b64decode(self.code, validate=True)
             except (binascii.Error, ValueError) as exc:

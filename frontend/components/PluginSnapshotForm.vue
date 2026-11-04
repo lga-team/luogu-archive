@@ -11,12 +11,20 @@ import {
 } from '~/utils/pluginCode'
 
 const model = defineModel<PluginSnapshot>({ required: true })
+const reading = defineModel<boolean>('reading', { required: true })
 const props = defineProps<{ tags: PluginTag[] }>()
 
 const binaryMode = computed(() => isBinaryCode(model.value.code_encoding))
 const pickedFileName = ref('')
 const fileError = ref('')
-const reading = ref(false)
+let readGeneration = 0
+
+function invalidateRead() {
+  readGeneration += 1
+  reading.value = false
+}
+
+onBeforeUnmount(invalidateRead)
 
 // 二进制模式下 code 是 base64，体积必须按解码后的字节算。
 const codeBytes = computed(() => (binaryMode.value
@@ -29,6 +37,7 @@ const codeSizeText = computed(() => formatBytes(codeBytes.value))
 const sizeLimitText = computed(() => (binaryMode.value ? formatBytes(PLUGIN_BINARY_MAX_BYTES) : '5 MiB'))
 
 function switchToText() {
+  invalidateRead()
   model.value.code = ''
   model.value.code_encoding = 'text'
   pickedFileName.value = ''
@@ -36,6 +45,7 @@ function switchToText() {
 }
 
 function switchToBinary() {
+  invalidateRead()
   model.value.code = ''
   model.value.code_encoding = 'base64'
   pickedFileName.value = ''
@@ -46,6 +56,10 @@ async function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
+  invalidateRead()
+  const generation = readGeneration
+  model.value.code = ''
+  pickedFileName.value = ''
   fileError.value = ''
   const dot = file.name.lastIndexOf('.')
   const suffix = dot >= 0 ? file.name.slice(dot).toLowerCase() : ''
@@ -61,14 +75,15 @@ async function onFileChange(event: Event) {
   }
   reading.value = true
   try {
-    model.value.code = await fileToBase64(file)
-    model.value.code_encoding = 'base64'
+    const code = await fileToBase64(file)
+    if (generation !== readGeneration || !binaryMode.value) return
+    model.value.code = code
     model.value.download_filename = file.name
     pickedFileName.value = file.name
   } catch {
-    fileError.value = '读取文件失败，请重试'
+    if (generation === readGeneration) fileError.value = '读取文件失败，请重试'
   } finally {
-    reading.value = false
+    if (generation === readGeneration) reading.value = false
   }
 }
 
