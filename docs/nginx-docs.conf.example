@@ -1,0 +1,19 @@
+# 在站点 HTTPS server 内 include 此文件；先发布文档到下方 root。
+# 构建产物目录：/www/wwwroot/luogu-archive-docs/docs/
+location = /docs {
+    return 301 /docs/$is_args$args;
+}
+
+location ^~ /docs/assets/ {
+    root /www/wwwroot/luogu-archive-docs;
+    try_files $uri =404;
+    expires 1y;
+}
+
+location ^~ /docs/ {
+    root /www/wwwroot/luogu-archive-docs;
+    index index.html;
+    try_files $uri $uri.html $uri/ =404;
+    error_page 404 /docs/404.html;
+    expires -1;
+}

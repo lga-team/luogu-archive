@@ -7,13 +7,13 @@ from urllib.parse import parse_qs, urlparse
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
+from app.core.recent_tasks import get_recent_tasks
+from app.core.site_totals import get_site_totals
 from app.models.admin import SiteAnnouncement
-from app.models.luogu_content import Article, Feed, Judgement, Paste
-from app.models.task import CrawlTask
 from app.tasks.broker import get_broker
 
 router = APIRouter(prefix="/site", tags=["site"])
@@ -82,11 +82,6 @@ class SiteOverviewResp(BaseModel):
     recent_tasks: list[RecentTaskItem]
 
 
-async def _count(session: AsyncSession, model: type) -> int:
-    value = await session.scalar(select(func.count()).select_from(model))
-    return int(value or 0)
-
-
 async def _queue_len(name: str) -> int:
     """读取资源队列的 pending 与 inflight 总数。"""
 
@@ -129,7 +124,7 @@ def _task_target(task_type: str, url: str) -> str:
 
 @router.get("/overview", response_model=SiteOverviewResp)
 async def site_overview(
-    recent_limit: int = Query(5, ge=1, le=20),
+    recent_limit: int = Query(5, ge=1, le=10),
     db: AsyncSession = Depends(get_db),
 ) -> SiteOverviewResp:
     queue_defs = [
@@ -138,34 +133,23 @@ async def site_overview(
         ("crawler.low", "低优先级"),
     ]
 
-    recent_q = (
-        select(CrawlTask)
-        .order_by(desc(CrawlTask.started_at), desc(CrawlTask.id))
-        .limit(recent_limit)
-    )
-    recent_rows = (await db.execute(recent_q)).scalars().all()
+    recent_rows = await get_recent_tasks(db, recent_limit)
 
     return SiteOverviewResp(
         generated_at=datetime.now().astimezone(),
-        totals=SiteTotals(
-            crawl_tasks=await _count(db, CrawlTask),
-            articles=await _count(db, Article),
-            pastes=await _count(db, Paste),
-            feeds=await _count(db, Feed),
-            judgements=await _count(db, Judgement),
-        ),
+        totals=SiteTotals(**await get_site_totals(db)),
         queues=[
             QueueInfo(key=key, label=label, size=await _queue_len(key))
             for key, label in queue_defs
         ],
         recent_tasks=[
             RecentTaskItem(
-                id=row.id,
-                task_type=row.task_type,
-                target=_task_target(row.task_type, row.url),
-                trigger=row.triggered_by.value,
-                status=row.status.value,
-                started_at=row.started_at,
+                id=row["id"],
+                task_type=row["task_type"],
+                target=_task_target(row["task_type"], row["url"]),
+                trigger=row["trigger"],
+                status=row["status"],
+                started_at=row["started_at"],
             )
             for row in recent_rows
         ],

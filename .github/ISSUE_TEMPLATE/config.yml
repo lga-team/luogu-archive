@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 讨论
+    url: https://github.com/px-poxiao/luogu-archive/discussions
+    about: 在这里 Q&A 或讨论任何关于洛谷档案馆的问题

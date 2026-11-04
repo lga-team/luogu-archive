@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,10 +18,27 @@ from app.core.db import db_session
 from app.core.locks import DistributedLock, lock_key
 from app.core.logging import get_logger
 from app.core.redis_client import get_redis
+from app.core.recent_tasks import cache_recent_task
+from app.core.site_totals import increment_site_totals
 from app.models._common import CrawlTaskStatus, CrawlTrigger, utcnow
 from app.models.task import CrawlTask
 
 log = get_logger(__name__)
+
+
+def parse_source_time(value: Any) -> datetime | None:
+    """解析源站秒/毫秒时间戳；无有效发布时间时交由调用方回退。"""
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        stamp = float(value)
+        if stamp <= 0:
+            return None
+        if stamp > 10_000_000_000:
+            stamp /= 1000
+        return datetime.fromtimestamp(stamp, tz=timezone.utc)
+    except (TypeError, ValueError, OverflowError, OSError):
+        return None
 
 
 def sha256_hex(text: str) -> str:
@@ -67,6 +84,8 @@ async def record_task_start(
         )
         session.add(t)
         await session.commit()
+        await increment_site_totals(crawl_tasks=1)
+        await cache_recent_task(t)
         return t.id
 
 
@@ -89,6 +108,7 @@ async def record_task_done(
         t.duration_ms = duration_ms
         t.finished_at = utcnow()
         await session.commit()
+        await cache_recent_task(t)
 
 
 def trigger_from(str_val: str) -> CrawlTrigger:

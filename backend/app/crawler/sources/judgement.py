@@ -10,6 +10,8 @@ import time as _t
 from datetime import datetime, timezone
 
 from sqlalchemy.dialects.mysql import insert as mysql_insert
+
+from app.core.site_totals import increment_site_totals
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import db_session
@@ -69,6 +71,7 @@ async def _crawl_inner(*, trigger: str) -> None:
             count = await _insert_judgements(session, logs)
             await _sync_users_from_judgement(session, logs)
             await session.commit()
+            await increment_site_totals(judgements=count)
 
         dur = int((_t.monotonic() - start) * 1000)
         await record_task_done(
@@ -122,8 +125,8 @@ async def _insert_judgements(session: AsyncSession, logs: list) -> int:
     if not rows:
         return 0
     stmt = mysql_insert(Judgement).values(rows).prefix_with("IGNORE")
-    await session.execute(stmt)
-    return len(rows)
+    result = await session.execute(stmt)
+    return max(0, result.rowcount)
 
 
 async def _sync_users_from_judgement(session: AsyncSession, logs: list) -> None:

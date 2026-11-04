@@ -86,6 +86,10 @@ server {
         access_log off;
     }
 
+    # 文档站：先构建 docs/ 并将 dist/ 发布到 /www/wwwroot/luogu-archive-docs/docs/。
+    # 修改项目路径后，在此处 include；配置内容见 nginx-docs.conf.example。
+    include /root/luogu-archive/docs/nginx-docs.conf.example;
+
     # 前端 Nuxt SSR
     location / {
         limit_req zone=general_limit burst=50 nodelay;

@@ -1,7 +1,7 @@
 """保存按钮 API。
 
 POST /api/v1/save
-Body: { content_type: "article"|"paste"|"discuss"|"user"|"feed"|"judgement"|"problem"|"problem_solution", id: "...", captcha_token?: "..." }
+Body: { content_type: "article"|"paste"|"discuss"|"discuss_list"|"user"|"feed"|"judgement"|"problem"|"problem_solution", id: "...", captcha_token?: "..." }
 
 流程（3.md 十一-A.3）：
 1. 校验 IP 限流（滑动窗口 60s / 5 次）
@@ -39,7 +39,7 @@ router = APIRouter(tags=["save"])
 log = get_logger(__name__)
 
 ContentType = Literal[
-    "article", "paste", "discuss", "user", "feed", "judgement", "problem", "problem_solution"
+    "article", "paste", "discuss", "discuss_list", "user", "feed", "judgement", "problem", "problem_solution"
 ]
 
 
@@ -202,6 +202,7 @@ async def _try_merge_or_enqueue(
         crawl_paste,
         crawl_user_feeds_hi,
         crawl_user_manual,
+        discover_from_discuss_hi,
     )
     from app.tasks.problem_queue import (
         enqueue_problem_catalog,
@@ -225,6 +226,8 @@ async def _try_merge_or_enqueue(
             msg = crawl_article.send(ident, "manual")
         elif content_type == "paste":
             msg = crawl_paste.send(ident, "manual")
+        elif content_type == "discuss_list":
+            msg = discover_from_discuss_hi.send("manual")
         elif content_type == "discuss":
             task_id = await enqueue_discussion_crawl(
                 int(ident),
@@ -271,8 +274,9 @@ async def _try_merge_or_enqueue(
 
     if task_id is None:
         task_id = msg.message_id
-    # 挂 pending 标记，TTL 5 分钟（爬完没这么久，但防止卡死）
-    await redis.setex(key, 300, task_id)
+    # 讨论目录合并 30 秒，其他保存目标合并 60 秒；重复点击不续期。
+    pending_ttl = 30 if content_type == "discuss_list" else 60
+    await redis.setex(key, pending_ttl, task_id)
     return task_id, merged_existing
 
 
@@ -298,11 +302,14 @@ async def save(req: SaveReq, request: Request) -> SaveResp:
         ident = _normalize_article_ident(req.id)
     elif req.content_type == "discuss":
         ident = _normalize_discussion_ident(req.id)
+    elif req.content_type == "discuss_list":
+        # 目录只有一个更新目标，避免不同参数绕过同目标请求合并。
+        ident = "all"
     else:
         ident = req.id
 
     # 已隐藏目标不能通过保存按钮重新进入爬取队列；feed 保存参数实际是作者 UID。
-    if req.content_type in {"article", "paste", "user", "feed"}:
+    if req.content_type in {"article", "paste", "user", "feed", "discuss"}:
         check_type = "user" if req.content_type == "feed" else req.content_type
         check_id = ident.split(":", 1)[0] if req.content_type == "feed" else ident
         async with db_session() as session:
