@@ -22,7 +22,7 @@ function restoreFocus(event: Event) {
   // 无 Trigger 的受控弹窗也应回到打开它的按钮；页面跳转时不抢焦点。
   if (!event.defaultPrevented && previousFocus.value?.isConnected) {
     event.preventDefault()
-    previousFocus.value.focus()
+    previousFocus.value.focus({ preventScroll: true })
   }
 }
 function changeOpen(value: boolean) { if (!props.locked) emit('update:open', value) }

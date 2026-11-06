@@ -106,9 +106,9 @@ watch(() => props.open, () => { errorText.value = '' })
 </template>
 
 <style scoped>
-/* 根滚动条已预留空间，不再叠加组件库的 body 宽度补偿。 */
+/* 根节点负责锁滚动，body 不再成为 sticky 的额外滚动容器。 */
 :global(html:has(.plugin-install-overlay)) { scrollbar-gutter: stable; overflow-y: hidden; }
-:global(body:has(.plugin-install-overlay)) { padding-right: 0 !important; margin-right: 0 !important; }
+:global(body:has(.plugin-install-overlay)) { overflow: visible !important; padding-right: 0 !important; margin-right: 0 !important; }
 :global(.plugin-install-overlay[data-state=open]) { animation: plugin-overlay-in 160ms ease-out both; }
 :global(.plugin-install-overlay[data-state=closed]) { animation: plugin-overlay-out 120ms ease-in both; }
 :global(.plugin-install-dialog[data-state=open]) { animation: plugin-dialog-in 180ms cubic-bezier(.16, 1, .3, 1) both; }
