@@ -57,6 +57,6 @@ async function sendVerification() {
       <Button type="submit" :disabled="pending" class="settings-submit"><LoaderCircle v-if="pending" class="settings-spin" :size="16" aria-hidden="true" />{{ pending ? '登录中…' : '登录' }}</Button>
     </form>
     <div v-if="needVerify" class="settings-verification"><Button variant="outline" :disabled="sending || cooldown > 0" @click="sendVerification">{{ sending ? '正在发送…' : cooldown ? '重新发送（' + cooldown + 's）' : '重新发送验证邮件' }}</Button><p v-if="message" class="settings-message archive-muted" role="status">{{ message }}</p></div>
-    <div class="settings-register"><span>还没有账号？</span><Button as-child variant="ghost"><NuxtLink to="/register">创建账号</NuxtLink></Button></div>
+    <div class="settings-register"><span>还没有账号？</span><slot /></div>
   </div>
 </template>

@@ -60,12 +60,12 @@ onMounted(async () => {
       </p>
 
       <div class="actions">
-        <NuxtLink v-if="state === 'success'" to="/login" class="btn primary">
+        <NuxtLink v-if="state === 'success'" to="/settings?mode=login" class="btn primary">
           前往登录
         </NuxtLink>
         <template v-else-if="state === 'error'">
-          <NuxtLink to="/login" class="btn ghost">去登录页重发</NuxtLink>
-          <NuxtLink to="/register" class="btn primary">重新注册</NuxtLink>
+          <NuxtLink to="/settings?mode=login" class="btn ghost">去登录页重发</NuxtLink>
+          <NuxtLink to="/settings?mode=register" class="btn primary">重新注册</NuxtLink>
         </template>
       </div>
 

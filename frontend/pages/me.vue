@@ -16,7 +16,7 @@ const loading = ref(true)
 
 onMounted(async () => {
   if (!auth.isLoggedIn) {
-    navigateTo('/login')
+    navigateTo('/settings?mode=login')
     return
   }
   try {

@@ -168,7 +168,7 @@ function showToast(message: string) {
 
 async function openReport() {
   if (!auth.isLoggedIn) {
-    await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
+    await navigateTo(settingsAuthRoute('login', route.fullPath))
     return
   }
   reportError.value = ''

@@ -43,7 +43,7 @@ async function reasonAction(articleId: string, type: 'recommend' | 'delete') {
 onMounted(async () => {
   if (!auth.initialized) await auth.tryRefresh()
   if (!auth.isLoggedIn) {
-    await navigateTo('/login?redirect=/plugin/manage')
+    await navigateTo(settingsAuthRoute('login', '/plugin/manage'))
     return
   }
   await load()

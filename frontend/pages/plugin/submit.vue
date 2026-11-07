@@ -92,7 +92,7 @@ async function submit() {
   message.value = ''
   submitSucceeded.value = false
   if (!auth.isLoggedIn) {
-    await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
+    await navigateTo(settingsAuthRoute('login', route.fullPath))
     return
   }
   if (!article.value) {
@@ -137,7 +137,7 @@ async function submit() {
 onMounted(async () => {
   if (!auth.initialized) await auth.tryRefresh()
   if (!auth.isLoggedIn) {
-    await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
+    await navigateTo(settingsAuthRoute('login', route.fullPath))
     return
   }
   try { tags.value = await api<PluginTag[]>('/plugins/tags') } catch {}

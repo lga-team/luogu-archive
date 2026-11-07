@@ -29,6 +29,7 @@ const widgetId = ref<any>(null)
 const aliyunInited = ref(false)
 const pendingResolve = ref<((token: string) => void) | null>(null)
 const pendingReject = ref<((err: Error) => void) | null>(null)
+let disposed = false
 
 const safeSuffix = computed(() => props.idSuffix.replace(/[^A-Za-z0-9_-]/g, '-'))
 const elementId = computed(() => `captcha-element-${safeSuffix.value}`)
@@ -99,6 +100,7 @@ async function initTurnstile() {
     return
   }
   await loadScript('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit', 'cf-turnstile-api')
+  if (disposed) return
   widgetId.value = window.turnstile.render(`#${elementId.value}`, {
     sitekey: config.public.captchaSiteKey,
     callback: resolveToken,
@@ -114,6 +116,7 @@ async function initHcaptcha() {
     return
   }
   await loadScript('https://js.hcaptcha.com/1/api.js?render=explicit', 'hcaptcha-api')
+  if (disposed) return
   widgetId.value = window.hcaptcha.render(elementId.value, {
     sitekey: config.public.captchaSiteKey,
     callback: resolveToken,
@@ -143,6 +146,7 @@ async function initAliyun() {
       window.AliyunCaptchaConfig = { region, prefix }
     },
   )
+  if (disposed) return
   window.initAliyunCaptcha?.({
     SceneId: sceneId,
     prefix,
@@ -211,6 +215,7 @@ async function getToken(): Promise<string> {
 }
 
 onMounted(init)
+onBeforeUnmount(() => { disposed = true })
 
 defineExpose({ getToken, reset })
 </script>

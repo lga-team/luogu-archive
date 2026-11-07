@@ -15,7 +15,7 @@ const loginRequired = ref(false)
 
 function login() {
   loginRequired.value = false
-  void navigateTo('/login')
+  void navigateTo('/settings?mode=login')
 }
 
 async function refresh() {

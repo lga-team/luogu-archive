@@ -1,7 +1,9 @@
 <script setup lang="ts">
-useHead({ title: '登录 - 洛谷档案馆' })
+import { settingsAuthRoute } from '~/utils/settingsAuth'
+
+definePageMeta({
+  middleware: (to) => navigateTo(settingsAuthRoute('login', to.query.redirect), { replace: true }),
+})
 </script>
 
-<template>
-  <SettingsPage login-only />
-</template>
+<template><div /></template>

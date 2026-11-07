@@ -128,7 +128,7 @@ async function submit() {
           <label><span>申请理由</span><textarea v-model="form.reason" rows="6" maxlength="5000"
             placeholder="请说明内容关系及停止公开展示的理由" /></label>
           <p class="self-service-note">
-            自己的内容？<NuxtLink to="/login">登录</NuxtLink>或<NuxtLink to="/register">注册</NuxtLink>并在<NuxtLink to="/me">个人中心绑定洛谷账号</NuxtLink>后，可无条件自动删除。
+            自己的内容？<NuxtLink to="/settings?mode=login">登录</NuxtLink>或<NuxtLink to="/settings?mode=register">注册</NuxtLink>并在<NuxtLink to="/me">个人中心绑定洛谷账号</NuxtLink>后，可无条件自动删除。
           </p>
         </template>
       </template>

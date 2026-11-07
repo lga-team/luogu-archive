@@ -1,4 +1,6 @@
 <script setup lang="ts">
+useHead({ title: '陶片放逐 - 洛谷档案馆' })
+
 const { smart } = useTime()
 
 const api = useApi()

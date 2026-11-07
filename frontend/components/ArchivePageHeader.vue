@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Activity, Gavel, Megaphone, MessagesSquare, Puzzle } from 'lucide-vue-next'
-defineProps<{ title: string; description: string; icon: 'activity' | 'gavel' | 'megaphone' | 'discussion' | 'plugin' }>()
-const icons = { activity: Activity, gavel: Gavel, megaphone: Megaphone, discussion: MessagesSquare, plugin: Puzzle }
+import { Activity, FilePenLine, Gavel, Megaphone, MessagesSquare, Puzzle, Settings } from 'lucide-vue-next'
+const icons = { activity: Activity, gavel: Gavel, megaphone: Megaphone, discussion: MessagesSquare, plugin: Puzzle, solution: FilePenLine, settings: Settings }
+defineProps<{ title: string; description: string; icon: keyof typeof icons }>()
 </script>
 <template>
   <div class="archive-card judgement-heading"><div class="archive-card-header judgement-heading-main">
