@@ -765,7 +765,13 @@ async def _stream_openai(content: str) -> AsyncIterator[tuple[str, str]]:
                 if data == "[DONE]":
                     break
                 chunk = json.loads(data)
-                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                if chunk.get("error") is not None:
+                    raise ValidationError("AI 接口返回流式错误，请稍后重试")
+                choices = chunk.get("choices")
+                if not choices:
+                    # Usage-only chunks can have an empty choices list before [DONE].
+                    continue
+                delta = choices[0].get("delta") or {}
                 reasoning = delta.get("reasoning_content") or delta.get("reasoning")
                 if reasoning:
                     yield "thought", str(reasoning)
