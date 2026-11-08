@@ -25,6 +25,8 @@ import 'prismjs/components/prism-bash'
 
 // @ts-ignore - @vscode/markdown-it-katex 没有类型
 import mdKatex from '@vscode/markdown-it-katex'
+// @ts-ignore - markdown-it-footnote 没有类型
+import mdFootnote from 'markdown-it-footnote'
 
 let _md: MarkdownIt | null = null
 
@@ -577,6 +579,17 @@ function build(): MarkdownIt {
     enableMathBlockInHtml: true,
     enableMathInlineInHtml: true,
   })
+  // 脚注：正文显示上标数字，定义集中到文末，与洛谷一致。
+  const footnoteModule = mdFootnote as unknown as typeof mdFootnote | { default: typeof mdFootnote }
+  const footnotePlugin = typeof footnoteModule === 'function' ? footnoteModule : footnoteModule.default
+  md.use(footnotePlugin)
+  md.renderer.rules.footnote_ref = (tokens, idx) => {
+    const meta = tokens[idx].meta as { id: number; subId: number }
+    const id = meta.id + 1
+    const sub = meta.subId > 0 ? `:${meta.subId}` : ''
+    return `<sup class="footnote-ref"><a href="#fn${id}" id="fnref${id}${sub}">${id}</a></sup>`
+  }
+
   containerRule(md)
   extendedMarkdownRules(md)
 

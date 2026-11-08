@@ -242,6 +242,26 @@
 .lg-content .lg-cute-table tbody tr:last-child td,
 .lg-content .lg-cute-table tbody tr:last-child th { border-bottom: 0; }
 
+/* 脚注：文末 25% 分隔线 + 灰字，对齐洛谷 */
+.lg-content .footnotes-sep { display: none; }
+
+.lg-content .footnotes {
+  position: relative;
+  margin-top: 2rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.lg-content .footnotes::before {
+  content: "";
+  position: absolute;
+  top: -10px;
+  width: 25%;
+  border-top: 1px solid var(--border);
+}
+
+.lg-content .footnotes-list { padding-left: 1.25rem; }
+
 .lg-content .lg-task-list { list-style: none; }
 
 .lg-task-checkbox { margin: 0 6px 0 0; accent-color: var(--link); vertical-align: middle; }
