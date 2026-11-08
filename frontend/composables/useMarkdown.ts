@@ -8,6 +8,7 @@ import MarkdownIt from 'markdown-it'
 import type Token from 'markdown-it/lib/token.mjs'
 // @ts-ignore - @vscode/markdown-it-katex 没有类型
 import mdKatex from '@vscode/markdown-it-katex'
+import { sanitizeMarkdownHtml } from '../utils/sanitizeMarkdownHtml'
 
 let _md: MarkdownIt | null = null
 
@@ -481,17 +482,21 @@ function build(): MarkdownIt {
 
   // 洛谷 @[name](/user/uid) 简单渲染为带颜色占位的 link
   const mentionRe = /@\[([^\]]{1,64})\]\(\/user\/(\d+)\)/g
-  const origText = md.renderer.rules.text || ((tokens, idx) => tokens[idx].content)
+  const origText = md.renderer.rules.text || ((tokens, idx) => md.utils.escapeHtml(tokens[idx].content))
   md.renderer.rules.text = (tokens, idx, opts, env, self) => {
     const content = tokens[idx].content
-    if (!mentionRe.test(content)) {
-      return origText.call(self, tokens, idx, opts, env, self)
+    let html = ''
+    let end = 0
+    for (const match of content.matchAll(mentionRe)) {
+      const [, name, uid] = match
+      const start = match.index!
+      html += md.utils.escapeHtml(content.slice(end, start))
+      html += `<a class="lg-user-mention" href="/user/${uid}" data-uid="${uid}">@${md.utils.escapeHtml(name)}</a>`
+      end = start + match[0].length
     }
-    return content.replace(
-      mentionRe,
-      (_, name, uid) =>
-        `<a class="lg-user-mention" href="/user/${uid}" data-uid="${uid}">@${md.utils.escapeHtml(name)}</a>`,
-    )
+    return end
+      ? html + md.utils.escapeHtml(content.slice(end))
+      : origText.call(self, tokens, idx, opts, env, self)
   }
 
   // 链接改写（前端双保险）
@@ -552,8 +557,42 @@ function rewriteLuoguHref(href: string): string {
   return href
 }
 
-export function useMarkdown() {
+function renderRaw(src: string): string {
   if (!_md) _md = build()
-  const render = (src: string) => _md!.render(normalizeDisplayMath(src || ''))
-  return { render }
+  return _md.render(normalizeDisplayMath(src || ''))
+}
+
+const completionTip = '<span class="feed-completion-popover" role="tooltip">此内容由洛谷档案馆根据回复链自动补全</span>'
+
+function renderMergedSuffix(content: string, suffix: string): string {
+  const prefixHtml = renderRaw(content.slice(0, -suffix.length))
+  const suffixHtml = renderRaw(suffix)
+  const paragraph = suffixHtml.match(/^<p>((?:(?!<\/p>)[\s\S])*)<\/p>\s*$/)
+  if (!suffix.startsWith('\n') && paragraph && /<\/p>\s*$/.test(prefixHtml)) {
+    return prefixHtml.replace(/<\/p>\s*$/, () =>
+      `<span class="feed-completion-wrap" tabindex="0"><span class="feed-auto-merged">${paragraph[1]}</span>${completionTip}</span></p>`,
+    )
+  }
+  return prefixHtml + `<div class="feed-completion-wrap feed-completion-block" tabindex="0"><div class="feed-auto-merged">${suffixHtml}</div>${completionTip}</div>`
+}
+
+function renderFeed(content: string, suffix?: string | null, links: string[] = [], images: string[] = []): string {
+  let html = suffix ? renderMergedSuffix(content, suffix) : renderRaw(content)
+  for (const link of links) {
+    const anchor = renderRaw(link).match(/<a\b[^>]*>[\s\S]*?<\/a>/i)?.[0]
+    if (anchor) html = html.replace(anchor, () =>
+      `<span class="feed-completion-wrap" tabindex="0"><span class="feed-auto-merged-link">${anchor}</span>${completionTip}</span>`,
+    )
+  }
+  for (const image of images) {
+    const tag = renderRaw(image).match(/<img\b[^>]*>/i)?.[0]
+    if (tag) html = html.replace(tag, () =>
+      `<span class="feed-completion-wrap feed-auto-merged-image" tabindex="0">${tag}${completionTip}</span>`,
+    )
+  }
+  return sanitizeMarkdownHtml(html)
+}
+
+export function useMarkdown() {
+  return { render: (src: string) => sanitizeMarkdownHtml(renderRaw(src)), renderFeed }
 }

@@ -14,51 +14,15 @@ interface FeedItem {
 const route = useRoute()
 const api = useApi()
 const { smart } = useTime()
-const { render } = useMarkdown()
+const { renderFeed } = useMarkdown()
 const feedId = String(route.params.id)
 const contentRef = ref<HTMLElement | null>(null)
-const completionTip = '此内容由洛谷档案馆根据回复链自动补全'
 
 const { data: feed, pending, error } = useLazyAsyncData(
   `feed-${feedId}`,
   () => api<FeedItem>(`/feed/${feedId}`),
   { server: false },
 )
-
-function markMergedMedia(html: string, links: string[], images: string[]) {
-  let marked = html
-  for (const link of links) {
-    const anchor = render(link).match(/<a\b[^>]*>[\s\S]*?<\/a>/i)?.[0]
-    if (!anchor || !marked.includes(anchor)) continue
-    marked = marked.replace(anchor, `<span class="feed-completion-wrap" tabindex="0"><span class="feed-auto-merged-link">${anchor}</span><span class="feed-completion-popover" role="tooltip">${completionTip}</span></span>`)
-  }
-  for (const imageMd of images) {
-    const image = render(imageMd).match(/<img\b[^>]*>/i)?.[0]
-    if (!image || !marked.includes(image)) continue
-    marked = marked.replace(image, `<span class="feed-completion-wrap feed-auto-merged-image" tabindex="0">${image}<span class="feed-completion-popover" role="tooltip">${completionTip}</span></span>`)
-  }
-  return marked
-}
-
-function renderMergedSuffix(content: string, mergedSuffix: string) {
-  const prefix = content.slice(0, Math.max(0, content.length - mergedSuffix.length))
-  const prefixHtml = render(prefix)
-  const suffixHtml = render(mergedSuffix)
-  const suffixParagraph = suffixHtml.match(/^<p>([\s\S]*)<\/p>\s*$/)
-  if (!mergedSuffix.startsWith('\n') && suffixParagraph && /<\/p>\s*$/.test(prefixHtml)) {
-    const marked = `<span class="feed-completion-wrap" tabindex="0"><span class="feed-auto-merged">${suffixParagraph[1]}</span><span class="feed-completion-popover" role="tooltip">${completionTip}</span></span>`
-    return prefixHtml.replace(/<\/p>\s*$/, `${marked}</p>`)
-  }
-  return prefixHtml + `<div class="feed-completion-wrap feed-completion-block" tabindex="0"><div class="feed-auto-merged">${suffixHtml}</div><span class="feed-completion-popover" role="tooltip">${completionTip}</span></div>`
-}
-
-function feedHtml(item: FeedItem) {
-  let html = item.merged_suffix_md
-    ? renderMergedSuffix(item.content_md, item.merged_suffix_md)
-    : render(item.content_md)
-  html = markMergedMedia(html, item.merged_link_md || [], item.merged_image_md || [])
-  return html
-}
 
 useCopyCode(contentRef)
 </script>
@@ -80,7 +44,7 @@ useCopyCode(contentRef)
           <LuoguUserName :user="feed.user" show-badge />
           <span class="time">{{ smart(feed.time) }}</span>
         </header>
-        <div ref="contentRef" class="lg-content content" v-html="feedHtml(feed)" />
+        <div ref="contentRef" class="lg-content content" v-html="renderFeed(feed.content_md, feed.merged_suffix_md, feed.merged_link_md, feed.merged_image_md)" />
         <footer class="feed-foot">
           <NuxtLink :to="`/feed/${feed.id}`" class="feed-id">#{{ feed.id }}</NuxtLink>
           <FeedReplyButton :content="feed.content_md" :sender-name="feed.user?.name" />
