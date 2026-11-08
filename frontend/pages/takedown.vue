@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { CheckCircle2, CircleAlert, LoaderCircle, Send, ShieldCheck } from 'lucide-vue-next'
+import { Button, Input, Label, Textarea } from '~/components/ui'
+
+useHead({ title: '内容删除申请 - 洛谷档案馆' })
+
 const api = useApi()
 const auth = useAuthStore()
 const form = ref({ target_url: '', requester_name: '', requester_email: '', reason: '' })
@@ -93,60 +98,121 @@ async function submit() {
 </script>
 
 <template>
-  <div class="wrap">
-    <PageHero title="内容删除申请" subtitle="对已无法在原站访问的存档内容申请停止公开展示。" />
-    <div v-if="state === 'success'" class="success"><h2>申请处理完成</h2><p>{{ message }}</p></div>
-    <form v-else @submit.prevent="submit">
-      <label class="address-field">
-        <span>内容地址</span>
-        <input v-model.trim="form.target_url" type="url"
-          placeholder="粘贴用户主页、文章、剪贴板、犇犇或讨论的完整地址" maxlength="1024">
-        <small>系统会自动识别内容类型</small>
-        <span v-if="probe?.target_type && probe?.target_id" class="recognized">
-          识别到：{{ typeNames[probe.target_type] || probe.target_type }}：{{ probe.target_id }}
-        </span>
-      </label>
+  <div class="archive-ui takedown-page">
+    <ArchivePageHeader title="内容删除申请" description="申请停止公开展示存档内容" icon="takedown" />
 
-      <div v-if="probing" class="probe neutral">loading……</div>
-      <div v-else-if="probe && probe.target_type !== 'user'"
-        class="probe" :class="probe.accessible && !probe.is_owner ? 'blocked' : 'allowed'">
-        <strong>{{ probe.accessible ? '可访问' : '不可访问' }}</strong>
-        <span>{{ probe.accessible ? (probe.is_owner ? '已匹配作者身份，可以申请停止公开展示。' : '原内容仍可访问，暂不能提交申请。') : '可以提交删除申请。' }}</span>
+    <section v-if="state === 'success'" class="archive-card takedown-card result-card" role="status">
+      <CheckCircle2 :size="24" aria-hidden="true" />
+      <div>
+        <h2>申请处理完成</h2>
+        <p class="archive-muted">{{ message }}</p>
       </div>
-      <div v-else-if="probe" class="probe allowed">
-        <strong>地址有效</strong><span>用户主页申请无需检查原站访问状态。</span>
+    </section>
+
+    <form v-else class="archive-card takedown-card takedown-form" @submit.prevent="submit">
+      <div class="field">
+        <Label for="takedown-address">内容地址</Label>
+        <Input
+          id="takedown-address"
+          :model-value="form.target_url"
+          type="url"
+          placeholder="粘贴用户主页、文章、剪贴板、犇犇或讨论的完整地址"
+          maxlength="1024"
+          @update:model-value="form.target_url = $event.trim()"
+        />
+        <p v-if="probe?.target_type && probe?.target_id" class="archive-muted field-note" role="status">
+          识别到：{{ typeNames[probe.target_type] || probe.target_type }}：{{ probe.target_id }}
+        </p>
+      </div>
+
+      <div v-if="probing" class="probe-state" role="status">
+        <LoaderCircle :size="18" class="settings-spin" aria-hidden="true" />
+        <span>正在检查地址…</span>
+      </div>
+      <div
+        v-else-if="probe && probe.target_type !== 'user'"
+        class="probe-state"
+        :data-tone="probe.accessible && !probe.is_owner ? 'blocked' : 'allowed'"
+        role="status"
+      >
+        <CircleAlert v-if="probe.accessible && !probe.is_owner" :size="18" aria-hidden="true" />
+        <CheckCircle2 v-else :size="18" aria-hidden="true" />
+        <div>
+          <strong>{{ probe.accessible ? '可访问' : '不可访问' }}</strong>
+          <span>{{ probe.accessible ? (probe.is_owner ? '已匹配作者身份，可以申请停止公开展示。' : '原内容仍可访问，暂不能提交申请。') : '可以提交删除申请。' }}</span>
+        </div>
+      </div>
+      <div v-else-if="probe" class="probe-state" data-tone="allowed" role="status">
+        <CheckCircle2 :size="18" aria-hidden="true" />
+        <div><strong>地址有效</strong><span>用户主页申请无需检查原站访问状态。</span></div>
       </div>
 
       <template v-if="probe?.can_submit">
-        <div v-if="probe.is_owner" class="owner-note">已匹配绑定的洛谷 UID，提交后将自动停止公开展示。</div>
+        <div v-if="probe.is_owner" class="probe-state" data-tone="allowed">
+          <ShieldCheck :size="18" aria-hidden="true" />
+          <span>已匹配绑定的洛谷 UID，提交后将自动停止公开展示。</span>
+        </div>
         <template v-else>
           <div class="target-grid">
-            <label><span>你的称呼（选填）</span><input v-model="form.requester_name" maxlength="128"></label>
-            <label><span>联系邮箱（选填）</span><input
-              v-model.trim="form.requester_email" type="email" autocomplete="email" maxlength="254"></label>
+            <div class="field">
+              <Label for="takedown-name">你的称呼（选填）</Label>
+              <Input id="takedown-name" v-model="form.requester_name" maxlength="128" />
+            </div>
+            <div class="field">
+              <Label for="takedown-email">联系邮箱（选填）</Label>
+              <Input
+                id="takedown-email"
+                :model-value="form.requester_email"
+                type="email"
+                autocomplete="email"
+                maxlength="254"
+                @update:model-value="form.requester_email = $event.trim()"
+              />
+            </div>
           </div>
-          <label><span>申请理由</span><textarea v-model="form.reason" rows="6" maxlength="5000"
-            placeholder="请说明内容关系及停止公开展示的理由" /></label>
-          <p class="self-service-note">
+          <div class="field">
+            <Label for="takedown-reason">申请理由</Label>
+            <Textarea id="takedown-reason" v-model="form.reason" rows="6" maxlength="5000" placeholder="请说明内容关系及停止公开展示的理由" />
+          </div>
+          <p class="archive-muted field-note">
             自己的内容？<NuxtLink to="/settings?mode=login">登录</NuxtLink>或<NuxtLink to="/settings?mode=register">注册</NuxtLink>并在<NuxtLink to="/me">个人中心绑定洛谷账号</NuxtLink>后，可无条件自动删除。
           </p>
         </template>
       </template>
-      <button type="submit" :disabled="!probe?.can_submit || state === 'submitting'">
-        {{ state === 'submitting' ? 'loading……' : '提交申请' }}
-      </button>
-      <p v-if="message" class="err">{{ message }}</p>
+
+      <p v-if="message" class="archive-error field-note" role="alert">{{ message }}</p>
+      <div class="takedown-actions">
+        <Button type="submit" class="takedown-primary" :disabled="!probe?.can_submit || state === 'submitting'">
+          <LoaderCircle v-if="state === 'submitting'" :size="16" class="settings-spin" aria-hidden="true" />
+          <Send v-else :size="16" aria-hidden="true" />
+          {{ state === 'submitting' ? '正在提交…' : '提交申请' }}
+        </Button>
+      </div>
     </form>
   </div>
 </template>
 
 <style scoped>
-.wrap{max-width:860px;margin:0 auto}form{padding:24px 0}.target-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.target-grid>label:only-child{grid-column:1/-1}
-label{display:block;margin:14px 0}label span{display:block;font-weight:600;margin-bottom:7px}input,select,textarea{box-sizing:border-box;width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font:inherit}
-.address-field{margin:8px 0 20px}.address-field input{min-height:58px;padding:14px 16px;font-size:17px}.address-field small{display:block;margin-top:7px;color:var(--text-muted)}
-.address-field .recognized{display:block;margin-top:10px;color:var(--text);font-weight:600}
-.probe,.owner-note{display:flex;align-items:center;gap:14px;margin:18px 0;padding:14px 16px;border:1px solid var(--border);border-radius:6px}.probe.allowed,.owner-note{border-color:var(--lg-green);background:color-mix(in srgb,var(--lg-green) 9%,var(--surface))}.probe.blocked{border-color:var(--lg-red);background:color-mix(in srgb,var(--lg-red) 8%,var(--surface))}.neutral{color:var(--text-muted)}
-.self-service-note{margin:18px 0 10px;color:var(--text-muted);font-size:14px}
-button{padding:10px 24px;border:0;border-radius:6px;background:var(--link);color:#fff;font:inherit;cursor:pointer}button:disabled{cursor:not-allowed;opacity:.5}.err{color:var(--lg-red)}.success{padding:36px;border:1px solid var(--lg-green);text-align:center}.success h2{color:var(--lg-green)}
-@media(max-width:700px){.target-grid{grid-template-columns:1fr;gap:0}.probe{align-items:flex-start;flex-direction:column;gap:4px}}
+.takedown-page { display: grid; gap: 16px; width: min(100%, 1180px); margin-inline: auto; }
+.takedown-card { padding: 24px; min-width: 0; }
+.takedown-form { gap: 18px; }
+.field { display: grid; gap: 8px; min-width: 0; }
+.field-note { margin: 0; overflow-wrap: anywhere; }
+.target-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; }
+.probe-state { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); font-size: 14px; }
+.probe-state strong { display: block; margin-bottom: 2px; color: var(--text); }
+.probe-state svg { flex: 0 0 auto; margin-top: 2px; }
+.probe-state[data-tone="allowed"] svg, .result-card > svg { color: var(--lg-green); }
+.probe-state[data-tone="blocked"] svg { color: var(--lg-red); }
+.result-card { flex-direction: row; align-items: flex-start; gap: 12px; }
+.result-card > svg { flex: 0 0 auto; }
+.result-card h2 { margin: 0 0 4px; font-size: 18px; }
+.result-card p { margin: 0; }
+.takedown-actions { display: flex; justify-content: flex-end; padding-top: 16px; border-top: 1px solid var(--border); }
+.archive-ui .takedown-primary { background: #0969da; color: #fff; }
+.archive-ui .takedown-primary:hover { background: #0758b8; color: #fff; }
+@media (max-width: 640px) {
+  .takedown-card { padding: 16px; }
+  .target-grid { grid-template-columns: minmax(0, 1fr); }
+}
 </style>

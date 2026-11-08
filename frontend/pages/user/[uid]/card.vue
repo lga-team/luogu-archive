@@ -1,4 +1,7 @@
 ﻿<script setup lang="ts">
+import { ArrowLeft, Check, Copy, ExternalLink, RefreshCw } from 'lucide-vue-next'
+import { Button, Input, Label, Textarea } from '~/components/ui'
+
 type CardKind = 'activity' | 'random'
 
 const route = useRoute()
@@ -20,7 +23,7 @@ interface UserProfile {
   name_hidden: boolean
 }
 
-const { data: profile, pending, error } = useLazyAsyncData(
+const { data: profile, status, error } = useLazyAsyncData(
   `user-card-${uid}`,
   () => api<UserProfile>(`/user/${uid}`),
   { server: false },
@@ -30,6 +33,8 @@ const pageTitle = computed(() => {
   const name = profile.value?.name_hidden ? `UID ${profile.value.uid}` : profile.value?.name
   return name ? `${name} 的图卡` : '图卡预览'
 })
+
+useHead(() => ({ title: pageTitle.value + ' - 洛谷档案馆' }))
 
 const cardPath = computed(() => `/api/v1/image/feed/${selected.value}/${uid}.svg`)
 const imageUrl = computed(() => {
@@ -60,288 +65,98 @@ function refreshPreview() {
 </script>
 
 <template>
-  <LoadingPanel v-if="pending" title="正在加载图卡" text="正在读取用户资料..." />
-
-  <div v-else-if="error" class="error-box">
-    <h2>{{ error.data?.message || '用户未收录' }}</h2>
-    <p>稍后刷新页面即可重试。</p>
-  </div>
-
-  <div v-else class="card-page">
-    <div class="page-head">
-      <div>
-        <NuxtLink :to="`/user/${uid}`" class="back-link">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          返回用户主页
-        </NuxtLink>
-        <h1>{{ pageTitle }}</h1>
-        <p>预览 SVG 图卡，并复制可嵌入链接。</p>
-      </div>
-      <button type="button" class="ghost-btn" @click="refreshPreview">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 11-2.6-6.4M21 4v6h-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-        刷新预览
-      </button>
+  <div class="archive-ui card-page">
+    <ArchivePageHeader :title="pageTitle" description="洛谷用户 SVG 图卡" icon="card" />
+    <div class="archive-card card-toolbar">
+      <Button as-child variant="ghost" size="sm">
+        <NuxtLink :to="'/user/' + uid"><ArrowLeft :size="15" aria-hidden="true" />返回用户主页</NuxtLink>
+      </Button>
+      <Button v-if="status === 'success'" variant="outline" size="sm" @click="refreshPreview">
+        <RefreshCw :size="15" aria-hidden="true" />刷新预览
+      </Button>
     </div>
 
-    <div class="preview-grid">
-      <section class="preview-panel">
-        <div class="preview-shell" :class="selected">
+    <LoadingPanel v-if="status === 'pending' || status === 'idle'" title="正在加载图卡" text="正在读取用户资料…" />
+    <section v-else-if="error" class="archive-card card-panel card-error" role="alert">
+      <h2>{{ error.data?.message || '用户未收录' }}</h2>
+      <p class="archive-muted">稍后刷新页面即可重试。</p>
+    </section>
+
+    <div v-else class="preview-grid">
+      <section class="archive-card card-panel preview-panel" aria-labelledby="card-preview-title">
+        <h2 id="card-preview-title">图卡预览</h2>
+        <div class="preview-shell">
           <img :src="previewSrc" :alt="selected === 'activity' ? '活跃统计图卡预览' : '随机语录图卡预览'">
         </div>
       </section>
 
-      <aside class="side-panel">
+      <aside class="archive-card card-panel side-panel" aria-label="图卡设置">
         <section class="panel-section">
-          <h2>图卡类型</h2>
-          <div class="segmented" role="tablist" aria-label="图卡类型">
-            <button
+          <h2 id="card-kind-title">图卡类型</h2>
+          <div class="segmented" role="group" aria-labelledby="card-kind-title">
+            <Button
               v-for="item in cardKinds"
               :key="item.key"
               type="button"
-              :class="{ active: selected === item.key }"
+              variant="ghost"
+              size="sm"
+              :aria-pressed="selected === item.key"
               @click="selected = item.key; refreshPreview()"
-            >{{ item.label }}</button>
+            >{{ item.label }}</Button>
           </div>
         </section>
 
-        <section class="panel-section">
-          <h2>图片链接</h2>
+        <div class="panel-section">
+          <Label for="card-image-link">图片链接</Label>
           <div class="copy-row">
-            <input :value="imageUrl" readonly>
-            <button type="button" @click="copyText('link')">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h10v12H8zM6 16H4V4h12v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+            <Input id="card-image-link" :model-value="imageUrl" readonly />
+            <Button variant="outline" @click="copyText('link')">
+              <component :is="copied === 'link' ? Check : Copy" :size="15" aria-hidden="true" />
               {{ copied === 'link' ? '已复制' : '复制' }}
-            </button>
+            </Button>
           </div>
-        </section>
+        </div>
 
-        <section class="panel-section">
-          <h2>Markdown</h2>
-          <textarea :value="markdown" readonly rows="5" />
-          <button type="button" class="full-btn" @click="copyText('markdown')">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8h10v12H8zM6 16H4V4h12v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" /></svg>
+        <div class="panel-section">
+          <Label for="card-image-markdown">Markdown</Label>
+          <Textarea id="card-image-markdown" :model-value="markdown" readonly rows="3" />
+          <Button variant="outline" @click="copyText('markdown')">
+            <component :is="copied === 'markdown' ? Check : Copy" :size="15" aria-hidden="true" />
             {{ copied === 'markdown' ? '已复制 Markdown' : '复制 Markdown' }}
-          </button>
-        </section>
+          </Button>
+        </div>
 
-        <a :href="cardPath" target="_blank" rel="noopener noreferrer" class="open-link">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7M21 3l-9 9M19 14v5H5V5h5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-          打开图片
-        </a>
+        <Button as-child variant="ghost">
+          <a :href="cardPath" target="_blank" rel="noopener noreferrer"><ExternalLink :size="15" aria-hidden="true" />打开图片</a>
+        </Button>
       </aside>
     </div>
   </div>
 </template>
 
 <style scoped>
-.card-page {
-  display: grid;
-  gap: 20px;
-}
-.page-head {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 18px;
-}
-.page-head h1 {
-  margin: 12px 0 6px;
-  font-size: 28px;
-  line-height: 1.25;
-}
-.page-head p {
-  margin: 0;
-  color: var(--text-muted);
-}
-.back-link,
-.open-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--text-muted);
-  text-decoration: none;
-  font-size: 14px;
-}
-.back-link:hover,
-.open-link:hover {
-  color: var(--link);
-  text-decoration: none;
-}
-.back-link svg,
-.open-link svg,
-.ghost-btn svg,
-.copy-row button svg,
-.full-btn svg {
-  width: 16px;
-  height: 16px;
-  flex: 0 0 auto;
-}
-.ghost-btn,
-.full-btn,
-.copy-row button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  color: var(--text);
-  cursor: pointer;
-  font: inherit;
-  min-height: 38px;
-  padding: 0 13px;
-}
-.ghost-btn:hover,
-.full-btn:hover,
-.copy-row button:hover {
-  border-color: var(--link);
-  color: var(--link);
-}
-.preview-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 20px;
-  align-items: start;
-}
-.preview-panel,
-.side-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.preview-panel {
-  padding: 22px;
-}
-.preview-shell {
-  display: grid;
-  place-items: center;
-  min-height: 460px;
-  padding: 24px;
-  border-radius: 8px;
-  background:
-    linear-gradient(45deg, rgba(148, 163, 184, 0.10) 25%, transparent 25%),
-    linear-gradient(-45deg, rgba(148, 163, 184, 0.10) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, rgba(148, 163, 184, 0.10) 75%),
-    linear-gradient(-45deg, transparent 75%, rgba(148, 163, 184, 0.10) 75%);
-  background-size: 22px 22px;
-  background-position: 0 0, 0 11px, 11px -11px, -11px 0;
-}
-.preview-shell img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 100%;
-  object-fit: contain;
-}
-.preview-shell.random img {
-  max-width: 900px;
-}
-.side-panel {
-  padding: 18px;
-  display: grid;
-  gap: 20px;
-}
-.panel-section {
-  display: grid;
-  gap: 10px;
-}
-.panel-section h2 {
-  margin: 0;
-  font-size: 15px;
-  color: var(--text-muted);
-}
-.segmented {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-}
-.segmented button {
-  border: 0;
-  border-radius: 6px;
-  padding: 8px 10px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  font: inherit;
-}
-.segmented button.active {
-  background: var(--surface);
-  color: var(--link);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-}
-.copy-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
-}
-input,
-textarea {
-  width: 100%;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
-  font: 13px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace;
-}
-input {
-  min-height: 38px;
-  padding: 0 10px;
-}
-textarea {
-  resize: vertical;
-  min-height: 108px;
-  padding: 10px;
-}
-.full-btn {
-  width: 100%;
-}
-.open-link {
-  justify-content: center;
-  min-height: 40px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-}
-.error-box {
-  padding: 30px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  text-align: center;
-}
-@media (max-width: 980px) {
-  .page-head,
-  .preview-grid {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-  .preview-grid {
-    gap: 14px;
-  }
-  .side-panel {
-    order: -1;
-  }
+.card-page { display: grid; gap: 16px; width: min(100%, 1180px); margin-inline: auto; }
+.card-toolbar { flex-direction: row; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 12px 24px; }
+.preview-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(290px, 340px); align-items: start; gap: 16px; }
+.card-panel { min-width: 0; gap: 16px; padding: 20px; }
+.card-panel h2 { margin: 0; font-size: 16px; }
+.preview-shell { display: grid; place-items: center; min-height: 340px; padding: 16px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); }
+.preview-shell img { display: block; width: 100%; height: auto; }
+.side-panel { gap: 18px; }
+.panel-section { display: grid; gap: 8px; min-width: 0; }
+.segmented { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 6px; background: var(--hover); }
+.segmented [aria-pressed="true"] { background: var(--surface); border-color: var(--border); color: var(--text); }
+.copy-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.copy-row .archive-button { min-width: 88px; }
+.panel-section :is(.archive-input, .archive-textarea) { font: 13px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; }
+.panel-section .archive-textarea { overflow-wrap: anywhere; }
+.card-error { gap: 6px; }
+.card-error p { margin: 0; }
+@media (max-width: 880px) {
+  .preview-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 640px) {
-  .preview-panel,
-  .side-panel {
-    border-radius: 0;
-    margin-inline: calc(var(--page-gutter) * -1);
-  }
-  .preview-panel {
-    padding: 12px;
-  }
-  .preview-shell {
-    min-height: 260px;
-    padding: 10px;
-  }
-  .copy-row {
-    grid-template-columns: 1fr;
-  }
+  .card-toolbar, .card-panel { padding-inline: 16px; }
+  .preview-shell { min-height: 200px; padding: 10px; }
 }
 </style>
