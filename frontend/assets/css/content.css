@@ -209,23 +209,38 @@
   padding: 6px 10px;
 }
 
-/* Tuack 表格使用简洁的横线；合并单元格沿用浏览器的行列跨度布局。 */
+/* 表格整体样式；合并单元格沿用浏览器的行列跨度布局。 */
 .lg-table-scroll { max-width: 100%; overflow-x: auto; margin: 12px 0; }
 
 .lg-table-scroll > table { margin-top: 0; margin-bottom: 0; }
 
-.lg-content .lg-cute-table { width: 100%; }
+/* 对齐洛谷 tuack 表格：单元格无线，竖线在列左侧（首列无），上下 5px、表头下 3px */
+.lg-content .lg-cute-table {
+  width: max-content;
+  min-width: 100%;
+  border-top: 5px solid currentcolor;
+  border-bottom: 5px solid currentcolor;
+}
 
+/* 行线落在单元格上，竖线见下方 col 规则 */
 .lg-content .lg-cute-table td,
 .lg-content .lg-cute-table th {
   border: 0;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid currentcolor;
   text-align: center;
 }
 
-.lg-content .lg-cute-table thead { border-top: 2px solid var(--text-muted); border-bottom: 2px solid var(--text-muted); }
+/* 竖线画在 col 上，合并单元格后仍按真实列定位 */
+.lg-content .lg-cute-table col:not(:first-child) {
+  border-left: 1px solid currentcolor;
+}
 
-.lg-content .lg-cute-table tbody { border-bottom: 2px solid var(--text-muted); }
+.lg-content .lg-cute-table thead th { border-bottom: 3px solid currentcolor; }
+
+.lg-content .lg-cute-table th { font-weight: 400; }
+
+.lg-content .lg-cute-table tbody tr:last-child td,
+.lg-content .lg-cute-table tbody tr:last-child th { border-bottom: 0; }
 
 .lg-content .lg-task-list { list-style: none; }
 

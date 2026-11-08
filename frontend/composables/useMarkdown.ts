@@ -436,6 +436,27 @@ function extendedMarkdownRules(md: MarkdownIt) {
       if (list && !list.attrGet('class')?.split(' ').includes('lg-task-list')) list.attrJoin('class', 'lg-task-list')
     }
     state.tokens = tokens.filter((_token, index) => !removed.has(index))
+
+    // 竖线要画在 col 上：按行内 DOM 位置判断首列时，rowspan 之后的第一个 td
+    // 其实是第二列却仍匹配 :first-child，会导致那段竖线缺失。
+    const out = state.tokens
+    for (let i = 0; i < out.length; i++) {
+      if (out[i].type !== 'table_open' || !out[i].attrGet('class')?.includes('lg-cute-table')) continue
+      let cols = 0
+      let started = false
+      for (let k = i + 1; k < out.length; k++) {
+        const t = out[k]
+        if (t.type === 'table_close') break
+        if (t.type === 'tr_open') started = true
+        if (started && (t.type === 'th_open' || t.type === 'td_open')) cols += Number(t.attrGet('colspan') ?? 1)
+        if (started && t.type === 'tr_close') break
+      }
+      if (!cols) continue
+      const colgroup = new state.Token('html_block', '', 0)
+      colgroup.content = `<colgroup>${'<col>'.repeat(cols)}</colgroup>`
+      out.splice(i + 1, 0, colgroup)
+      i++
+    }
   })
 
   const originalFence = md.renderer.rules.fence!
