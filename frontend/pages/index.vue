@@ -227,7 +227,7 @@ function announcementDate(value: string) {
         v-for="link in primaryLinks"
         :key="link.to"
         :to="link.to"
-        class="group flex items-center gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent"
+        class="group flex items-center gap-3 rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent"
       >
         <span class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground transition-colors group-hover:text-primary">
           <component :is="link.icon" class="size-5" />

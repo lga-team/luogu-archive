@@ -163,7 +163,7 @@ useHead({ title: '讨论区 - 洛谷档案馆' })
 
       <div class="min-w-0 space-y-4">
         <div v-if="pending && !data" class="space-y-2.5">
-          <div v-for="i in 6" :key="i" class="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-x-3.5 rounded-lg border border-border bg-card px-[13px] py-3 min-[820px]:grid-cols-[46px_minmax(0,1fr)_minmax(220px,32%)] min-[820px]:px-[18px] min-[820px]:py-3.5 min-[820px]:min-h-[88px]">
+          <div v-for="i in 6" :key="i" class="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-x-3.5 rounded-xl border border-border bg-card px-[13px] py-3 min-[820px]:grid-cols-[46px_minmax(0,1fr)_minmax(220px,32%)] min-[820px]:px-[18px] min-[820px]:py-3.5 min-[820px]:min-h-[88px]">
             <Skeleton class="size-10 shrink-0 rounded-full" />
             <div class="min-w-0 space-y-2">
               <Skeleton class="h-4 w-3/5" />
@@ -176,7 +176,7 @@ useHead({ title: '讨论区 - 洛谷档案馆' })
           <div
             v-for="item in data?.items || []"
             :key="item.discussion_id"
-            class="grid cursor-pointer grid-cols-[40px_minmax(0,1fr)] items-center gap-x-3.5 gap-y-2 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:border-primary/40 hover:bg-accent/40 min-[820px]:grid-cols-[46px_minmax(0,1fr)_minmax(220px,32%)] min-[820px]:gap-x-4 min-[820px]:py-3.5"
+            class="grid cursor-pointer grid-cols-[40px_minmax(0,1fr)] items-center gap-x-3.5 gap-y-2 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-primary/40 hover:bg-accent/40 min-[820px]:grid-cols-[46px_minmax(0,1fr)_minmax(220px,32%)] min-[820px]:gap-x-4 min-[820px]:py-3.5"
             @click="navigateTo(`/discuss/${item.discussion_id}`)"
           >
             <UserAvatar :user="item.author" size="xl" class="shrink-0" />

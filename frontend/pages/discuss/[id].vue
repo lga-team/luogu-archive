@@ -137,7 +137,7 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
             v-for="reply in data.replies"
             :id="`reply-${reply.reply_id}`"
             :key="reply.reply_id"
-            class="overflow-hidden rounded-lg border border-border bg-card"
+            class="overflow-hidden rounded-xl border border-border bg-card"
           >
             <header class="flex flex-wrap items-center gap-2 border-b border-border px-3.5 py-2 text-xs text-muted-foreground">
               <NuxtLink
@@ -173,7 +173,7 @@ useHead(() => ({ title: data.value ? `${data.value.title} - 洛谷档案馆` : '
             <div class="lg-content px-4 py-3" v-html="render(reply.content_md)" />
           </article>
         </div>
-        <p v-else class="mt-3 rounded-lg border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+        <p v-else class="mt-3 rounded-xl border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
           本页没有已归档回复。
         </p>
 

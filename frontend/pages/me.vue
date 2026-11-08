@@ -74,7 +74,7 @@ useHead({ title: '个人中心 - 洛谷档案馆' })
       <li
         v-for="f in follows"
         :key="f.uid"
-        class="flex items-center justify-between rounded-lg border border-border bg-card px-3.5 py-2.5"
+        class="flex items-center justify-between rounded-xl border border-border bg-card px-3.5 py-2.5"
       >
         <NuxtLink
           :to="`/user/${f.uid}`"
