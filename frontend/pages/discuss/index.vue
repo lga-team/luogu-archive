@@ -173,25 +173,27 @@ useHead({ title: '讨论区 - 洛谷档案馆' })
         </div>
 
         <div v-else class="space-y-2.5">
-          <NuxtLink
+          <div
             v-for="item in data?.items || []"
             :key="item.discussion_id"
-            :to="`/discuss/${item.discussion_id}`"
-            class="grid grid-cols-[40px_minmax(0,1fr)] items-center gap-x-3.5 gap-y-2 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:border-primary/40 hover:bg-accent/40 min-[820px]:grid-cols-[46px_minmax(0,1fr)_minmax(220px,32%)] min-[820px]:gap-x-4 min-[820px]:py-3.5"
+            class="grid cursor-pointer grid-cols-[40px_minmax(0,1fr)] items-center gap-x-3.5 gap-y-2 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:border-primary/40 hover:bg-accent/40 min-[820px]:grid-cols-[46px_minmax(0,1fr)_minmax(220px,32%)] min-[820px]:gap-x-4 min-[820px]:py-3.5"
+            @click="navigateTo(`/discuss/${item.discussion_id}`)"
           >
             <UserAvatar :user="item.author" size="xl" class="shrink-0" />
 
             <div class="min-w-0">
-              <strong class="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">{{ item.title }}</strong>
+              <strong class="line-clamp-2 text-[15px] font-semibold leading-snug text-foreground">
+                <NuxtLink :to="`/discuss/${item.discussion_id}`" class="hover:text-primary" @click.stop>{{ item.title }}</NuxtLink>
+              </strong>
               <div class="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-                <LuoguUserName
-                  v-if="item.author"
-                  :user="item.author"
-                  show-badge
-                  no-link
-                  truncate
-                  class="max-w-[5.5rem] shrink-0 min-[820px]:max-w-none"
-                />
+                <span v-if="item.author" class="shrink-0" @click.stop>
+                  <LuoguUserName
+                    :user="item.author"
+                    show-badge
+                    truncate
+                    class="max-w-[5.5rem] min-[820px]:max-w-none"
+                  />
+                </span>
                 <span v-else class="shrink-0">发帖人未收录</span>
                 <time class="shrink-0" :datetime="item.source_time || item.crawled_at">
                   {{ format(item.source_time || item.crawled_at) }}
@@ -206,14 +208,16 @@ useHead({ title: '讨论区 - 洛谷档案馆' })
               <div class="flex min-w-0 items-center gap-x-2 whitespace-nowrap">
                 <span class="shrink-0 tabular-nums">{{ item.stored_reply_count }} 条回复</span>
                 <template v-if="item.latest_reply_author">
-                  <LuoguUserName :user="item.latest_reply_author" show-badge no-link truncate class="min-w-0" />
+                  <span class="min-w-0" @click.stop>
+                    <LuoguUserName :user="item.latest_reply_author" show-badge truncate />
+                  </span>
                   <time v-if="item.latest_reply_time" class="shrink-0" :datetime="item.latest_reply_time">
                     {{ format(item.latest_reply_time) }}
                   </time>
                 </template>
               </div>
             </div>
-          </NuxtLink>
+          </div>
 
           <div v-if="!data?.items.length" class="rounded-lg border border-dashed border-border py-16 text-center">
             <p class="text-sm text-muted-foreground">这个版块暂时没有已归档讨论</p>
