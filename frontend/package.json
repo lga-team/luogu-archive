@@ -18,7 +18,7 @@
     "hast-util-from-html": "2.0.3",
     "hast-util-sanitize": "5.0.2",
     "hast-util-to-html": "9.0.5",
-    "katex": "^0.16.11",
+    "katex": "^0.18.2",
     "markdown-it": "^14.1.0",
     "@vscode/markdown-it-katex": "^1.1.1",
     "nuxt": "^3.14.0",
