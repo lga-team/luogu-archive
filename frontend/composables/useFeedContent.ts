@@ -1,5 +1,7 @@
 // 犇犇正文渲染的唯一实现：Markdown + 回复链自动补回内容的标记。
 // 补回标记的呈现全部用 Tailwind 类写在生成的 HTML 字符串里。
+import { sanitizeHtml } from '../lib/safeHtml'
+
 export function useFeedContent() {
   const { render } = useMarkdown()
   const completionTip = '此内容由洛谷档案馆根据回复链自动补全'
@@ -59,7 +61,8 @@ export function useFeedContent() {
     if (mergedLinks.length || mergedImages.length) {
       html = markMergedMedia(html, mergedLinks, mergedImages)
     }
-    return html
+    // 正文渲染后还会拼接补全标记与提示框，必须在全部拼接完成后过滤最终结果
+    return sanitizeHtml(html)
   }
 
   return { feedHtml }

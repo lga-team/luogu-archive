@@ -61,7 +61,7 @@ useCopyCode(contentRef)
         <div
           ref="contentRef"
           class="lg-content mt-2 [overflow-wrap:anywhere]"
-          v-html="feedHtml(feed)"
+          v-html="feedHtml(feed.content_md, feed.merged_suffix_md, feed.merged_link_md || [], feed.merged_image_md || [])"
         />
         <div class="mt-2.5 flex items-center gap-3 border-t border-border pt-2.5 text-xs text-muted-foreground">
           <span class="tabular-nums">#{{ feed.id }}</span>

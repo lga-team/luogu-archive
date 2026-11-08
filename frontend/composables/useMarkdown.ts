@@ -27,6 +27,7 @@ import 'prismjs/components/prism-bash'
 import mdKatex from '@vscode/markdown-it-katex'
 // @ts-ignore - markdown-it-footnote 没有类型
 import mdFootnote from 'markdown-it-footnote'
+import { sanitizeHtml } from '../lib/safeHtml'
 
 let _md: MarkdownIt | null = null
 
@@ -593,19 +594,38 @@ function build(): MarkdownIt {
   containerRule(md)
   extendedMarkdownRules(md)
 
-  // 洛谷 @[name](/user/uid) 简单渲染为带颜色占位的 link
-  const mentionRe = /@\[([^\]]{1,64})\]\(\/user\/(\d+)\)/g
-  const origText = md.renderer.rules.text || ((tokens, idx) => tokens[idx].content)
+  // 洛谷 @[name](/user/uid) 渲染为受控链接。
+  // 只生成固定结构的 <a>；提及以外的文本与用户名一律转义后输出，
+  // 不能把同一文本 token 里的其余文字原样拼进 HTML。
+  const mentionPattern = /@\[([^\]]{1,64})\]\(\/user\/(\d+)\)/
+  const origText = md.renderer.rules.text
+    || ((tokens, idx) => md.utils.escapeHtml(tokens[idx].content))
+  const escapeText = (value: string) => md.utils.escapeHtml(value)
+  const renderMentionText = (content: string): string => {
+    let html = ''
+    let cursor = 0
+    const re = new RegExp(mentionPattern.source, 'g')
+    let match: RegExpExecArray | null
+    while ((match = re.exec(content)) !== null) {
+      if (match.index > cursor) {
+        html += escapeText(content.slice(cursor, match.index))
+      }
+      const name = match[1]
+      const uid = match[2]
+      html += `<a class="lg-user-mention" href="/user/${uid}" data-uid="${uid}">@${escapeText(name)}</a>`
+      cursor = match.index + match[0].length
+    }
+    if (cursor < content.length) {
+      html += escapeText(content.slice(cursor))
+    }
+    return html
+  }
   md.renderer.rules.text = (tokens, idx, opts, env, self) => {
     const content = tokens[idx].content
-    if (!mentionRe.test(content)) {
+    if (!content.includes('@[')) {
       return origText.call(self, tokens, idx, opts, env, self)
     }
-    return content.replace(
-      mentionRe,
-      (_, name, uid) =>
-        `<a class="lg-user-mention" href="/user/${uid}" data-uid="${uid}">@${md.utils.escapeHtml(name)}</a>`,
-    )
+    return renderMentionText(content)
   }
 
   // 链接改写（前端双保险）
@@ -671,6 +691,7 @@ function rewriteLuoguHref(href: string): string {
 
 export function useMarkdown() {
   if (!_md) _md = build()
-  const render = (src: string) => _md!.render(normalizeDisplayMath(src || ''))
+  // 普通 Markdown 的最终输出在这里统一过滤后再交给 v-html
+  const render = (src: string) => sanitizeHtml(_md!.render(normalizeDisplayMath(src || '')))
   return { render }
 }
