@@ -34,14 +34,6 @@ const adminAnalysis = computed({
     if (snapshot.value) snapshot.value.admin_request_analysis = value || null
   },
 })
-const adminLevelEnabled = computed({
-  get: () => snapshot.value?.admin_request_level !== null && snapshot.value?.admin_request_level !== undefined,
-  set: (enabled: boolean) => {
-    if (!snapshot.value) return
-    snapshot.value.admin_request_level = enabled ? snapshot.value.user_request_level : null
-  },
-})
-
 const typeNames: Record<string, string> = {
   publish: '首次发布', update: '版本更新', recommend: '推荐申请', delete: '删除申请',
 }
@@ -214,17 +206,7 @@ watch([status, applicationType], () => { void loadList() })
 
             <section class="admin-evaluation">
               <h3>管理员评估</h3>
-              <label class="admin-level-toggle">
-                <input v-model="adminLevelEnabled" type="checkbox">
-                <span>调整公开显示的请求等级</span>
-              </label>
-              <div v-if="adminLevelEnabled" class="level-editor">
-                <div>
-                  <span>管理员显示等级</span>
-                  <PluginRequestLevelBadge :level="snapshot.admin_request_level ?? snapshot.user_request_level" />
-                </div>
-                <input v-model.number="snapshot.admin_request_level" type="range" min="0" max="3" step="1">
-              </div>
+              <PluginRequestLevelEditor v-model="snapshot.admin_request_level" :submitted-level="snapshot.user_request_level" />
               <PluginMarkdownEditor
                 v-model="adminAnalysis"
                 label="管理组请求分析"
@@ -285,12 +267,8 @@ select { border: 1px solid var(--border); border-radius: 5px; background: var(--
 .preview-limit { margin: 0 0 8px; padding: 8px 10px; border-left: 3px solid var(--lg-yellow); background: color-mix(in srgb, var(--lg-yellow) 10%, var(--surface)); color: var(--text-muted); font-size: 12px; }
 .user-request { display: grid; justify-items: start; gap: 13px; }
 .analysis-content { width: 100%; }
-.admin-evaluation { display: grid; gap: 15px; }
+.admin-evaluation { display: grid; gap: 15px; border-radius: 8px; }
 .admin-evaluation h3 { margin: 0; }
-.admin-level-toggle { display: inline-flex; align-items: center; gap: 8px; justify-self: start; }
-.level-editor { display: grid; gap: 9px; padding: 12px; border: 1px solid var(--border); }
-.level-editor > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.level-editor input { width: 100%; accent-color: var(--link); }
 .review-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--border); }
 .review-actions button { border: 0; border-radius: 5px; padding: 8px 18px; color: #fff; cursor: pointer; }
 .reject { background: var(--lg-red); }.approve { background: var(--lg-green); }

@@ -16,14 +16,6 @@ const adminAnalysis = computed({
     if (managing.value) managing.value.admin_request_analysis = value || null
   },
 })
-const adminLevelEnabled = computed({
-  get: () => managing.value?.admin_request_level !== null && managing.value?.admin_request_level !== undefined,
-  set: (enabled: boolean) => {
-    if (!managing.value) return
-    managing.value.admin_request_level = enabled ? managing.value.user_request_level : null
-  },
-})
-
 async function load() {
   rows.value = await api('/admin/plugins')
 }
@@ -130,19 +122,9 @@ onMounted(async () => {
           </div>
         </section>
 
-        <section class="admin-controls">
+        <section class="admin-controls evaluation-controls">
           <h3>管理员请求评估</h3>
-          <label class="level-toggle">
-            <input v-model="adminLevelEnabled" type="checkbox">
-            调整公开显示的请求等级
-          </label>
-          <div v-if="adminLevelEnabled" class="level-editor">
-            <div>
-              <span>管理员显示等级</span>
-              <PluginRequestLevelBadge :level="managing.admin_request_level ?? managing.user_request_level" />
-            </div>
-            <input v-model.number="managing.admin_request_level" type="range" min="0" max="3" step="1">
-          </div>
+          <PluginRequestLevelEditor v-model="managing.admin_request_level" :submitted-level="managing.user_request_level" />
           <PluginMarkdownEditor
             v-model="adminAnalysis"
             label="管理组请求分析"
@@ -179,10 +161,8 @@ dd { margin: 3px 0 0; overflow-wrap: anywhere; }
 .user-request { justify-items: start; }
 .analysis-content { width: 100%; }
 .choice-row { display: flex; flex-wrap: wrap; gap: 12px 20px; }
-.choice-row label, .level-toggle { display: inline-flex; align-items: center; gap: 7px; }
-.level-editor { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--border); }
-.level-editor > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.level-editor input { width: 100%; accent-color: var(--link); }
+.choice-row label { display: inline-flex; align-items: center; gap: 7px; }
+.evaluation-controls { border-radius: 8px; }
 .save { justify-self: end; border-color: var(--link); background: var(--link); color: #fff; padding: 8px 15px; }
 .message { padding: 8px 12px; border-left: 3px solid var(--lg-green); }
 @media (max-width: 900px) {

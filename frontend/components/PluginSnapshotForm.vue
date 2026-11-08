@@ -100,22 +100,18 @@ function toggleTag(tagId: number, checked: boolean) {
 
     <section class="form-section">
       <h2>请求说明</h2>
-      <div class="level-editor" :class="`level-${model.user_request_level}`">
+      <div class="level-editor">
         <div class="level-heading">
-          <span>用户提交的请求等级</span>
-          <PluginRequestLevelBadge :level="model.user_request_level" />
+          <span>请求等级</span>
+          <PluginRequestLevelBadge :level="model.user_request_level" compact />
         </div>
-        <input v-model.number="model.user_request_level" type="range" min="0" max="3" step="1" aria-label="用户提交的请求等级">
-        <div class="level-ticks" aria-hidden="true"><span>0</span><span>1</span><span>2</span><span>3</span></div>
+        <PluginRequestLevelSlider v-model="model.user_request_level" label="请求等级" />
       </div>
-      <p class="field-help">
-        建议说明访问的域名或接口、触发方式、单次请求数量、周期刷新或并发行为，以及是否读取 Cookie、Token、localStorage 或向第三方发送数据。
-      </p>
       <PluginMarkdownEditor
         v-model="model.user_request_analysis"
         label="上传者请求分析"
         :maxlength="20000"
-        placeholder="使用 Markdown 描述插件的网络请求行为"
+        placeholder="建议说明访问的域名或接口、触发方式、单次请求数量、周期刷新或并发行为，以及是否读取 Cookie、Token、localStorage 或向第三方发送数据。"
       />
 
     </section>
@@ -154,14 +150,8 @@ legend { margin-bottom: 8px; }
 .check-option { display: inline-flex; grid-template-columns: none; align-items: center; gap: 7px; font-weight: 400; }
 .check-option input { width: 16px; height: 16px; margin: 0; }
 .check-option span { font-weight: 400; }
-.field-help { margin: -6px 0 0; color: var(--text-muted); font-size: 13px; }
-.level-editor { --level-color: #2da44e; display: grid; gap: 8px; padding: 13px 15px 10px; border: 1px solid color-mix(in srgb, var(--level-color) 55%, var(--border)); border-radius: 8px; background: color-mix(in srgb, var(--level-color) 7%, var(--surface)); }
-.level-editor.level-1 { --level-color: #7aa61f; }
-.level-editor.level-2 { --level-color: #c69200; }
-.level-editor.level-3 { --level-color: #d1242f; }
-.level-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 14px; font-weight: 600; }
-.level-editor input[type="range"] { width: 100%; padding: 0; border: 0; accent-color: var(--level-color); cursor: pointer; }
-.level-ticks { display: flex; justify-content: space-between; padding: 0 2px; color: var(--text-muted); font-size: 11px; }
+.level-editor { display: grid; gap: 8px; min-width: 0; }
+.level-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; font-size: 14px; font-weight: 600; }
 @media (max-width: 700px) {
   .form-grid.two { grid-template-columns: 1fr; }
 }

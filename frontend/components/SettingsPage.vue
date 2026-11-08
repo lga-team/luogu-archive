@@ -59,8 +59,8 @@ async function verify(pasteId: string) {
 <template>
   <div class="archive-ui settings-shell settings-page">
     <ArchivePageHeader title="设置" description="账号与站点外观" icon="settings" />
-    <Tabs v-model="activeTab" class="archive-card settings-panel">
-      <div class="settings-tabs-bar">
+    <Tabs v-model="activeTab" class="settings-panel" :class="{ 'archive-card': activeTab === 'account' }">
+      <div class="settings-tabs-bar" :class="{ 'archive-card settings-tabs-bar-appearance': activeTab === 'appearance' }">
         <TabsList aria-label="设置分类">
           <TabsTrigger value="account"><UserRound :size="16" aria-hidden="true" />账号</TabsTrigger>
           <TabsTrigger value="appearance"><Palette :size="16" aria-hidden="true" />外观</TabsTrigger>
@@ -89,12 +89,14 @@ async function verify(pasteId: string) {
             </div>
           </template>
       </TabsContent>
-      <TabsContent value="appearance" class="settings-panel-content settings-appearance">
-          <div class="settings-section-heading"><h2>主题</h2></div>
+      <TabsContent value="appearance" class="settings-appearance">
+        <section class="archive-card settings-panel-content settings-theme-mode" aria-labelledby="settings-theme-heading">
+          <div class="settings-section-heading"><h2 id="settings-theme-heading">主题</h2></div>
           <RadioGroup :model-value="colorMode.preference" aria-label="主题模式" class="settings-themes" @update:model-value="colorMode.preference = $event || 'system'">
             <Label v-for="theme in themes" :key="theme.value" class="settings-theme" :for="'settings-theme-' + theme.value" :data-selected="colorMode.preference === theme.value"><RadioGroupItem :id="'settings-theme-' + theme.value" :value="theme.value" /><component :is="theme.icon" :size="20" aria-hidden="true" /><span>{{ theme.label }}</span></Label>
           </RadioGroup>
-          <ThemeEditor :resolved-theme="colorMode.value" />
+        </section>
+        <ThemeEditor :resolved-theme="colorMode.value" />
       </TabsContent>
     </Tabs>
   </div>
@@ -108,8 +110,9 @@ async function verify(pasteId: string) {
 .settings-panel-content:focus-visible { outline-offset: -2px; }
 .settings-account-actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; }
 .settings-logout { margin-left: auto; }
-.settings-page .settings-appearance :deep(.theme-editor) { margin-top: 28px; }
-.settings-page .settings-appearance :deep(.theme-editor-panel) { padding: 0; border: 0; background: transparent; }
+.settings-tabs-bar-appearance { align-items: flex-start; border-radius: 8px 8px 0 0; }
+.settings-appearance { margin-top: 0; }
+.settings-theme-mode { display: block; border-top: 0; border-radius: 0 0 8px 8px; }
 @media (max-width: 640px) {
   .settings-tabs-bar, .settings-panel-content { padding: 16px; }
 }

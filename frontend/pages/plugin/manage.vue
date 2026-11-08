@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { FilePenLine, Plus, Sparkles } from 'lucide-vue-next'
+import { Button } from '~/components/ui'
+
 const auth = useAuthStore()
 const api = useApi()
 const loading = ref(true)
@@ -53,76 +56,84 @@ useHead({ title: '我的插件 - 洛谷档案馆' })
 </script>
 
 <template>
-  <div class="manage-page">
-    <header class="manage-head">
-      <div><h1>我的插件</h1><p>查看公开插件、待审核版本和历史申请。</p></div>
-      <NuxtLink to="/plugin/submit" class="archive-action-button">提交新插件</NuxtLink>
-    </header>
-    <LoadingPanel v-if="loading" title="loading……" text="" />
-    <p v-else-if="errorText" class="error">{{ errorText }}</p>
-    <template v-else>
-      <section>
-        <h2>已发布插件</h2>
-        <div v-if="data.plugins.length" class="plugin-list">
-          <article v-for="plugin in data.plugins" :key="plugin.id" class="plugin-row">
-            <div>
-              <h3><NuxtLink :to="`/plugin/${plugin.article_id}`">{{ plugin.name }}</NuxtLink></h3>
-              <p>文章 {{ plugin.article_id }} · {{ plugin.is_listed ? '公开展示' : '已下架' }}</p>
-            </div>
-            <div class="row-actions">
-              <NuxtLink :to="`/plugin/submit?article_id=${plugin.article_id}`" class="archive-action-button">提交更新</NuxtLink>
-              <button v-if="!plugin.is_recommended" type="button" class="archive-action-button" @click="reasonAction(plugin.article_id, 'recommend')">申请推荐</button>
-              <button type="button" class="archive-action-button danger" @click="reasonAction(plugin.article_id, 'delete')">申请删除</button>
-            </div>
-          </article>
-        </div>
-        <p v-else class="empty">还没有通过审核的插件</p>
-      </section>
+  <div class="archive-ui manage-page">
+    <ArchivePageHeader title="我的插件" description="查看公开插件、待审核版本和历史申请。" icon="plugin" />
 
-      <section>
-        <h2>申请记录</h2>
-        <div v-if="data.applications.length" class="applications">
-          <article v-for="application in data.applications" :key="application.id" class="application-row">
-            <div>
-              <strong>{{ typeNames[application.application_type] || application.application_type }}</strong>
-              <span>文章 {{ application.article_id }}<template v-if="application.version"> · v{{ application.version }}</template></span>
+    <section class="archive-card manage-section" aria-labelledby="published-plugins-title">
+      <div class="section-heading">
+        <h2 id="published-plugins-title">已发布插件</h2>
+        <Button as-child class="manage-primary">
+          <NuxtLink to="/plugin/submit"><Plus :size="16" aria-hidden="true" />提交新插件</NuxtLink>
+        </Button>
+      </div>
+      <LoadingPanel v-if="loading" title="加载中…" text="" />
+      <p v-else-if="errorText" class="section-message error" role="alert">{{ errorText }}</p>
+      <div v-else-if="data.plugins.length" class="record-list">
+        <article v-for="plugin in data.plugins" :key="plugin.id" class="record-row">
+          <div class="record-copy">
+            <h3><NuxtLink :to="`/plugin/${plugin.article_id}`">{{ plugin.name }}</NuxtLink></h3>
+            <div class="plugin-meta">
+              <span class="record-meta">文章 {{ plugin.article_id }}</span>
+              <span class="status" :data-status="plugin.is_listed ? 'approved' : 'cancelled'">{{ plugin.is_listed ? '公开展示' : '已下架' }}</span>
             </div>
-            <div class="application-status">
-              <span :class="`status ${application.status}`">{{ statusNames[application.status] || application.status }}</span>
-              <button v-if="application.status === 'pending'" type="button" class="archive-action-button" @click="cancel(application.id)">撤销</button>
-            </div>
-            <p v-if="application.review_note" class="review-note">审核意见：{{ application.review_note }}</p>
-          </article>
-        </div>
-        <p v-else class="empty">暂无申请记录</p>
-      </section>
-    </template>
+          </div>
+          <div class="row-actions">
+            <Button as-child variant="outline" size="sm">
+              <NuxtLink :to="`/plugin/submit?article_id=${plugin.article_id}`"><FilePenLine :size="15" aria-hidden="true" />提交更新</NuxtLink>
+            </Button>
+            <Button v-if="!plugin.is_recommended" variant="outline" size="sm" @click="reasonAction(plugin.article_id, 'recommend')"><Sparkles :size="15" aria-hidden="true" />申请推荐</Button>
+            <Button variant="ghost" size="sm" class="danger" @click="reasonAction(plugin.article_id, 'delete')">申请删除</Button>
+          </div>
+        </article>
+      </div>
+      <p v-else class="section-message">还没有通过审核的插件</p>
+    </section>
+
+    <section v-if="!loading && !errorText" class="archive-card manage-section" aria-labelledby="plugin-applications-title">
+      <div class="section-heading">
+        <h2 id="plugin-applications-title">申请记录</h2>
+      </div>
+      <div v-if="data.applications.length" class="record-list">
+        <article v-for="application in data.applications" :key="application.id" class="record-row">
+          <div class="record-copy">
+            <h3>{{ typeNames[application.application_type] || application.application_type }}</h3>
+            <p class="record-meta">文章 {{ application.article_id }}<template v-if="application.version"> · v{{ application.version }}</template></p>
+          </div>
+          <div class="row-actions">
+            <span class="status" :data-status="application.status">{{ statusNames[application.status] || application.status }}</span>
+            <Button v-if="application.status === 'pending'" variant="outline" size="sm" @click="cancel(application.id)">撤销</Button>
+          </div>
+          <p v-if="application.review_note" class="review-note"><strong>审核意见：</strong>{{ application.review_note }}</p>
+        </article>
+      </div>
+      <p v-else class="section-message">暂无申请记录</p>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.manage-page { display: grid; gap: 26px; }
-.manage-head { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 22px 26px; border: 1px solid var(--hero-border); border-radius: 8px; background: var(--hero-bg); }
-.manage-head h1 { margin: 0; font-size: 27px; }
-.manage-head p { margin: 6px 0 0; color: var(--text-muted); }
-section > h2 { margin: 0 0 12px; font-size: 20px; }
-.plugin-list, .applications { border-top: 1px solid var(--border); }
-.plugin-row, .application-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 12px 20px; padding: 15px 2px; border-bottom: 1px solid var(--border); }
-.plugin-row h3 { margin: 0; font-size: 17px; }
-.plugin-row p, .application-row span { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; }
-.row-actions, .application-status { display: flex; align-items: center; gap: 9px; }
+.manage-page { display: grid; gap: 16px; width: min(100%, 1180px); margin: 0 auto; }
+.manage-section { --section-pad: 24px; min-width: 0; gap: 0; padding: 0; }
+.section-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; padding: 16px var(--section-pad); min-height: 60px; }
+.section-heading h2 { margin: 0; font-size: 18px; }
+.archive-ui .manage-primary { background: var(--link); color: #fff; }
+.archive-ui .manage-primary:hover { background: color-mix(in srgb, var(--link) 88%, #000); color: #fff; }
+.record-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 20px; padding: 14px var(--section-pad); border-top: 1px solid var(--border); }
+.record-copy { display: grid; gap: 5px; overflow-wrap: anywhere; }
+.record-copy h3 { margin: 0; font-size: 15px; }
+.record-meta { margin: 0; color: var(--text-muted); font-size: 13px; }
+.plugin-meta, .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .row-actions .danger { color: var(--lg-red); }
-.status { padding: 2px 8px; border-radius: 4px; }
-.status.pending { background: #fff3cd; color: #7a5d00; }
-.status.approved { background: #d8f3df; color: #17652d; }
-.status.rejected { background: #ffe0e0; color: #9f1c24; }
-.status.cancelled { background: var(--hover); }
-.review-note { grid-column: 1 / -1; margin: 0; color: var(--lg-red); font-size: 13px; }
-.empty { padding: 28px 0; color: var(--text-muted); text-align: center; border-top: 1px solid var(--border); }
-.error { color: var(--lg-red); }
+.status { --status-color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px; border: 1px solid color-mix(in srgb, var(--status-color) 36%, var(--border)); border-radius: 6px; background: color-mix(in srgb, var(--status-color) 9%, var(--surface)); color: var(--text); font-size: 12px; white-space: nowrap; }
+.status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--status-color); }
+.status[data-status="pending"] { --status-color: var(--lg-orange); }
+.status[data-status="approved"] { --status-color: var(--lg-green); }
+.status[data-status="rejected"] { --status-color: var(--lg-red); }
+.review-note { grid-column: 1 / -1; margin: 0; color: var(--text-muted); font-size: 13px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.section-message { margin: 0; padding: 24px var(--section-pad); color: var(--text-muted); font-size: 14px; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.section-message.error { color: var(--lg-red); }
 @media (max-width: 720px) {
-  .manage-head { align-items: flex-start; flex-direction: column; }
-  .plugin-row, .application-row { grid-template-columns: 1fr; }
-  .row-actions { flex-wrap: wrap; }
+  .manage-section { --section-pad: 16px; }
+  .record-row { grid-template-columns: minmax(0, 1fr); }
 }
 </style>

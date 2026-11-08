@@ -13,7 +13,7 @@ const {
 const file = ref<HTMLInputElement | null>(null)
 </script>
 <template>
-  <section class="theme-editor" aria-label="洛谷主题编辑">
+  <section class="archive-card theme-editor" aria-label="洛谷主题编辑">
     <p v-if="props.resolvedTheme === 'dark'" class="archive-muted">暗色模式使用纯色背景，切换到亮色模式后可编辑主题。</p>
     <template v-else>
       <div class="settings-section-heading"><h2>亮色主题</h2><div class="theme-choice"><Label for="theme-enabled">启用主题</Label><Switch id="theme-enabled" :model-value="draft.enabled" :disabled="busy" @update:model-value="update(theme => { theme.enabled = $event })" /></div></div>
@@ -44,10 +44,15 @@ const file = ref<HTMLInputElement | null>(null)
         </div>
       </fieldset>
       <div class="theme-editor-footer"><div class="theme-actions">
-        <Button :disabled="busy || !dirty" @click="save"><Save :size="16" />保存主题</Button>
+        <Button class="theme-save" :disabled="busy || !dirty" @click="save"><Save :size="16" />保存主题</Button>
         <Button variant="outline" :disabled="busy || !dirty" @click="cancel"><X :size="16" />取消</Button>
         <Button variant="outline" :disabled="busy" @click="reset"><RotateCcw :size="16" />恢复默认</Button>
       </div><div class="theme-actions"><input ref="file" type="file" accept=".json,application/json" hidden @change="importJson"><Button variant="outline" :disabled="busy" @click="file?.click()"><Upload :size="16" />导入 JSON</Button><Button variant="outline" :disabled="busy" @click="exportJson"><Download :size="16" />导出 JSON</Button></div></div>
     </template>
   </section>
 </template>
+
+<style scoped>
+.theme-editor .theme-save { background: #0969da; border-color: #0969da; color: #fff; }
+.theme-editor .theme-save:hover:not(:disabled) { background: #0758b8; border-color: #0758b8; color: #fff; }
+</style>

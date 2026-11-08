@@ -1,12 +1,24 @@
 <script setup lang="ts">
+import { Check, Send } from 'lucide-vue-next'
+import { Button, Input } from '~/components/ui'
 import type { PluginDetail, PluginSnapshot, PluginTag } from '~/types/plugin'
 import { emptyPluginSnapshot } from '~/types/plugin'
+import { parseArchiveAddress } from '~/utils/parseArchiveAddress'
 
 const route = useRoute()
 const auth = useAuthStore()
 const api = useApi()
 
-const articleId = ref(String(route.query.article_id || '').trim())
+const articleInput = ref(String(route.query.article_id || '').trim())
+const articleId = computed(() => {
+  const input = articleInput.value.trim()
+  if (/^[A-Za-z0-9]{1,16}$/.test(input)) return input
+  try {
+    return parseArchiveAddress(input).match(/^\/article\/([A-Za-z0-9]{1,16})$/)?.[1] ?? ''
+  } catch {
+    return ''
+  }
+})
 const confirmedArticleId = ref('')
 const tags = ref<PluginTag[]>([])
 const snapshot = ref<PluginSnapshot>(emptyPluginSnapshot())
@@ -15,6 +27,7 @@ const editing = ref(false)
 const hasPending = ref(false)
 const blocked = ref(false)
 const loading = ref(true)
+const inspecting = ref(false)
 const submitting = ref(false)
 const submitSucceeded = ref(false)
 const message = ref('')
@@ -45,10 +58,16 @@ async function loadFullCode(path: string): Promise<string> {
 }
 
 async function inspectArticle() {
-  if (!articleId.value) return
+  if (inspecting.value || submitting.value || !articleInput.value.trim()) return
+  const id = articleId.value
+  if (!id) {
+    errorText.value = '请输入有效的洛谷文章编号或文章链接。'
+    return
+  }
+  inspecting.value = true
   errorText.value = ''
   article.value = null
-  if (confirmedArticleId.value !== articleId.value) {
+  if (confirmedArticleId.value !== id) {
     editing.value = false
     hasPending.value = false
     blocked.value = false
@@ -56,10 +75,10 @@ async function inspectArticle() {
     snapshot.value = emptyPluginSnapshot()
   }
   try {
-    article.value = await api(`/article/${articleId.value}`)
-    confirmedArticleId.value = articleId.value
+    article.value = await api(`/article/${id}`)
+    confirmedArticleId.value = id
     try {
-      const detail = await api<PluginDetail>(`/plugins/${articleId.value}`)
+      const detail = await api<PluginDetail>(`/plugins/${id}`)
       if (!detail.is_owner) {
         blocked.value = true
         errorText.value = '该文章已有插件，只有当前上传者可以提交更新。'
@@ -74,7 +93,7 @@ async function inspectArticle() {
       } else if (detail.current) {
         // 编辑时读取现有代码不属于真实安装，避免污染插件使用统计。
         const fullCode = await loadFullCode(
-          `/plugins/${articleId.value}/download/${detail.current.id}?track_usage=false`,
+          `/plugins/${id}/download/${detail.current.id}?track_usage=false`,
         )
         snapshot.value = snapshotFromVersion(detail, fullCode)
       }
@@ -84,6 +103,8 @@ async function inspectArticle() {
     }
   } catch (error: any) {
     errorText.value = error?.data?.message || '文章不存在或尚未完整收录'
+  } finally {
+    inspecting.value = false
   }
 }
 
@@ -96,11 +117,11 @@ async function submit() {
     return
   }
   if (!article.value) {
-    errorText.value = '请先确认文章编号'
+    errorText.value = '请先确认文章'
     return
   }
   if (confirmedArticleId.value !== articleId.value) {
-    errorText.value = '文章编号已改变，请重新确认文章'
+    errorText.value = '文章已改变，请重新确认'
     return
   }
   if (hasPending.value) {
@@ -141,7 +162,7 @@ onMounted(async () => {
     return
   }
   try { tags.value = await api<PluginTag[]>('/plugins/tags') } catch {}
-  if (articleId.value) await inspectArticle()
+  if (articleInput.value) await inspectArticle()
   loading.value = false
 })
 
@@ -149,63 +170,66 @@ useHead({ title: '提交插件 - 洛谷档案馆' })
 </script>
 
 <template>
-  <LoadingPanel v-if="loading" title="loading……" text="" />
-  <div v-else class="submit-page">
-    <header class="page-head">
-      <div>
-        <h1>{{ editing ? '提交版本更新' : '发布插件' }}</h1>
-        <p>插件原文始终使用文章的最新归档版本，代码作为独立内容提交审核。</p>
-      </div>
-      <NuxtLink to="/plugin/manage" class="archive-action-button">返回我的插件</NuxtLink>
-    </header>
-
-    <section class="article-picker">
-      <label>
-        <span>洛谷文章编号</span>
-        <div class="input-action">
-          <input v-model.trim="articleId" maxlength="16" placeholder="例如 jbekb3o8" :disabled="editing || hasPending">
-          <button type="button" class="archive-action-button" @click="inspectArticle">确认文章</button>
+  <div class="archive-ui submit-page">
+    <ArchivePageHeader
+      :title="editing ? '提交版本更新' : '发布插件'"
+      description="插件原文始终使用文章的最新归档版本，代码作为独立内容提交审核。"
+      icon="plugin"
+    />
+    <LoadingPanel v-if="loading" title="加载中…" text="" />
+    <template v-else>
+      <form class="archive-card article-picker" aria-label="插件原文" :aria-busy="inspecting" @submit.prevent="inspectArticle">
+        <div class="article-picker-row">
+          <Input
+            v-model="articleInput"
+            aria-label="洛谷文章编号或链接"
+            placeholder="洛谷文章编号或链接"
+            :disabled="editing || hasPending || inspecting || submitting"
+          />
+          <Button type="submit" variant="outline" :disabled="!articleInput.trim() || inspecting || submitting">
+            <Check :size="16" aria-hidden="true" />{{ inspecting ? '确认中…' : '确认文章' }}
+          </Button>
         </div>
-      </label>
-      <div v-if="article" class="article-result">
-        <strong>{{ article.title }}</strong>
-        <span>文章 {{ article.article_id }} 已收录</span>
-      </div>
-    </section>
+        <div v-if="article" class="article-result">
+          <strong>{{ article.title }}</strong>
+          <span>文章 {{ article.article_id }} 已收录</span>
+        </div>
+      </form>
 
-    <p v-if="message" class="message ok" :class="{ submitted: submitSucceeded }" role="status">{{ message }}</p>
-    <p v-if="errorText" class="message error">{{ errorText }}</p>
+      <p v-if="message" class="message ok" :class="{ submitted: submitSucceeded }" role="status">{{ message }}</p>
+      <p v-if="errorText" class="message error" role="alert">{{ errorText }}</p>
 
-    <form v-if="article && !blocked" class="plugin-form" @submit.prevent="submit">
-      <PluginSnapshotForm v-model="snapshot" :tags="tags" />
-      <div class="submit-actions">
-        <span>提交即表示你确认代码和请求说明真实、完整。</span>
-        <button type="submit" class="archive-action-button" :disabled="submitting || hasPending">{{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}</button>
-      </div>
-    </form>
+      <form v-if="article && !blocked && !inspecting" class="archive-card plugin-form" @submit.prevent="submit">
+        <PluginSnapshotForm v-model="snapshot" :tags="tags" />
+        <div class="submit-actions">
+          <span>提交即表示你确认代码和请求说明真实、完整。</span>
+          <Button type="submit" class="submit-primary" :disabled="submitting || hasPending">
+            <Send :size="16" aria-hidden="true" />
+            {{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}
+          </Button>
+        </div>
+      </form>
+    </template>
   </div>
 </template>
 
 <style scoped>
-.submit-page { display: grid; gap: 22px; }
-.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; padding: 22px 26px; border: 1px solid var(--hero-border); border-radius: 8px; background: var(--hero-bg); }
-.page-head h1 { margin: 0; font-size: 27px; }
-.page-head p { margin: 7px 0 0; color: var(--text-muted); }
-.article-picker, .plugin-form { padding: 22px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
-.article-picker { display: grid; gap: 14px; }
-.article-picker label { display: grid; gap: 7px; font-weight: 600; }
-.input-action { display: flex; gap: 9px; }
-.input-action input { flex: 1; min-width: 0; }
-input { box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; padding: 9px 11px; background: var(--surface); color: var(--text); font: inherit; }
-.article-result { display: flex; justify-content: space-between; gap: 12px; color: var(--text-muted); }
-.article-result strong { color: var(--text); }
-.message { margin: 0; padding: 10px 13px; border-left: 3px solid; background: var(--surface); }
+.submit-page { display: grid; gap: 16px; width: min(100%, 1180px); margin: 0 auto; }
+.article-picker, .plugin-form { min-width: 0; padding: 24px; }
+.article-picker { gap: 16px; }
+.article-picker-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+.submit-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; }
+.article-result { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 13px; color: var(--text-muted); }
+.article-result strong { font-size: 14px; color: var(--text); overflow-wrap: anywhere; }
+.message { margin: 0; padding: 10px 13px; border: 1px solid var(--border); border-inline-start: 3px solid; border-radius: 6px; background: var(--surface); overflow-wrap: anywhere; }
 .message.ok { border-color: var(--lg-green); }
 .message.submitted { position: fixed; z-index: 850; left: 50%; bottom: 28px; width: min(560px, calc(100vw - 32px)); box-sizing: border-box; transform: translateX(-50%); border: 1px solid var(--lg-green); border-left-width: 5px; border-radius: 7px; background: var(--surface); color: var(--text); font-size: 15px; font-weight: 600; box-shadow: 0 12px 36px rgba(0, 0, 0, .22); }
 .message.error { border-color: var(--lg-red); color: var(--lg-red); }
-.submit-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
-@media (max-width: 650px) {
-  .page-head, .article-result, .submit-actions { align-items: flex-start; flex-direction: column; }
-  .input-action { flex-direction: column; }
+.submit-actions { padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+.submit-actions .submit-primary { margin-inline-start: auto; }
+.archive-ui .submit-primary { background: var(--link); color: #fff; }
+.archive-ui .submit-primary:hover:not(:disabled) { background: color-mix(in srgb, var(--link) 88%, #000); color: #fff; }
+@media (max-width: 640px) {
+  .article-picker, .plugin-form { padding: 16px; }
 }
 </style>
