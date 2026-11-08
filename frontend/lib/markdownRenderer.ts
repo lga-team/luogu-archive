@@ -14,6 +14,7 @@ const archivePaths = ['/article/', '/paste/', '/discuss/', '/user/', '/judgement
 
 interface SyntaxNode {
   type: string
+  url?: string
   position?: { start: { offset?: number }; end: { offset?: number } }
   children?: SyntaxNode[]
 }
@@ -43,9 +44,74 @@ function escapeRawHtml(source: string): string {
   return escaped
 }
 
+const BILIBILI_SCHEME = 'bilibili:'
+
+/**
+ * 与 @luogu-saver-next/markdown-renderer 内部的 bilibili: 图片解析语义保持一致，
+ * 但只接受受控的 BV/av 号与数字参数，重新拼出规范化目标。
+ * 包内部会把目标解码后的字符直接拼进 iframe HTML；URLSearchParams 还会二次解码
+ * page/t 参数，攻击者可用 %22/%3E 等编码逃逸出属性。因此这里先做白名单校验，
+ * 校验不通过的图片整体删除，不让原样进入渲染管线。
+ */
+function canonicalBilibiliImage(url: string): string | null {
+  const raw = url.slice(BILIBILI_SCHEME.length)
+  const cut = raw.search(/[?#]/)
+  const body = cut >= 0 ? raw.slice(0, cut) : raw
+  const query = cut >= 0 && raw[cut] === '?' ? raw.slice(cut + 1) : ''
+  let id = ''
+  if (/^BV[0-9A-Za-z]{10,}$/.test(body)) {
+    id = body
+  } else if (/^av\d+$/.test(body)) {
+    id = body
+  } else if (/^\d+$/.test(body)) {
+    id = body
+  } else if (/^[a-z][a-z0-9+.-]*:\/\//i.test(body) || body.startsWith('//')) {
+    try {
+      const parsed = new URL(body.startsWith('//') ? `https:${body}` : body)
+      id = /\/video\/(BV[0-9A-Za-z]{10,}|av\d+)/.exec(parsed.pathname)?.[1] ?? ''
+    } catch {
+      id = ''
+    }
+  }
+  if (!id) return null
+  const params = new URLSearchParams(query)
+  const parts: string[] = []
+  const page = params.get('page') || ''
+  if (/^\d+$/.test(page) && page !== '1') parts.push(`page=${page}`)
+  const t = params.get('t') || ''
+  if (/^\d+$/.test(t) && t !== '0') parts.push(`t=${t}`)
+  return BILIBILI_SCHEME + id + (parts.length ? `?${parts.join('&')}` : '')
+}
+
+/** 把 bilibili: 图片目标规范化为受控形式；非法目标连同图片语法一并删除。 */
+function normalizeBilibiliImages(source: string): string {
+  const tree = parser.parse(source)
+  const ranges: Array<{ start: number; end: number; text: string }> = []
+  function visit(node: SyntaxNode) {
+    if (node.type === 'image' && typeof node.url === 'string' && node.url.startsWith(BILIBILI_SCHEME)) {
+      const start = node.position?.start.offset
+      const end = node.position?.end.offset
+      if (start !== undefined && end !== undefined) {
+        const canonical = canonicalBilibiliImage(node.url)
+        ranges.push({ start, end, text: canonical ? `![](${canonical})` : '' })
+      }
+    }
+    node.children?.forEach(visit)
+  }
+  visit(tree)
+  let normalized = source
+  for (const { start, end, text } of ranges.sort((a, b) => b.start - a.start)) {
+    normalized = normalized.slice(0, start) + text + normalized.slice(end)
+  }
+  return normalized
+}
+
 interface DomContext {
   document: Document
-  purifier: { sanitize: (html: string, options: Record<string, unknown>) => string | DocumentFragment }
+  purifier: {
+    isSupported?: boolean
+    sanitize: (html: string, options: Record<string, unknown>) => string | DocumentFragment
+  }
 }
 
 let domPromise: Promise<DomContext> | undefined
@@ -53,12 +119,13 @@ let domPromise: Promise<DomContext> | undefined
 async function getDom(): Promise<DomContext> {
   if (!domPromise) {
     domPromise = (async () => {
-      if (import.meta.server) {
-        const [{ parseHTML }, { default: createDOMPurify }] = await Promise.all([
-          import('linkedom'),
-          import('dompurify'),
-        ])
-        const { window } = parseHTML('<!doctype html><html><body></body></html>')
+      if (typeof document === 'undefined') {
+        // 服务端用 jsdom 提供 DOM。linkedom 缺少 document.implementation，
+        // 会让 DOMPurify 静默放行未过滤内容，不能使用。
+        // @ts-ignore - jsdom 没有类型
+        const jsdom = await import('jsdom')
+        const { default: createDOMPurify } = await import('dompurify')
+        const { window } = new jsdom.JSDOM('<!doctype html><html><body></body></html>')
         return {
           document: window.document as unknown as Document,
           purifier: createDOMPurify(window as any) as unknown as DomContext['purifier'],
@@ -75,6 +142,10 @@ async function getDom(): Promise<DomContext> {
 }
 
 function adaptHtml(html: string, dom: DomContext): string {
+  // DOMPurify 在 DOM 不受支持时会静默原样返回输入，必须显式失败关闭
+  if (dom.purifier.isSupported !== true) {
+    throw new Error('DOMPurify 不受当前 DOM 支持，拒绝输出未过滤内容')
+  }
   const sanitized = dom.purifier.sanitize(html, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
     ADD_TAGS: ['iframe'],
@@ -177,13 +248,13 @@ function adaptHtml(html: string, dom: DomContext): string {
 }
 
 export async function renderArchiveMarkdown(source: string): Promise<string> {
-  const html = await renderMarkdown(escapeRawHtml(source))
+  const html = await renderMarkdown(escapeRawHtml(normalizeBilibiliImages(source)))
   try {
     const dom = await getDom()
     return adaptHtml(html, dom)
   } catch (error) {
-    // 后处理失败时仍返回可读的 Markdown 主体，避免整块内容变成错误提示。
-    console.error('[Markdown] HTML 适配失败，回退到基础渲染', error)
-    return html
+    console.error('[Markdown] HTML 适配失败，输出已转义的纯文本', error)
+    // 过滤失败时输出转义后的纯文本，绝不把未过滤的内容交给 v-html
+    return escapeHtml(html)
   }
 }
