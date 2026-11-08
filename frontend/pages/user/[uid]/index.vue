@@ -115,15 +115,16 @@ const { data: profile, error, pending: profilePending, refresh } = useLazyAsyncD
   { server: false },
 )
 
-// 活动分四类：全部 / 专栏（文章、剪贴板）/ 动态（犇犇）/ 陶片（放逐记录）。
+// 活动分五类：全部 / 专栏（文章、剪贴板）/ 讨论（发起与回复）/ 动态（犇犇）/ 陶片。
 // 接口只提供 include_feed 与 include_discussion，其余类型始终返回，
-// 所以专栏、动态、陶片的区分在前端做；过滤后不足一屏时继续往后翻页补齐。
-type ActivityTab = 'all' | 'column' | 'feed' | 'judgement'
+// 所以其余分类的过滤在前端做；过滤后不足一屏时继续往后翻页补齐。
+type ActivityTab = 'all' | 'column' | 'discussion' | 'feed' | 'judgement'
 const activeKind = ref<ActivityTab>('all')
 
 const ACTIVITY_TABS: Array<{ key: ActivityTab; label: string }> = [
   { key: 'all', label: '活动' },
   { key: 'column', label: '专栏' },
+  { key: 'discussion', label: '讨论' },
   { key: 'feed', label: '动态' },
   { key: 'judgement', label: '陶片' },
 ]
@@ -141,6 +142,7 @@ const ACTIVITY_MIN_ROWS = 10
 function matchesTab(item: ActivityItem, tab: ActivityTab) {
   if (tab === 'all') return true
   if (tab === 'column') return item.kind === 'article' || item.kind === 'paste'
+  if (tab === 'discussion') return item.kind === 'discussion' || item.kind === 'discussion_reply'
   if (tab === 'judgement') return item.kind === 'judgement'
   return item.kind === 'feed'
 }
@@ -158,7 +160,7 @@ async function fetchActivity(reset: boolean) {
     for (let round = 0; round < 4; round++) {
       const query: Record<string, any> = {
         include_feed: tab === 'all' || tab === 'feed',
-        include_discussion: tab === 'all',
+        include_discussion: tab === 'all' || tab === 'discussion',
         limit: PAGE_SIZE,
       }
       if (activityBefore.value) query.before = activityBefore.value
