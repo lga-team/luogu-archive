@@ -21,7 +21,7 @@
     "katex": "^0.16.11",
     "markdown-it": "^14.1.0",
     "@vscode/markdown-it-katex": "^1.1.1",
-    "nuxt": "^3.14.0",
+    "nuxt": "^4.6.3",
     "pinia": "^2.2.0",
     "@pinia/nuxt": "^0.5.5",
     "vue": "^3.5.0",
