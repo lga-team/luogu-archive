@@ -1,11 +1,18 @@
 <script setup lang="ts">
+import { useClipboard } from '@vueuse/core'
+
 const auth = useAuthStore()
 const api = useApi()
+const { copy, copied } = useClipboard({ legacy: true })
+const copyFailed = ref(false)
+const copying = ref(false)
 
 const follows = ref<Array<{ uid: number; created_at: string }>>([])
 interface MeData {
+  id: number
   email: string
   display_name: string
+  email_verified: boolean
   follow_count: number
   luogu_uid: number | null
   luogu_bound_at: string | null
@@ -13,6 +20,20 @@ interface MeData {
 
 const me = ref<MeData | null>(null)
 const loading = ref(true)
+
+async function copyMyInfo() {
+  if (!me.value || copying.value) return
+  copying.value = true
+  copyFailed.value = false
+  try {
+    const { id, email, display_name, email_verified, follow_count, luogu_uid, luogu_bound_at } = me.value
+    await copy(JSON.stringify({ id, email, display_name, email_verified, follow_count, luogu_uid, luogu_bound_at }, null, 2))
+  } catch {
+    copyFailed.value = true
+  } finally {
+    copying.value = false
+  }
+}
 
 function handleBound(uid: number) {
   if (me.value) me.value.luogu_uid = uid
@@ -39,8 +60,28 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div>
-    <PageHero title="我的关注" />
+  <div class="me-page">
+    <PageHero title="我的关注">
+      <template #extra>
+        <button
+          v-if="auth.isLoggedIn"
+          type="button"
+          class="copy-info-btn"
+          :disabled="!me || copying"
+          :aria-busy="copying"
+          @click="copyMyInfo"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path v-if="copied && !copyFailed" d="m5 12 4 4L19 6" />
+            <template v-else>
+              <rect x="9" y="9" width="13" height="13" rx="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </template>
+          </svg>
+          <span aria-live="polite">{{ copyFailed ? '复制失败，重试' : copied ? '已复制' : '复制我的信息' }}</span>
+        </button>
+      </template>
+    </PageHero>
     <section v-if="auth.isLoggedIn" class="account-bar">
       <div>
         <strong>{{ me?.display_name || auth.displayName }}</strong>
@@ -65,6 +106,34 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.me-page :deep(.hero-inner) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.copy-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 156px;
+  min-height: 40px;
+  margin-left: auto;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.copy-info-btn:hover:not(:disabled) { border-color: var(--link); color: var(--link); }
+.copy-info-btn:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
+.copy-info-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .muted { color: var(--text-muted); }
 .account-bar {
   display: flex;
