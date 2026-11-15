@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type { PluginSnapshot, PluginTag } from '~/types/plugin'
 import { PLUGIN_CODE_COPY_MAX_BYTES } from '~/utils/pluginCode'
+import { languageFromFilename } from '~/utils/codeHighlight'
 
 const model = defineModel<PluginSnapshot>({ required: true })
 const props = defineProps<{ tags: PluginTag[] }>()
+const codeMode = ref<'write' | 'preview'>('write')
 
 const codeBytes = computed(() => new TextEncoder().encode(model.value.code || '').length)
 const codeTooLarge = computed(() => codeBytes.value > 5 * 1024 * 1024)
@@ -68,8 +70,15 @@ function toggleTag(tagId: number, checked: boolean) {
         </div>
       </div>
       <div class="stack stack--xs">
-        <label for="plugin-code" class="field-label">代码内容</label>
-        <FTextarea id="plugin-code" v-model="model.code" class="code-input" :rows="18" placeholder="粘贴完整代码" required />
+        <div class="code-toolbar">
+          <label for="plugin-code" class="field-label">代码内容</label>
+          <div class="cluster">
+            <FButton :appearance="codeMode === 'write' ? 'primary' : 'subtle'" size="small" @click="codeMode = 'write'">编辑</FButton>
+            <FButton :appearance="codeMode === 'preview' ? 'primary' : 'subtle'" size="small" @click="codeMode = 'preview'">预览</FButton>
+          </div>
+        </div>
+        <FTextarea v-if="codeMode === 'write'" id="plugin-code" v-model="model.code" class="code-input" :rows="18" placeholder="粘贴完整代码" required />
+        <CodeHighlight v-else :code="model.code" :language="languageFromFilename(model.download_filename)" max-height="460px" />
         <span class="field-help">发布后用户可复制或下载；超过 5 MiB 将无法提交。</span>
       </div>
       <div v-if="copyRestricted" class="notice notice--warn">
@@ -131,6 +140,7 @@ function toggleTag(tagId: number, checked: boolean) {
 .form-grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .choice-row { display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .code-input :deep(fluent-textarea) { font-family: var(--fontFamilyMonospace); }
+.code-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .level-editor {
   --level-color: #2da44e;
   display: flex; flex-direction: column; gap: 6px; padding: 12px 14px;

@@ -148,6 +148,34 @@ function adaptHtml(html: string, dom: DomContext): string {
     details.append(summary, body)
     block.replaceWith(details)
   })
+  // 折叠框标题前插入带颜色的 lucide 图标（按 info/warning/success/error 分色）。
+  const foldIcons: Record<string, string> = {
+    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+    warning: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+    success: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+    error: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
+    default: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
+  }
+  fragment.querySelectorAll<HTMLElement>('details').forEach(details => {
+    const summary = Array.from(details.children).find(el => el.tagName?.toLowerCase() === 'summary')
+    if (!summary || summary.querySelector('.lg-fold-icon')) return
+    const kind = ['info', 'warning', 'success', 'error'].find(name => details.classList.contains(`lg-callout-${name}`)) || 'default'
+    const holder = dom.document.createElement('span')
+    holder.className = `lg-fold-icon lg-fold-icon--${kind}`
+    holder.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${foldIcons[kind]}</svg>`
+    summary.insertBefore(holder, summary.firstChild)
+    summary.classList.add('has-fold-icon')
+    // 标题文本也按同一色系着色，避免只有图标带颜色、文字仍是默认灰黑。
+    if (!summary.querySelector('.lg-fold-title')) {
+      const titleText = dom.document.createElement('span')
+      titleText.className = `lg-fold-title lg-fold-title--${kind}`
+      for (const node of Array.from(summary.childNodes)) {
+        if (node !== holder) titleText.appendChild(node)
+      }
+      summary.appendChild(titleText)
+    }
+  })
+
   fragment.querySelectorAll('.md-epigraph').forEach(el => el.classList.add('lg-epigraph'))
   fragment.querySelectorAll('.epigraph-author').forEach(el => el.classList.add('lg-epigraph-source'))
   fragment.querySelectorAll<HTMLElement>('[class*="md-align-"]').forEach(el => {
@@ -166,12 +194,29 @@ function adaptHtml(html: string, dom: DomContext): string {
   })
   fragment.querySelectorAll('pre').forEach(pre => {
     pre.classList.add('lg-code-block')
+    const code = pre.querySelector('code')
     const lines = pre.querySelectorAll('code > .line')
-    lines.forEach((line, index) => {
-      line.classList.add('lg-code-line')
+    if (lines.length) {
+      lines.forEach((line, index) => {
+        line.classList.add('lg-code-line')
+        line.setAttribute('data-line', String(index + 1))
+      })
+      pre.classList.add('has-line-numbers')
+      return
+    }
+    // shiki 未命中的代码块（例如 ``` 后没写语言、或语言未注册）没有行节点，
+    // 直接按换行拆成 span，否则 CSS 会把整段代码折叠成一行。
+    const raw = code?.textContent ?? ''
+    if (!code || !raw.includes('\n')) return
+    code.textContent = ''
+    raw.replace(/\n$/, '').split('\n').forEach((text, index) => {
+      const line = dom.document.createElement('span')
+      line.className = 'line lg-code-line'
       line.setAttribute('data-line', String(index + 1))
+      line.textContent = text
+      code.appendChild(line)
     })
-    if (lines.length) pre.classList.add('has-line-numbers')
+    pre.classList.add('has-line-numbers')
   })
   return container.innerHTML
 }

@@ -24,6 +24,17 @@ export default defineNuxtConfig({
     optimizeDeps: {
       include: ['@luogu-saver-next/markdown-renderer', 'dompurify'],
     },
+    plugins: [{
+      name: 'luogu:app-manifest-fallback',
+      apply: 'serve',
+      enforce: 'post',
+      resolveId(id: string) {
+        if (id === '#app-manifest') return '\0luogu:app-manifest-fallback'
+      },
+      load(id: string) {
+        if (id === '\0luogu:app-manifest-fallback') return 'export default { prerendered: [] }'
+      },
+    }],
   },
   nitro: {
     devProxy: previewUpstream ? {

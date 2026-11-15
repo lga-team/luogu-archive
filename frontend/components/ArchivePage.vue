@@ -337,7 +337,7 @@ onMounted(() => {
 
 .home-page {
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--app-max-width);
   margin: 0 auto;
   padding: 10px 0 32px;
   display: flex;

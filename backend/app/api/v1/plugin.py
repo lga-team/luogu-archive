@@ -78,23 +78,37 @@ class ReportReq(BaseModel):
     description: str = Field(..., min_length=10, max_length=5000)
 
 
-def _code_download_response(code: str, filename: str) -> StreamingResponse:
-    """分块发送代码并关闭代理缓冲，让浏览器及时显示下载进度。"""
+def _code_download_response(
+    code: str, filename: str, *, inline: bool = False
+) -> StreamingResponse:
+    """分块发送代码并关闭代理缓冲，让浏览器及时显示下载进度。
+
+    inline=True 供用户脚本安装使用：必须是 JS MIME 且不能有
+    Content-Disposition: attachment，否则浏览器强制下载、脚本管理器无法接管。
+    """
     content = code.encode("utf-8")
 
     async def chunks():
         for offset in range(0, len(content), DOWNLOAD_CHUNK_BYTES):
             yield content[offset:offset + DOWNLOAD_CHUNK_BYTES]
 
+    headers = {
+        "Content-Length": str(len(content)),
+        "X-Accel-Buffering": "no",
+    }
+    if inline:
+        return StreamingResponse(
+            chunks(),
+            media_type="text/javascript; charset=utf-8",
+            headers=headers,
+        )
+
     encoded = quote(filename, safe="")
+    headers["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded}"
     return StreamingResponse(
         chunks(),
         media_type="text/plain; charset=utf-8",
-        headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded}",
-            "Content-Length": str(len(content)),
-            "X-Accel-Buffering": "no",
-        },
+        headers=headers,
     )
 
 
@@ -494,14 +508,15 @@ async def get_plugin_version(
     return _version_dict(version)
 
 
-@router.get("/{article_id}/download/{version_id}")
-async def download_plugin_version(
+async def _serve_plugin_download(
     article_id: str,
     version_id: int,
     request: Request,
-    track_usage: bool = Query(True),
-    user: SiteUser | None = Depends(get_optional_site_user),
-    db: AsyncSession = Depends(get_db),
+    track_usage: bool,
+    user: SiteUser | None,
+    db: AsyncSession,
+    *,
+    inline: bool = False,
 ) -> StreamingResponse:
     await _ensure_plugin_article_visible(db, article_id)
     plugin = (await db.execute(select(Plugin).where(Plugin.article_id == article_id))).scalar_one_or_none()
@@ -523,7 +538,42 @@ async def download_plugin_version(
         )
         await db.commit()
 
-    return _code_download_response(version.code, version.download_filename)
+    return _code_download_response(version.code, version.download_filename, inline=inline)
+
+
+@router.get("/{article_id}/download/{version_id}")
+async def download_plugin_version(
+    article_id: str,
+    version_id: int,
+    request: Request,
+    track_usage: bool = Query(True),
+    user: SiteUser | None = Depends(get_optional_site_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    return await _serve_plugin_download(
+        article_id, version_id, request, track_usage, user, db
+    )
+
+
+@router.get("/{article_id}/download/{version_id}/{filename}")
+async def download_plugin_version_userscript(
+    article_id: str,
+    version_id: int,
+    filename: str,
+    request: Request,
+    track_usage: bool = Query(True),
+    user: SiteUser | None = Depends(get_optional_site_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """供脚本管理器接管：路径以 .user.js 结尾，返回 JS MIME 且不带 attachment 头。
+
+    filename 只用于让 URL 满足脚本管理器的后缀识别，不参与查库。
+    """
+    if not filename.lower().endswith(".user.js"):
+        raise NotFoundError("代码版本不存在")
+    return await _serve_plugin_download(
+        article_id, version_id, request, track_usage, user, db, inline=True
+    )
 
 @router.post("/{article_id}/increment_download/{version_id}")
 async def increment_download(

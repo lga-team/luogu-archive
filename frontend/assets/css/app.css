@@ -201,9 +201,9 @@ fluent-menu:not(:defined) { display: none !important; }
 .app-main {
   flex: 1 0 auto;
   width: 100%;
-  max-width: 1400px;
+  max-width: var(--app-max-width);
   margin: 0 auto;
-  padding: 32px 36px 64px;
+  padding: 32px var(--app-gutter) 64px;
   min-width: 0;
 }
 
@@ -328,10 +328,14 @@ code, kbd, samp { font-family: var(--fontFamilyMonospace); }
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
 
-/* ---------- Page scaffolding ---------- */
-.page { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
-.page--narrow { max-width: 880px; margin-inline: auto; width: 100%; }
-.page--medium { max-width: 1060px; margin-inline: auto; width: 100%; }
+/* ---------- Page scaffolding ----------
+   所有页面统一宽度：--app-max-width（与 header / main / footer 对齐）。
+   page--* 是历史别名，保留类名但不再收窄，避免切页时内容左右边缘跳动。 */
+.page {
+  display: flex; flex-direction: column; gap: 24px;
+  width: 100%; max-width: var(--app-max-width); margin-inline: auto; min-width: 0;
+}
+.page--narrow, .page--medium, .page--wide { max-width: var(--app-max-width); }
 .page-section { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 .section-head {
   display: flex;
@@ -597,12 +601,12 @@ a.list-item__title:hover { color: var(--colorBrandForeground1); }
 }
 .markdown-body pre {
   margin: 1.1em 0;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border-radius: var(--borderRadiusLarge);
   border: 1px solid var(--colorNeutralStroke2);
   background: var(--colorNeutralBackground3);
   overflow: auto;
-  line-height: 1.62;
+  line-height: 1.85;
   -webkit-overflow-scrolling: touch;
 }
 .markdown-body pre code { padding: 0; background: none; font-size: 13px; }
@@ -868,7 +872,7 @@ fluent-dialog::part(dialog) {
   -webkit-backdrop-filter: blur(20px);
   backdrop-filter: blur(20px);
 }
-.admin-content { padding: 24px; width: 100%; max-width: 1380px; margin: 0 auto; }
+.admin-content { padding: 24px; width: 100%; max-width: var(--app-max-width); margin: 0 auto; }
 .admin-mobile-toggle { display: none; }
 
 /* ---------- misc ---------- */
@@ -914,7 +918,7 @@ fluent-dialog::part(dialog) {
 @media (max-width: 900px) {
   :root { --app-gutter: 16px; --app-header-height: 52px; --app-bottom-nav-height: 62px; }
   .app-shell { padding-left: 0; transition: none; }
-  .app-main { padding: 18px 16px calc(96px + env(safe-area-inset-bottom)); }
+  .app-main { padding: 18px var(--app-gutter) calc(96px + env(safe-area-inset-bottom)); }
   .app-nav { display: none; }
   .app-header__menu { display: inline-flex; }
   .app-main { padding-top: 18px; padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
@@ -937,7 +941,7 @@ fluent-dialog::part(dialog) {
   .admin-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.34); }
   .admin-mobile-toggle { display: inline-flex; }
   .admin-topbar { padding: 8px 14px; }
-  .admin-content { padding: 16px 14px 40px; }
+  .admin-content { padding: 16px var(--app-gutter) 40px; }
   .only-mobile { display: initial !important; }
   .hide-mobile { display: none !important; }
 }
@@ -1157,6 +1161,70 @@ button.admin-side__link { width: 100%; text-align: left; }
 }
 .markdown-body details[open] > summary::before,
 .lg-content details[open] > summary::before { transform: rotate(45deg); }
+
+/* 折叠框标题：前置彩色 lucide 图标，右侧 chevron 指示展开状态 */
+.markdown-body details > summary.has-fold-icon::before,
+.lg-content details > summary.has-fold-icon::before { display: none; }
+.markdown-body details > summary.has-fold-icon::after,
+.lg-content details > summary.has-fold-icon::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  margin-left: auto;
+  flex: 0 0 auto;
+  border-right: 1.8px solid currentColor;
+  border-bottom: 1.8px solid currentColor;
+  transform: rotate(-45deg);
+  opacity: .6;
+  transition: transform var(--durationNormal) var(--curveDecelerateMid);
+}
+.markdown-body details[open] > summary.has-fold-icon::after,
+.lg-content details[open] > summary.has-fold-icon::after { transform: rotate(45deg); }
+.markdown-body .lg-fold-icon,
+.lg-content .lg-fold-icon {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  color: var(--colorBrandForeground1);
+}
+.markdown-body .lg-fold-icon svg,
+.lg-content .lg-fold-icon svg { width: 16px; height: 16px; }
+.markdown-body .lg-fold-title,
+.lg-content .lg-fold-title { min-width: 0; }
+/* 图标与标题文字共用同一分色，浅/深两套。 */
+.markdown-body .lg-fold-icon--info,
+.markdown-body .lg-fold-title--info,
+.lg-content .lg-fold-icon--info,
+.lg-content .lg-fold-title--info { color: #0f6cbd; }
+.markdown-body .lg-fold-icon--success,
+.markdown-body .lg-fold-title--success,
+.lg-content .lg-fold-icon--success,
+.lg-content .lg-fold-title--success { color: #0e700e; }
+.markdown-body .lg-fold-icon--warning,
+.markdown-body .lg-fold-title--warning,
+.lg-content .lg-fold-icon--warning,
+.lg-content .lg-fold-title--warning { color: #b8860b; }
+.markdown-body .lg-fold-icon--error,
+.markdown-body .lg-fold-title--error,
+.lg-content .lg-fold-icon--error,
+.lg-content .lg-fold-title--error { color: #b10e1c; }
+html.dark .markdown-body .lg-fold-icon--info,
+html.dark .markdown-body .lg-fold-title--info,
+html.dark .lg-content .lg-fold-icon--info,
+html.dark .lg-content .lg-fold-title--info { color: #6cb8f5; }
+html.dark .markdown-body .lg-fold-icon--success,
+html.dark .markdown-body .lg-fold-title--success,
+html.dark .lg-content .lg-fold-icon--success,
+html.dark .lg-content .lg-fold-title--success { color: #7bd67b; }
+html.dark .markdown-body .lg-fold-icon--warning,
+html.dark .markdown-body .lg-fold-title--warning,
+html.dark .lg-content .lg-fold-icon--warning,
+html.dark .lg-content .lg-fold-title--warning { color: #f0c05a; }
+html.dark .markdown-body .lg-fold-icon--error,
+html.dark .markdown-body .lg-fold-title--error,
+html.dark .lg-content .lg-fold-icon--error,
+html.dark .lg-content .lg-fold-title--error { color: #f08a90; }
+
 .markdown-body details > summary:hover,
 .lg-content details > summary:hover { background: var(--colorNeutralBackground1Hover); color: var(--colorBrandForeground1); }
 .markdown-body details > *:not(summary),
@@ -1452,7 +1520,7 @@ html[data-archive-theme="light"] .app-footer {
 .code-shell pre,
 .markdown-body .code-shell pre {
   margin: 0;
-  padding: 10px 0;
+  padding: 14px 0 16px;
   border: 0;
   border-radius: 0;
   background: var(--colorNeutralBackground1);
@@ -1468,13 +1536,13 @@ html[data-archive-theme="light"] .app-footer {
   background: transparent;
   font-family: var(--fontFamilyMonospace);
   font-size: 12.5px;
-  line-height: 1.7;
+  line-height: 1.9;
   tab-size: 4;
 }
 .code-shell .lg-code-line {
   display: block;
-  min-height: 1.7em;
-  padding: 0 16px;
+  min-height: 1.9em;
+  padding: 1px 18px;
   white-space: pre;
 }
 .code-shell .has-line-numbers .lg-code-line { padding-left: 3.6em; }
@@ -1682,7 +1750,8 @@ html.dark .code-shell .shiki span {
 .markdown-body .code-shell pre { padding: 10px 10px; }
 
 /* Code lines: remove source newlines between block lines, keeping spaces inside each line. */
-.code-shell pre code { white-space: normal; }
+.code-shell pre code { white-space: pre; }
+.code-shell pre.has-line-numbers code { white-space: normal; }
 .code-shell .lg-code-line { white-space: pre; line-height: 1.4; min-height: 1.4em; }
 .code-shell code { line-height: 1.4; }
 
