@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { PluginDetail, PluginSnapshot, PluginTag } from '~/types/plugin'
 import { emptyPluginSnapshot } from '~/types/plugin'
+import { bytesToBase64, isBinaryCode } from '~/utils/pluginCode'
 
 const route = useRoute()
 const auth = useAuthStore()
@@ -16,6 +17,7 @@ const hasPending = ref(false)
 const blocked = ref(false)
 const loading = ref(true)
 const submitting = ref(false)
+const readingFile = ref(false)
 const submitSucceeded = ref(false)
 const message = ref('')
 const errorText = ref('')
@@ -26,6 +28,7 @@ function snapshotFromVersion(detail: PluginDetail, fullCode: string): PluginSnap
     summary: detail.summary || '',
     version: '',
     code: fullCode,
+    code_encoding: version.code_encoding,
     download_filename: version.download_filename,
     user_request_level: version.user_request_level,
     user_request_analysis: version.user_request_analysis,
@@ -39,8 +42,10 @@ function snapshotFromVersion(detail: PluginDetail, fullCode: string): PluginSnap
   }
 }
 
-async function loadFullCode(path: string): Promise<string> {
+async function loadFullCode(path: string, codeEncoding: string): Promise<string> {
   const blob = await api<Blob>(path, { responseType: 'blob' })
+  // 二进制必须按字节转 base64：blob.text() 会损坏内容并污染整份快照。
+  if (isBinaryCode(codeEncoding)) return bytesToBase64(new Uint8Array(await blob.arrayBuffer()))
   return blob.text()
 }
 
@@ -68,13 +73,17 @@ async function inspectArticle() {
       editing.value = !detail.pending_only
       if (detail.pending_application) {
         hasPending.value = true
-        const fullCode = await loadFullCode(`/plugins/applications/${detail.pending_application.id}/download`)
+        const fullCode = await loadFullCode(
+          `/plugins/applications/${detail.pending_application.id}/download`,
+          detail.pending_application.snapshot.code_encoding,
+        )
         snapshot.value = { ...detail.pending_application.snapshot, code: fullCode }
         message.value = '已载入你的待审核申请，可以查看但不能重复提交。'
       } else if (detail.current) {
         // 编辑时读取现有代码不属于真实安装，避免污染插件使用统计。
         const fullCode = await loadFullCode(
           `/plugins/${articleId.value}/download/${detail.current.id}?track_usage=false`,
+          detail.current.code_encoding,
         )
         snapshot.value = snapshotFromVersion(detail, fullCode)
       }
@@ -91,6 +100,10 @@ async function submit() {
   errorText.value = ''
   message.value = ''
   submitSucceeded.value = false
+  if (readingFile.value) {
+    errorText.value = '文件正在读取，请稍候'
+    return
+  }
   if (!auth.isLoggedIn) {
     await navigateTo(`/login?redirect=${encodeURIComponent(route.fullPath)}`)
     return
@@ -105,6 +118,10 @@ async function submit() {
   }
   if (hasPending.value) {
     errorText.value = '已有待审核申请，请先等待审核或在“我的插件”中撤销。'
+    return
+  }
+  if (!snapshot.value.code) {
+    errorText.value = isBinaryCode(snapshot.value.code_encoding) ? '请选择插件文件' : '请填写代码内容'
     return
   }
   if (!snapshot.value.supports_desktop && !snapshot.value.supports_mobile) {
@@ -177,10 +194,10 @@ useHead({ title: '提交插件 - 洛谷档案馆' })
     <p v-if="errorText" class="message error">{{ errorText }}</p>
 
     <form v-if="article && !blocked" class="plugin-form" @submit.prevent="submit">
-      <PluginSnapshotForm v-model="snapshot" :tags="tags" />
+      <PluginSnapshotForm v-model="snapshot" v-model:reading="readingFile" :tags="tags" />
       <div class="submit-actions">
         <span>提交即表示你确认代码和请求说明真实、完整。</span>
-        <button type="submit" class="archive-action-button" :disabled="submitting || hasPending">{{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : '提交审核' }}</button>
+        <button type="submit" class="archive-action-button" :disabled="submitting || hasPending || readingFile">{{ hasPending ? '已有待审核申请' : submitting ? '提交中…' : readingFile ? '读取文件中…' : '提交审核' }}</button>
       </div>
     </form>
   </div>
