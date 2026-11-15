@@ -1,407 +1,310 @@
 <script setup lang="ts">
-import { Check, Copy, FilePenLine, WandSparkles } from 'lucide-vue-next'
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Copy, FilePenLine, Link2, LoaderCircle, LogIn } from 'lucide-vue-next'
+import { parseSolutionArticleId, readSolutionFixStream } from '~/utils/solutionFix'
 
 definePageMeta({ layout: 'default' })
 useHead({ title: '题解修 - 洛谷档案馆' })
 
-type FixMode = 'local' | 'ai'
-type DiffKind = 'same' | 'add' | 'remove' | 'change'
-
-interface ArticleDetail {
-  article_id: string
-  title: string
-  content_md: string
-}
-
-interface LocalFixResp {
-  mode: 'local'
-  content: string
-  changed: boolean
-  notes: string[]
-}
-
-interface DiffRow {
-  kind: DiffKind
-  left: string
-  right: string
-  leftNo: number | null
-  rightNo: number | null
-}
-
 const api = useApi()
 const auth = useAuthStore()
-const config = useRuntimeConfig()
+const apiBase = useApiBase()
+const diff = useSolutionDiff()
 
-const fixMode = ref<FixMode>('local')
+const fixMode = ref('local')
 const sourceText = ref('')
 const articleLink = ref('')
-const articleTitle = ref('')
-const originalText = ref('')
-const fixedText = ref('')
-const thoughts = ref('')
-const notes = ref<string[]>([])
-const logs = ref<string[]>([])
+const result = shallowRef<string | null>(null)
 const busy = ref(false)
-const copied = ref(false)
-const errorMessage = ref('')
+const stage = ref('')
+const errorText = ref('')
+const copyState = ref<'idle' | 'success' | 'error'>('idle')
+const onlyChanges = ref(false)
+const diffNav = ref({ current: 0, total: 0 })
+const diffViewRef = ref<any>(null)
+const modeOptions = [
+  { value: 'local', label: '本地修正' },
+  { value: 'ai', label: 'AI 修正' },
+]
 
-function setFixMode(value: string) {
-  fixMode.value = value === 'ai' ? 'ai' : 'local'
+let controller: AbortController | undefined
+let request = 0
+let copyTimer: ReturnType<typeof setTimeout> | undefined
+
+const hasArticle = computed(() => Boolean(articleLink.value.trim()))
+const hasMarkdown = computed(() => Boolean(sourceText.value.trim()))
+const bothProvided = computed(() => hasArticle.value && hasMarkdown.value)
+const aiNeedsLogin = computed(() => fixMode.value === 'ai' && !auth.isLoggedIn)
+const canRun = computed(() => !busy.value && !aiNeedsLogin.value && hasArticle.value !== hasMarkdown.value)
+const phase = computed(() => busy.value || (result.value !== null && diff.pending.value)
+  ? 'progress'
+  : result.value === null ? 'input' : 'result')
+const successfulDiff = computed(() => diff.reply.value?.status === 'ready' ? diff.reply.value : null)
+const loginLink = computed(() => ({ path: '/login', query: { redirect: '/solution/fix' } }))
+
+function messageOf(error: unknown) {
+  const value = error as { data?: { message?: string }; message?: string }
+  return value?.data?.message || value?.message || '修正失败，请稍后重试。'
 }
-
-const canRun = computed(() => {
-  if (busy.value) return false
-  return sourceText.value.trim().length > 0 || articleLink.value.trim().length > 0
-})
-
-const diffRows = computed(() => buildDiff(originalText.value, fixedText.value))
-const changedCount = computed(() =>
-  diffRows.value.filter((row) => row.kind === 'add' || row.kind === 'remove' || row.kind === 'change').length,
-)
-
-function addLog(message: string) {
-  logs.value.push(message)
+function statusOf(error: unknown) {
+  const value = error as { statusCode?: number; response?: { status?: number } }
+  return value?.statusCode || value?.response?.status
 }
-
-function parseArticleId(input: string): string {
-  let value = input.trim()
-  if (/^[A-Za-z0-9_-]{1,64}$/.test(value)) return value
-  if (/^(?:www\.)?luogu\./i.test(value)) value = `https://${value}`
-  if (/^https?:\/\//i.test(value)) {
-    const url = new URL(value)
-    const hosts = ['www.luogu.com.cn', 'luogu.com.cn', 'www.luogu.com', 'luogu.com']
-    if (!hosts.includes(url.hostname.toLowerCase())) throw new Error('只支持洛谷文章链接')
-    value = url.pathname
-  }
-  const m = value.match(/^\/(?:article|atricle)\/([A-Za-z0-9_-]{1,64})\/?$/i)
-  if (!m) throw new Error('支持 /article/{id}、洛谷文章链接或纯文章 ID')
-  return m[1]
-}
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-async function waitArticleReady(id: string): Promise<ArticleDetail> {
-  for (let i = 0; i < 24; i++) {
-    if (i > 0) await sleep(1500)
-    try {
-      return await api<ArticleDetail>(`/article/${id}`)
-    } catch (err: any) {
-      const status = err?.statusCode || err?.response?.status
-      if (status && status !== 404) throw err
-      if (i === 0) addLog('等待文章收录完成')
-    }
-  }
-  throw new Error('文章暂未收录完成，请稍后再试')
-}
-
-async function loadInputText(): Promise<string> {
-  const link = articleLink.value.trim()
-  const pasted = sourceText.value.trim()
-  if (!link) {
-    articleTitle.value = ''
-    return sourceText.value
-  }
-
-  if (pasted) {
-    addLog('检测到同时提供 Markdown 和文章链接，已优先使用文章链接')
-  }
-  const id = parseArticleId(link)
-  addLog(`提交文章 ${id} 到保存队列`)
-  const saved = await api<{ task_id: string; merged: boolean }>('/save', {
-    method: 'POST',
-    body: { content_type: 'article', id },
+function delay(ms: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal.aborted) { reject(new DOMException('Aborted', 'AbortError')); return }
+    const abort = () => { clearTimeout(timer); reject(new DOMException('Aborted', 'AbortError')) }
+    const timer = setTimeout(() => { signal.removeEventListener('abort', abort); resolve() }, ms)
+    signal.addEventListener('abort', abort, { once: true })
   })
-  addLog(saved.merged ? '复用已有保存任务' : '已派发保存任务')
-  addLog('读取文章正文')
-  const article = await waitArticleReady(id)
-  articleTitle.value = article.title
-  return article.content_md
+}
+async function loadArticle(id: string, signal: AbortSignal) {
+  const read = () => api<{ content_md: string }>(`/article/${id}`, { signal, retry: 0, timeout: 10000 })
+  try { return await read() }
+  catch (error) { if (statusOf(error) !== 404) throw error }
+  signal.throwIfAborted()
+  stage.value = '正在提交文章保存任务'
+  await api('/save', { method: 'POST', body: { content_type: 'article', id }, signal, retry: 0 })
+  signal.throwIfAborted()
+  stage.value = '等待文章收录'
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    await delay(1500, signal)
+    try { return await read() }
+    catch (error) { if (statusOf(error) !== 404) throw error }
+  }
+  throw new Error('文章暂未收录完成，请稍后重试。')
 }
 
 async function runFix() {
-  if (!canRun.value) return
+  if (phase.value !== 'input' || !canRun.value) return
+  const mode = fixMode.value
+  let input = sourceText.value
+  let id = ''
+  if (hasArticle.value) {
+    try { id = parseSolutionArticleId(articleLink.value) }
+    catch (error) { errorText.value = messageOf(error); return }
+  }
+
+  const current = ++request
+  controller = new AbortController()
+  const signal = controller.signal
+  stage.value = id ? '读取文章档案' : mode === 'ai' ? 'AI 正在修正' : '正在修正格式'
   busy.value = true
-  errorMessage.value = ''
-  notes.value = []
-  logs.value = []
-  thoughts.value = ''
-  fixedText.value = ''
-  copied.value = false
-
+  errorText.value = ''
   try {
-    const input = await loadInputText()
-    originalText.value = input
-    if (fixMode.value === 'local') {
-      addLog('执行本地格式修正')
-      const resp = await api<LocalFixResp>('/solution-fix/local', {
+    if (id) input = (await loadArticle(id, signal)).content_md
+    if (current !== request || signal.aborted) return
+    if (!input.trim()) throw new Error('文章正文为空，无法进行修正。')
+    let content: string
+    if (mode === 'ai') {
+      stage.value = 'AI 正在修正'
+      const response = await fetch(`${apiBase}/api/v1/solution-fix/ai`, {
         method: 'POST',
-        body: { content: input },
+        credentials: useApiCredentials(),
+        signal,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(auth.accessToken ? { Authorization: `Bearer ${auth.accessToken}` } : {}),
+        },
+        body: JSON.stringify({ content: input }),
       })
-      fixedText.value = resp.content
-      notes.value = resp.notes
-      addLog(resp.changed ? '本地修正完成' : '未发现需要修正的格式问题')
+      content = await readSolutionFixStream(response, {
+        model: value => { stage.value = `AI 正在修正（${value}）` },
+        stage: value => { stage.value = value },
+      })
     } else {
-      if (!auth.isLoggedIn) throw new Error('AI 修正需要先登录')
-      addLog('连接 AI 修正流')
-      await runAiFix(input)
+      stage.value = '正在修正格式'
+      const response = await api<{ content: string }>('/solution-fix/local', {
+        method: 'POST', body: { content: input }, signal, retry: 0,
+      })
+      if (typeof response.content !== 'string') throw new Error('修正接口未返回有效内容。')
+      content = response.content
     }
-  } catch (err: any) {
-    errorMessage.value = err?.data?.message || err?.message || '修正失败'
+    if (current !== request || signal.aborted) return
+    result.value = content
+    diff.calculate(input, content)
+  } catch (error) {
+    if (current !== request || signal.aborted) return
+    errorText.value = messageOf(error)
   } finally {
-    busy.value = false
+    if (current === request) { busy.value = false; controller = undefined }
   }
 }
 
-async function runAiFix(input: string) {
-  const base = useApiBase()
-  const resp = await fetch(`${base}/api/v1/solution-fix/ai`, {
-    method: 'POST',
-    credentials: useApiCredentials(),
-    headers: {
-      'Content-Type': 'application/json',
-      ...(auth.accessToken ? { Authorization: `Bearer ${auth.accessToken}` } : {}),
-    },
-    body: JSON.stringify({ content: input }),
-  })
-  if (!resp.ok || !resp.body) {
-    let message = `AI 修正失败（${resp.status}）`
-    try {
-      const data = await resp.json()
-      message = data?.message || message
-    } catch {
-      /* ignore */
-    }
-    throw new Error(message)
-  }
-
-  const reader = resp.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { value, done } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() || ''
-    for (const line of lines) {
-      if (!line.trim()) continue
-      const msg = JSON.parse(line)
-      if (msg.event === 'meta') {
-        addLog(`模型：${msg.data.model}`)
-      } else if (msg.event === 'thought') {
-        thoughts.value += msg.data
-      } else if (msg.event === 'content') {
-        fixedText.value += msg.data
-      } else if (msg.event === 'done') {
-        addLog('AI 修正完成')
-      } else if (msg.event === 'error') {
-        throw new Error(msg.data)
-      }
-    }
-  }
+function stopReceiving() {
+  request += 1
+  controller?.abort()
+  controller = undefined
+  errorText.value = '已停止接收。已提交的任务可能仍在后台继续。'
+  busy.value = false
 }
-
+function editAgain() {
+  clearTimeout(copyTimer)
+  copyState.value = 'idle'
+  result.value = null
+  onlyChanges.value = false
+}
 async function copyResult() {
-  if (!fixedText.value) return
-  await navigator.clipboard.writeText(fixedText.value)
-  copied.value = true
-  setTimeout(() => { copied.value = false }, 1400)
+  const snapshot = result.value
+  const current = request
+  if (snapshot === null || phase.value !== 'result') return
+  clearTimeout(copyTimer)
+  let nextState: 'success' | 'error' = 'success'
+  try { await navigator.clipboard.writeText(snapshot) }
+  catch { nextState = 'error' }
+  if (current !== request || result.value !== snapshot) return
+  copyState.value = nextState
+  copyTimer = setTimeout(() => { copyState.value = 'idle' }, 2200)
+}
+function focusState(element: Element) {
+  if (element.contains(document.activeElement)) return
+  element.querySelector<HTMLElement>('[data-state-focus]')?.focus({ preventScroll: true })
 }
 
-function buildDiff(leftText: string, rightText: string): DiffRow[] {
-  if (!leftText && !rightText) return []
-  const a = leftText.replace(/\r\n/g, '\n').split('\n')
-  const b = rightText.replace(/\r\n/g, '\n').split('\n')
-  const n = a.length
-  const m = b.length
-  const dp = Array.from({ length: n + 1 }, () => Array(m + 1).fill(0))
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      dp[i][j] = a[i] === b[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1])
-    }
-  }
-
-  const ops: Array<{ kind: 'same' | 'add' | 'remove'; text: string; line: number }> = []
-  let i = 0
-  let j = 0
-  while (i < n && j < m) {
-    if (a[i] === b[j]) {
-      ops.push({ kind: 'same', text: a[i], line: i + 1 })
-      i++
-      j++
-    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
-      ops.push({ kind: 'remove', text: a[i], line: i + 1 })
-      i++
-    } else {
-      ops.push({ kind: 'add', text: b[j], line: j + 1 })
-      j++
-    }
-  }
-  while (i < n) ops.push({ kind: 'remove', text: a[i], line: ++i })
-  while (j < m) ops.push({ kind: 'add', text: b[j], line: ++j })
-
-  const rows: DiffRow[] = []
-  for (let k = 0; k < ops.length; k++) {
-    const op = ops[k]
-    const next = ops[k + 1]
-    if (op.kind === 'remove' && next?.kind === 'add') {
-      rows.push({ kind: 'change', left: op.text, right: next.text, leftNo: op.line, rightNo: next.line })
-      k++
-    } else if (op.kind === 'same') {
-      rows.push({ kind: 'same', left: op.text, right: op.text, leftNo: op.line, rightNo: op.line })
-    } else if (op.kind === 'remove') {
-      rows.push({ kind: 'remove', left: op.text, right: '', leftNo: op.line, rightNo: null })
-    } else {
-      rows.push({ kind: 'add', left: '', right: op.text, leftNo: null, rightNo: op.line })
-    }
-  }
-  return rows
-}
+watch([articleLink, sourceText, fixMode], () => { errorText.value = '' })
+onMounted(() => { if (!auth.initialized) void auth.tryRefresh() })
+onBeforeUnmount(() => { request += 1; controller?.abort(); clearTimeout(copyTimer) })
 </script>
 
 <template>
-
   <div class="page fix-page">
-    <PageHeader
-      title="题解修"
-      description="对题解 Markdown 做格式修正，保留洛谷扩展语法；AI 模式需要登录。"
-      eyebrow="Solution fix"
-    >
+    <PageHeader title="题解修" description="修正题解的 Markdown 格式，保留洛谷扩展语法；AI 模式需要登录。" eyebrow="Solution fix">
       <template #icon><FilePenLine :size="26" aria-hidden="true" style="color: var(--colorBrandForeground1)" /></template>
     </PageHeader>
 
-    <section class="fix-shell" :class="{ 'has-result': busy || Boolean(fixedText) }">
-      <div class="card fix-input">
-        <div class="card__header">
-          <div>
-            <h2 class="card__title">输入</h2>
-            <p class="card__description">粘贴 Markdown，或填写洛谷文章链接自动读取。</p>
+    <Transition name="fix-state" mode="out-in" @after-enter="focusState">
+      <!-- 输入 -->
+      <div v-if="phase === 'input'" key="input" class="fix-state">
+        <form class="card fix-form" aria-label="修正输入" @submit.prevent="runFix">
+          <div class="card__body stack">
+            <div class="fix-address">
+              <Link2 :size="17" class="fix-address__icon" aria-hidden="true" />
+              <FInput
+                v-model="articleLink"
+                placeholder="粘贴洛谷文章地址或文章 ID"
+                aria-label="粘贴文章地址"
+                data-state-focus
+              />
+            </div>
+            <div class="fix-or" aria-hidden="true"><span>或</span></div>
+            <div class="stack stack--xs">
+              <FTextarea v-model="sourceText" :rows="12" placeholder="粘贴题解 Markdown" aria-label="粘贴题解 Markdown" />
+            </div>
+            <p v-if="bothProvided || errorText" class="field-error" role="alert">
+              {{ bothProvided ? '请只保留文章地址或 Markdown 中的一种。' : errorText }}
+            </p>
           </div>
-        </div>
-        <div class="card__body stack">
-          <FTextarea
-            v-model="sourceText"
-            :rows="12"
-            placeholder="粘贴题解 Markdown…"
-            aria-label="题解 Markdown"
-          />
-          <div class="stack stack--xs">
-            <span class="field-label">或从洛谷文章读取</span>
-            <FInput v-model="articleLink" placeholder="/article/xxxxxxxx、链接或纯 ID" aria-label="洛谷文章链接" />
-            <span class="field-help">同时填写时优先使用文章链接。</span>
+          <div class="fix-options">
+            <FRadioGroup v-model="fixMode" :options="modeOptions" orientation="horizontal" aria-label="修正方式" />
+            <NuxtLink v-if="aiNeedsLogin" :to="loginLink" class="fix-login">
+              <LogIn :size="15" aria-hidden="true" />登录后使用 AI
+            </NuxtLink>
+            <FButton type="submit" appearance="primary" :disabled="!canRun" class="fix-run">
+              <template #start><FilePenLine v-if="!busy" :size="16" aria-hidden="true" /></template>开始修正
+            </FButton>
           </div>
-
-          <FTabList
-            :model-value="fixMode"
-            :tabs="[{ id: 'local', label: '本地修正' }, { id: 'ai', label: 'AI 修正' }]"
-            aria-label="修正模式"
-            @update:model-value="setFixMode"
-          />
-
-          <FButton appearance="primary" size="large" block :disabled="!canRun" :loading="busy" @click="runFix">
-            <template #start><WandSparkles v-if="!busy" :size="17" aria-hidden="true" /></template>
-            {{ busy ? '处理中…' : '开始修正' }}
-          </FButton>
-
-          <p v-if="errorMessage" class="notice notice--warn" role="alert">{{ errorMessage }}</p>
-          <div v-if="notes.length" class="cluster">
-            <span v-for="note in notes" :key="note" class="tag">{{ note }}</span>
-          </div>
-        </div>
+        </form>
       </div>
 
-      <div class="card fix-result">
-        <div class="card__header">
-          <div>
-            <h2 class="card__title">{{ articleTitle || '修正结果' }}</h2>
-            <p class="card__description">{{ fixedText ? '变更行 ' + changedCount : '等待输入后生成差异对比' }}</p>
-          </div>
-          <FButton appearance="outline" size="small" :disabled="!fixedText" @click="copyResult">
-            <template #start><component :is="copied ? Check : Copy" :size="14" aria-hidden="true" /></template>
-            {{ copied ? '已复制' : '复制结果' }}
-          </FButton>
-        </div>
-
-        <div class="diff-head">
-          <span>原文</span>
-          <span>修正后</span>
-        </div>
-        <div class="diff-view">
-          <div v-for="(row, idx) in diffRows" :key="idx" class="diff-row" :class="row.kind">
-            <div class="line-cell">
-              <span class="line-no">{{ row.leftNo || '' }}</span>
-              <code>{{ row.left }}</code>
-            </div>
-            <div class="line-cell">
-              <span class="line-no">{{ row.rightNo || '' }}</span>
-              <code>{{ row.right }}</code>
-            </div>
-          </div>
-          <EmptyState v-if="!diffRows.length" title="暂无结果" description="输入内容并开始修正后，这里会显示逐行差异。" />
-        </div>
+      <!-- 进度 -->
+      <div v-else-if="phase === 'progress'" key="progress" class="fix-state">
+        <section class="card fix-progress" aria-label="修正进度">
+          <p class="fix-progress-label" role="status" tabindex="-1" data-state-focus>
+            <LoaderCircle :size="20" class="spin" aria-hidden="true" />{{ busy ? stage : '正在生成差异' }}
+          </p>
+          <FButton v-if="busy" appearance="subtle" size="small" @click="stopReceiving">停止接收</FButton>
+        </section>
       </div>
-    </section>
 
-    <section class="card trace-panel">
-      <details open>
-        <summary class="trace-summary">模型思路 / 处理记录</summary>
-        <div class="trace-grid">
-          <pre>{{ thoughts || '当前模型未返回可展示的思考内容。' }}</pre>
-          <ul>
-            <li v-for="(log, idx) in logs" :key="idx">{{ log }}</li>
-            <li v-if="!logs.length">等待开始</li>
-          </ul>
-        </div>
-      </details>
-    </section>
+      <!-- 结果 -->
+      <div v-else key="result" class="fix-state">
+        <section class="card fix-result" aria-label="修正结果">
+          <div class="card__header fix-result-head">
+            <h2 class="card__title" tabindex="-1" data-state-focus>差异</h2>
+            <div class="cluster fix-result-actions">
+              <FButton appearance="subtle" size="small" @click="editAgain">
+                <template #start><ArrowLeft :size="15" aria-hidden="true" /></template>返回编辑
+              </FButton>
+              <FButton appearance="primary" size="small" @click="copyResult">
+                <template #start><Check v-if="copyState === 'success'" :size="15" aria-hidden="true" /><Copy v-else :size="15" aria-hidden="true" /></template>
+                {{ copyState === 'success' ? '已复制' : '复制修正后的 Markdown' }}
+              </FButton>
+            </div>
+            <span v-if="copyState === 'success'" class="sr-only" role="status">已复制完整修正结果</span>
+          </div>
+          <p v-if="copyState === 'error'" class="field-error fix-result-message" role="alert">复制失败，请检查浏览器的剪贴板权限。</p>
+
+          <template v-if="successfulDiff">
+            <div class="fix-diff-bar">
+              <p v-if="!successfulDiff.added && !successfulDiff.removed" class="field-help">没有检测到差异。</p>
+              <template v-else>
+                <FCheckbox v-model="onlyChanges" label="仅显示差异" />
+                <span v-if="diffNav.total" class="field-help">{{ diffNav.current }} / {{ diffNav.total }} 处</span>
+              </template>
+              <div v-if="diffNav.total" class="cluster">
+                <FButton appearance="subtle" size="small" icon-only aria-label="上一处差异" @click="diffViewRef?.navigate(-1)"><ChevronLeft :size="15" aria-hidden="true" /></FButton>
+                <FButton appearance="subtle" size="small" icon-only aria-label="下一处差异" @click="diffViewRef?.navigate(1)"><ChevronRight :size="15" aria-hidden="true" /></FButton>
+              </div>
+            </div>
+            <SolutionDiffView
+              v-if="successfulDiff.added || successfulDiff.removed"
+              ref="diffViewRef"
+              :rows="successfulDiff.rows"
+              :only-changes="onlyChanges"
+              max-height="620px"
+              @navigation="diffNav = $event"
+            />
+          </template>
+          <p v-else-if="diff.error" class="field-error fix-result-message" role="alert">未能生成差异（{{ diff.error }}），仍可复制完整修正结果。</p>
+          <p v-else class="field-help fix-result-message" role="status">正在生成差异…</p>
+        </section>
+      </div>
+    </Transition>
   </div>
-
 </template>
 
 <style scoped>
-.fix-shell { display: grid; grid-template-columns: minmax(320px, 380px) minmax(0, 1fr); gap: 16px; align-items: stretch; min-width: 0; }
-.fix-shell.has-result { align-items: start; }
-.fix-shell.has-result .fix-result { align-self: start; height: auto; max-height: calc(100dvh - 120px); }
-.fix-shell.has-result .diff-view { min-height: 360px; }
-.fix-shell > * { min-width: 0; }
-.fix-input { min-width: 0; display: flex; flex-direction: column; }
-.fix-input > .card__body { flex: 1 1 auto; }
-.fix-input .card__body { padding: 16px; min-width: 0; }
-.fix-input :deep(fluent-textarea) { width: 100%; }
-.fix-result { overflow: hidden; display: flex; flex-direction: column; }
-.diff-head {
-  display: grid; grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--colorNeutralStroke2); border-bottom: 1px solid var(--colorNeutralStroke2);
-  background: var(--colorNeutralBackground2); color: var(--colorNeutralForeground3);
-  font-size: 11px; font-weight: 600;
+.fix-page { display: flex; flex-direction: column; gap: 16px; }
+.fix-state { min-width: 0; }
+.fix-state-enter-active, .fix-state-leave-active { transition: opacity 160ms ease, transform 160ms cubic-bezier(.22, 1, .36, 1); }
+.fix-state-enter-from, .fix-state-leave-to { opacity: 0; transform: translateY(6px); }
+.fix-form { overflow: hidden; }
+.fix-form > .card__body { padding: 24px; }
+.fix-address { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fix-address__icon { flex: 0 0 auto; color: var(--colorNeutralForeground3); }
+.fix-address :deep(.f-input) { flex: 1 1 auto; min-width: 0; }
+.fix-or { display: flex; align-items: center; gap: 12px; color: var(--colorNeutralForeground3); font-size: 13px; }
+.fix-or::before, .fix-or::after { content: ''; flex: 1; height: 1px; background: var(--colorNeutralStroke2); }
+.fix-form :deep(.f-textarea) { width: 100%; font-family: var(--fontFamilyMonospace); font-size: 13px; }
+.fix-options {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px;
+  padding: 14px 24px; border-top: 1px solid var(--colorNeutralStroke2);
 }
-.diff-head span { padding: 7px 12px; }
-.diff-head span + span { border-left: 1px solid var(--colorNeutralStroke2); }
-.diff-view {
-  overflow: auto; min-height: 440px; max-height: none; flex: 1 1 auto;
-  font-family: var(--fontFamilyMonospace); font-size: 12px; line-height: 1.5;
+.fix-run { margin-left: auto; min-width: 112px; }
+.fix-login { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+.fix-progress { display: flex; align-items: center; justify-content: center; gap: 14px; min-height: 160px; padding: 30px 16px; }
+.fix-progress-label { display: inline-flex; align-items: center; gap: 10px; margin: 0; color: var(--colorNeutralForeground2); }
+.spin { color: var(--colorBrandForeground1); animation: fix-spin 900ms linear infinite; }
+@keyframes fix-spin { to { transform: rotate(360deg); } }
+.fix-result { overflow: hidden; }
+.fix-result-head { flex-wrap: wrap; }
+.fix-result-actions { margin-left: auto; }
+.fix-result-message { padding: 12px 20px 20px; }
+.fix-diff-bar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 20px; border-top: 1px solid var(--colorNeutralStroke2);
+  background: var(--colorNeutralBackground2);
 }
-.diff-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); min-height: 24px; }
-.line-cell { display: grid; grid-template-columns: 46px minmax(0, 1fr); border-bottom: 1px solid var(--colorNeutralStroke2); min-width: 0; }
-.line-cell + .line-cell { border-left: 1px solid var(--colorNeutralStroke2); }
-.line-no { padding: 3px 7px; color: var(--colorNeutralForeground4); text-align: right; user-select: none; background: var(--colorNeutralBackground2); }
-.line-cell code { padding: 3px 9px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--colorNeutralForeground1); font: inherit; }
-.diff-row.add .line-cell:nth-child(2),
-.diff-row.change .line-cell:nth-child(2) { background: color-mix(in srgb, var(--colorPaletteGreenBackground1, #dff6dd) 60%, transparent); }
-.diff-row.remove .line-cell:nth-child(1),
-.diff-row.change .line-cell:nth-child(1) { background: color-mix(in srgb, var(--colorPaletteRedBackground1, #fde7e9) 60%, transparent); }
-.trace-panel { overflow: hidden; }
-.trace-summary { padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: 13px; list-style: none; }
-.trace-summary::-webkit-details-marker { display: none; }
-.trace-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 1px; background: var(--colorNeutralStroke2); border-top: 1px solid var(--colorNeutralStroke2); }
-.trace-grid > * { margin: 0; padding: 14px 16px; background: var(--colorNeutralBackground1); font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
-.trace-grid pre { white-space: pre-wrap; max-height: 280px; overflow: auto; font-family: var(--fontFamilyMonospace); }
-.trace-grid ul { list-style: none; display: flex; flex-direction: column; gap: 5px; color: var(--colorNeutralForeground3); }
-@media (max-width: 1020px) {
-  .fix-shell { grid-template-columns: minmax(0, 1fr); }
-  .trace-grid { grid-template-columns: minmax(0, 1fr); }
+.fix-diff-bar p { margin: 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  .fix-state-enter-active, .fix-state-leave-active { transition: none; }
+  .spin { animation: none; }
+}
+@media (max-width: 680px) {
+  .fix-form > .card__body { padding: 16px; }
+  .fix-options { padding: 12px 16px; }
+  .fix-run { margin-left: 0; width: 100%; }
+  .fix-result-actions { width: 100%; margin-left: 0; }
+  .fix-diff-bar { padding: 10px 14px; }
 }
 </style>

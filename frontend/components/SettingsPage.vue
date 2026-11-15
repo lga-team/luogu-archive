@@ -123,10 +123,6 @@ function selectDisplayMode(value: string) {
         <LoginForm v-else :login="login" />
       </template>
       <LoadingPanel v-else variant="list" :rows="2" compact title="正在恢复登录状态" />
-      <div class="login-footer">
-        <span class="muted">还没有账号？</span>
-        <NuxtLink to="/register">创建账号</NuxtLink>
-      </div>
     </div>
   </div>
 
@@ -273,7 +269,7 @@ function selectDisplayMode(value: string) {
 
         <ThemeEditor v-if="displayMode === 'custom'" :resolved-theme="colorMode.value" />
         <div v-else class="notice">
-          <span>当前使用 Fluent 原生主题。切换到「自定义」后可导入并编辑洛谷主题；浅色与深色模式不支持页面自定义。</span>
+          <span>当前使用 Fluent 原生主题。切换到「自定义」后可导入并编辑洛谷主题。</span>
         </div>
       </section>
     </Transition>

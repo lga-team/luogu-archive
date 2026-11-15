@@ -212,7 +212,7 @@ function toggleWarning(uid: number) {
 </template>
 
 <style scoped>
-.scoreboard-page { max-width: 1380px; }
+.scoreboard-page { max-width: var(--app-max-width); }
 .contest-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .scoreboard-panel { overflow: hidden; }
 .scoreboard-search { display: flex; gap: 6px; align-items: center; }

@@ -3,6 +3,14 @@ import { LoaderCircle, LogIn } from 'lucide-vue-next'
 
 const props = defineProps<{ login: (data: { email: string; password: string }) => Promise<void> }>()
 const api = useApi()
+const route = useRoute()
+// 登录入口统一带注册链接；注册完成后沿用原来的回跳地址。
+const registerLink = computed(() => {
+  const redirect = route.query.redirect
+  return typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+    ? { path: '/register', query: { redirect } }
+    : '/register'
+})
 const email = ref('')
 const password = ref('')
 const pending = ref(false)
@@ -107,10 +115,16 @@ async function sendVerification() {
       </FButton>
       <p v-if="message" class="field-help" role="status">{{ message }}</p>
     </div>
+
+    <div class="login-form__footer">
+      <span class="muted">还没有账号？</span>
+      <NuxtLink :to="registerLink">创建账号</NuxtLink>
+    </div>
   </form>
 </template>
 
 <style scoped>
 .spin { animation: login-spin 1s linear infinite; }
 @keyframes login-spin { to { transform: rotate(360deg); } }
+.login-form__footer { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 13px; padding-top: 2px; }
 </style>
