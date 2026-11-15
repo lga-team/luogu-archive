@@ -30,8 +30,10 @@ export default defineEventHandler(async (event) => {
 
   let upstream: Response
   try {
+    // 注意：上游一律用 GET。后端下载路由只注册了 GET，转发 HEAD 会拿到 405，
+    // 前端「先探测再导航」的流程就永远走不到脚本管理器。脚本只有几十 KB，代价可忽略。
     upstream = await fetch(target, {
-      method,
+      method: 'GET',
       headers: { accept: 'text/javascript, text/plain;q=0.9, */*;q=0.8' },
       redirect: 'follow',
     })
@@ -40,6 +42,8 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!upstream.ok) {
+    // 上游失败时别把 body 挂着不读，顺手释放连接。
+    await upstream.body?.cancel().catch(() => {})
     setResponseStatus(event, upstream.status)
     return { message: '安装文件暂不可用', status: upstream.status }
   }
@@ -49,7 +53,17 @@ export default defineEventHandler(async (event) => {
   setHeader(event, 'cache-control', 'no-store')
   setHeader(event, 'x-content-type-options', 'nosniff')
 
-  if (method === 'HEAD' || !upstream.body) return ''
+  if (method === 'HEAD') {
+    // HEAD 只需响应头：读完（丢弃）上游 body，避免连接泄漏。
+    await upstream.body?.cancel().catch(() => {})
+    setResponseStatus(event, 200)
+    return ''
+  }
+
+  if (!upstream.body) {
+    setResponseStatus(event, 200)
+    return ''
+  }
 
   setResponseStatus(event, 200)
   return sendStream(event, upstream.body as ReadableStream)

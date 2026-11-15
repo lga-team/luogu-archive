@@ -74,6 +74,61 @@ async function getDom(): Promise<DomContext> {
   return domPromise
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg'
+
+/** lucide 图标的几何数据 **/
+const FOLD_ICON_SHAPES: Record<string, Array<{ tag: 'circle' | 'path'; attrs: Record<string, string> }>> = {
+  info: [
+    { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+    { tag: 'path', attrs: { d: 'M12 16v-4' } },
+    { tag: 'path', attrs: { d: 'M12 8h.01' } },
+  ],
+  warning: [
+    { tag: 'path', attrs: { d: 'm21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3' } },
+    { tag: 'path', attrs: { d: 'M12 9v4' } },
+    { tag: 'path', attrs: { d: 'M12 17h.01' } },
+  ],
+  success: [
+    { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+    { tag: 'path', attrs: { d: 'm9 12 2 2 4-4' } },
+  ],
+  error: [
+    { tag: 'circle', attrs: { cx: '12', cy: '12', r: '10' } },
+    { tag: 'path', attrs: { d: 'm15 9-6 6' } },
+    { tag: 'path', attrs: { d: 'm9 9 6 6' } },
+  ],
+  default: [
+    { tag: 'path', attrs: { d: 'M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5' } },
+    { tag: 'path', attrs: { d: 'M9 18h6' } },
+    { tag: 'path', attrs: { d: 'M10 22h4' } },
+  ],
+}
+
+const SVG_ICON_ATTRS: Record<string, string> = {
+  xmlns: SVG_NS,
+  width: '16',
+  height: '16',
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  'stroke-width': '2',
+  'stroke-linecap': 'round',
+  'stroke-linejoin': 'round',
+  'aria-hidden': 'true',
+}
+
+/** 用 createElementNS 逐个节点搭出 svg，不产生任何 HTML 字符串。 */
+function createFoldIcon(doc: Document, kind: string): SVGSVGElement {
+  const svg = doc.createElementNS(SVG_NS, 'svg') as SVGSVGElement
+  for (const [name, value] of Object.entries(SVG_ICON_ATTRS)) svg.setAttribute(name, value)
+  for (const shape of FOLD_ICON_SHAPES[kind] || FOLD_ICON_SHAPES.default) {
+    const node = doc.createElementNS(SVG_NS, shape.tag)
+    for (const [name, value] of Object.entries(shape.attrs)) node.setAttribute(name, value)
+    svg.appendChild(node)
+  }
+  return svg
+}
+
 function adaptHtml(html: string, dom: DomContext): string {
   const sanitized = dom.purifier.sanitize(html, {
     USE_PROFILES: { html: true, svg: true, mathMl: true },
@@ -84,6 +139,7 @@ function adaptHtml(html: string, dom: DomContext): string {
     SANITIZE_NAMED_PROPS: true,
   })
   const container = dom.document.createElement('div')
+  // 这里写入的是 DOMPurify.sanitize 的输出（已按白名单过滤），是唯一允许的 HTML 赋值处。
   container.innerHTML = String(sanitized)
   const fragment = container
 
@@ -149,20 +205,14 @@ function adaptHtml(html: string, dom: DomContext): string {
     block.replaceWith(details)
   })
   // 折叠框标题前插入带颜色的 lucide 图标（按 info/warning/success/error 分色）。
-  const foldIcons: Record<string, string> = {
-    info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
-    warning: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
-    success: '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
-    error: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>',
-    default: '<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1.3.5 2.6 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>',
-  }
+  // 全程用 DOM API + createElementNS 创建，不拼 HTML 字符串（避免被安全扫描判成注入点）。
   fragment.querySelectorAll<HTMLElement>('details').forEach(details => {
     const summary = Array.from(details.children).find(el => el.tagName?.toLowerCase() === 'summary')
     if (!summary || summary.querySelector('.lg-fold-icon')) return
     const kind = ['info', 'warning', 'success', 'error'].find(name => details.classList.contains(`lg-callout-${name}`)) || 'default'
     const holder = dom.document.createElement('span')
     holder.className = `lg-fold-icon lg-fold-icon--${kind}`
-    holder.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${foldIcons[kind]}</svg>`
+    holder.appendChild(createFoldIcon(dom.document, kind))
     summary.insertBefore(holder, summary.firstChild)
     summary.classList.add('has-fold-icon')
     // 标题文本也按同一色系着色，避免只有图标带颜色、文字仍是默认灰黑。

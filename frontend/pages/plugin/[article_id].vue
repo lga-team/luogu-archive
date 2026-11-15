@@ -358,7 +358,13 @@ async function installScript() {
   }
   try {
     // 先探测代理是否可用（HEAD 不产生下载），确认 MIME 正确后再导航。
-    const probe = await fetch(proxy, { method: 'HEAD', credentials: 'same-origin' })
+    let probe = await fetch(proxy, { method: 'HEAD', credentials: 'same-origin' })
+    // 某些环境（旧后端 / 未走 Nitro 的托管）不认 HEAD，回落到 GET 只读响应头再丢弃 body。
+    if (probe.status === 405 || probe.status === 501) {
+      probe.body?.cancel().catch(() => {})
+      probe = await fetch(proxy, { method: 'GET', credentials: 'same-origin' })
+      await probe.body?.cancel().catch(() => {})
+    }
     const type = probe.headers.get('content-type') || ''
     if (probe.ok && /javascript/i.test(type)) {
       openLink(proxy)
