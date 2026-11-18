@@ -109,7 +109,7 @@ useHead(() => ({ title: data.value ? `${data.value.author?.name ?? '未知用户
             <Skeleton class="size-4 rounded-sm" />
             <Skeleton class="h-4 w-16" />
           </div>
-          <div class="space-y-4 pt-4">
+          <div class="space-y-4 pt-4 max-lg:hidden">
             <div v-for="i in 5" :key="i" class="relative pl-[22px]">
               <Skeleton class="absolute left-0 top-1 size-3 rounded-full" />
               <Skeleton class="h-3.5 w-16" />
