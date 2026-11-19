@@ -605,6 +605,32 @@
   --hl-operator: #56b6c2;
 }
 
+.plugin-code {
+  --hl-bg: #fafafa;
+  --hl-fg: #383a42;
+  --hl-keyword: #a626a4;
+  --hl-string: #50a14f;
+  --hl-number: #986801;
+  --hl-comment: #a0a1a7;
+  --hl-function: #4078f2;
+  --hl-variable: #e45649;
+  --hl-attribute: #c18401;
+  --hl-operator: #4078f2;
+}
+
+.dark .plugin-code {
+  --hl-bg: #282c34;
+  --hl-fg: #abb2bf;
+  --hl-keyword: #c678dd;
+  --hl-string: #98c379;
+  --hl-number: #d19a66;
+  --hl-comment: #5c6370;
+  --hl-function: #61afef;
+  --hl-variable: #e06c75;
+  --hl-attribute: #e5c07b;
+  --hl-operator: #56b6c2;
+}
+
 .lg-content .token.comment,
 .lg-content .token.prolog,
 .lg-content .token.doctype,
@@ -715,4 +741,67 @@
 .lg-content tbody tr:nth-child(even) {
   background: color-mix(in oklch, var(--muted) 45%, transparent);
 }
+}
+
+/* 插件代码页高亮：与正文代码块使用同一组配色变量，作用域独立 */
+.plugin-code .token.comment,
+.plugin-code .token.prolog,
+.plugin-code .token.doctype,
+.plugin-code .token.cdata {
+  color: var(--hl-comment);
+  font-style: italic;
+}
+
+.plugin-code .token.punctuation {
+  color: var(--hl-fg);
+}
+
+.plugin-code .token.property,
+.plugin-code .token.tag,
+.plugin-code .token.boolean,
+.plugin-code .token.number,
+.plugin-code .token.constant,
+.plugin-code .token.symbol,
+.plugin-code .token.deleted {
+  color: var(--hl-number);
+}
+
+.plugin-code .token.selector,
+.plugin-code .token.attr-name,
+.plugin-code .token.string,
+.plugin-code .token.char,
+.plugin-code .token.attr-value,
+.plugin-code .token.builtin,
+.plugin-code .token.inserted {
+  color: var(--hl-string);
+}
+
+.plugin-code .token.operator,
+.plugin-code .token.entity,
+.plugin-code .token.url {
+  color: var(--hl-operator);
+}
+
+.plugin-code .token.atrule,
+.plugin-code .token.keyword {
+  color: var(--hl-keyword);
+}
+
+.plugin-code .token.function,
+.plugin-code .token.class-name {
+  color: var(--hl-function);
+}
+
+.plugin-code .token.regex,
+.plugin-code .token.important,
+.plugin-code .token.variable {
+  color: var(--hl-variable);
+}
+
+.plugin-code .token.bold {
+  font-weight: 700;
+}
+
+.plugin-code .token.italic {
+  font-style: italic;
 }

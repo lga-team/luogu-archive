@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import Prism from 'prismjs'
 import { Copy, Download, ExternalLink, History } from '@lucide/vue'
 import { toast } from 'vue-sonner'
 import type { PluginDetail, PluginSnapshot, PluginVersion } from '~/types/plugin'
@@ -68,6 +69,16 @@ const codePreview = computed(() => ({
   code: displayVersion.value?.code || '',
   truncated: displayVersion.value?.code_truncated ?? false,
 }))
+
+const highlightedCode = computed(() => {
+  const text = codePreview.value?.code
+  if (!text) return ''
+  try {
+    return Prism.highlight(text, Prism.languages.javascript, 'javascript')
+  } catch {
+    return ''
+  }
+})
 const copyDisabled = computed(() => (displayVersion.value?.code_bytes ?? 0) > PLUGIN_CODE_COPY_MAX_BYTES)
 
 const userAnalysisHtml = computed(() => render(displayVersion.value?.user_request_analysis || ''))
@@ -348,7 +359,7 @@ useHead(() => ({ title: `${displayName.value} - 插件广场` }))
             <AlertDescription>完整代码超过 100 KiB，请下载文件。</AlertDescription>
           </Alert>
 
-          <pre class="max-h-[620px] overflow-auto rounded-lg border border-border bg-muted/50 p-4 text-[13px] leading-relaxed"><code>{{ codePreview.code }}</code></pre>
+          <pre class="plugin-code max-h-[620px] overflow-auto rounded-lg border border-border bg-muted/50 p-4 text-[13px] leading-relaxed"><code class="language-javascript" v-html="highlightedCode || codePreview.code"></code></pre>
 
           <dl class="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-4">
             <div class="bg-card px-3 py-2.5">
