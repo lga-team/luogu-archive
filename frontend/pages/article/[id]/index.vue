@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '~/component
 const { format, smart } = useTime()
 
 const route = useRoute()
+const router = useRouter()
 const api = useApi()
 const id = route.params.id as string
 
@@ -47,14 +48,34 @@ const {
 const versions = computed(() => history.value?.versions || [])
 // 选中态存 id 而非对象引用：接口重取后数组是新的，引用比较会失配（从历史页返回时可见）
 const selectedId = ref<number | null>(null)
+// ?version= 是版本序号，1 表示最旧的一版，与侧栏「版本 N」的编号一致
+function applyVersionQuery() {
+  const raw = Array.isArray(route.query.version) ? route.query.version[0] : route.query.version
+  if (!raw) {
+    selectedId.value = null
+    return
+  }
+  const ordinal = Number(raw)
+  if (!Number.isInteger(ordinal) || ordinal < 1 || ordinal > versions.value.length) return
+  selectedId.value = versions.value[versions.value.length - ordinal].id
+}
+watch(() => route.query.version, applyVersionQuery, { immediate: true })
+// 序号依赖版本列表，列表晚于首帧到达时要重新解析一次
+watch(versions, () => { if (route.query.version) applyVersionQuery() })
 watchEffect(() => {
   if (selectedId.value === null && versions.value.length) {
     selectedId.value = (versions.value.find(v => v.is_current) || versions.value[0]).id
   }
 })
 const selected = computed(() => versions.value.find(v => v.id === selectedId.value) ?? null)
+// 切到历史版本时写序号，切回当前版本则去掉，地址保持干净
 function selectVersion(version: VersionEntry) {
   selectedId.value = version.id
+  const index = versions.value.findIndex(v => v.id === version.id)
+  const query = { ...route.query }
+  if (version.is_current || index < 0) delete query.version
+  else query.version = String(versions.value.length - index)
+  router.replace({ query })
 }
 
 // 正文接口与版本接口不保证同时成功（首次 404 时两者都失败，重查后正文可能先回来），
